@@ -118,12 +118,18 @@
   [game-state]
   ;; TODO - implement as loop / trampoline?
 
+
   ;; - Validate that current player *can* roll
+
   ;; - Get random dice pair roll result
   ;;   - If double rolled, inc consecutive-doubles
   ;;     - If consecutive-double == 3...
   ;;       -> [Perform jail workflow]
+
   ;; - Increment cell residency + dice roll sum
+
+  ;; NOTE - The below can/should be categorized based on the cell "type",
+  ;;        and then further categorized for "properties", based on their types
   ;; - [Perform new cell residency]
   ;;   - Landed on "Free"
   ;;     -> Return with new game state
