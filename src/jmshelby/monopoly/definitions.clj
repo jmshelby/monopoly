@@ -87,9 +87,7 @@
 
    ;; TODO - logic
    ;; TODO - some cards are keepable/tradable
-   :cards #{
-
-            ;; *Move* actions
+   :cards #{;; *Move* actions
             {:text       "Advance to Go (Collect $200)"
              :simplified "Move to X cell"
              :deck       :chance}
@@ -135,49 +133,6 @@
             {:text       "Your building loan matures. Collect $150"
              :simplified "Receive X money"
              :deck       :chance}
-
-            {:text       "Speeding fine $15"
-             :simplified "Pay X money"
-             :deck       :chance}
-
-            {:text       "You have been elected Chairman of the Board. Pay each player $50"
-             :simplified "Pay X money, multiplied by # of players"
-             :deck       :chance}
-            {:text       ["Make general repairs on all your property."
-                          "For each house pay $25. For each hotel pay $100."]
-             :simplified ["Pay X money, multiplied by # owned houses."
-                          "Pay Y money, multiplied by # owned hotels."]
-             :deck       :chance}
-            {:text       "You are assessed for street repair. $40 per house. $115 per hotel"
-             :simplified ["Pay X money, multiplied by # owned houses."
-                          "Pay Y money, multiplied by # owned hotels."]
-             :deck       :community-chest}
-
-            ;; Move + Pay actions
-            {:text       ["Advance token to nearest Utility."
-                          "If unowned, you may buy it from the Bank."
-                          "If owned, throw dice and pay owner a total ten times amount thrown."]
-             :simplified "Move to next utility, roll dice, pay w/multiplier X"
-             :deck       :chance}
-            {:text       ["Advance to the nearest Railroad."
-                          "If unowned, you may buy it from the Bank."
-                          "If owned, pay twice the rental to which they are otherwise entitled."]
-             :simplified "Move to next type==X property; pay multiplied by Y"
-             :count      2
-             :deck       :chance}
-
-            ;; ===========
-
-            {:text       "Doctor’s fee. Pay $50"
-             :simplified "Pay X money"
-             :deck       :community-chest}
-            {:text       "Pay school fees of $50"
-             :simplified "Pay X money"
-             :deck       :community-chest}
-            {:text       "Pay hospital fees of $100"
-             :simplified "Pay X money"
-             :deck       :community-chest}
-
             {:text       "You inherit $100"
              :simplified "Receive X money"
              :deck       :community-chest}
@@ -203,11 +158,48 @@
              :simplified "Receive X money"
              :deck       :community-chest}
 
+            {:text       "Speeding fine $15"
+             :simplified "Pay X money"
+             :deck       :chance}
+            {:text       "Doctor’s fee. Pay $50"
+             :simplified "Pay X money"
+             :deck       :community-chest}
+            {:text       "Pay school fees of $50"
+             :simplified "Pay X money"
+             :deck       :community-chest}
+            {:text       "Pay hospital fees of $100"
+             :simplified "Pay X money"
+             :deck       :community-chest}
+
+            {:text       "You have been elected Chairman of the Board. Pay each player $50"
+             :simplified "Pay X money, multiplied by # of players"
+             :deck       :chance}
             {:text       "It is your birthday. Collect $10 from every player"
              :simplified "Receive X money, multiplied by # of players"
              :deck       :community-chest}
 
-            }
+            {:text       ["Make general repairs on all your property."
+                          "For each house pay $25. For each hotel pay $100."]
+             :simplified ["Pay X money, multiplied by # owned houses."
+                          "Pay Y money, multiplied by # owned hotels."]
+             :deck       :chance}
+            {:text       "You are assessed for street repair. $40 per house. $115 per hotel"
+             :simplified ["Pay X money, multiplied by # owned houses."
+                          "Pay Y money, multiplied by # owned hotels."]
+             :deck       :community-chest}
+
+            ;; Move + Pay actions
+            {:text       ["Advance token to nearest Utility."
+                          "If unowned, you may buy it from the Bank."
+                          "If owned, throw dice and pay owner a total ten times amount thrown."]
+             :simplified "Move to next utility, roll dice, pay w/multiplier X"
+             :deck       :chance}
+            {:text       ["Advance to the nearest Railroad."
+                          "If unowned, you may buy it from the Bank."
+                          "If owned, pay twice the rental to which they are otherwise entitled."]
+             :simplified "Move to next type==X property; pay multiplied by Y"
+             :count      2
+             :deck       :chance}}
 
    :properties #{;; Utilities
                  {:name     :water-works
