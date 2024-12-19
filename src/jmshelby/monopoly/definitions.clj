@@ -460,6 +460,7 @@
 
 (comment
 
+  ;; Property exploration
   (->> board
        ;; :cells
        :properties
@@ -469,6 +470,16 @@
        sort
        ;; (map :name)
        ;; count
+       )
+
+  ;; Card exploration
+  (->> board
+       :cards
+       (map :simplified)
+       frequencies
+       (map (fn [[k v]] [(if (vector? k) (apply str k) k) v]))
+       ;; (map first)
+       (sort-by second)
        )
 
 
