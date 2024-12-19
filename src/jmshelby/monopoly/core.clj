@@ -1,8 +1,7 @@
-(ns jmshelby.monopoly.core)
-
+(ns jmshelby.monopoly.core
+  (:require [jmshelby.monopoly.definitions :as defs]))
 
 ;; TODO - need to determine where and how many "seeds" to store
-
 
 ;; Game state, schema
 (def example-state
@@ -67,8 +66,57 @@
                   ;;   - Status: accepted/rejected/countered
                   ;; - Player goes bankrupt
                   ;; etc ...
+
                   ]
 
    })
+
+
+
+
+(comment
+
+  (let [players
+        (->> (range 1 5)
+             (map (partial hash-map :id))
+             ;; Add starting state values
+             (map #(assoc %
+                          :status :playing
+                          :cash 1500
+                          :cell-residency 0 ;; All starting on "Go"
+                          :cards []
+                          :properties #{}
+                          :consecutive-doubles 0))
+             )
+        initial-state {:players      players
+                       :current-turn {:player (-> players first :id)
+                                      :phase  :pre-roll}
+                       :card-queue   (->> defs/board
+                                          :cards
+                                          (group-by :deck)
+                                          (map (fn [[deck cards]]
+                                                 ;; TODO - this should be the card name/id when we have one
+                                                 [deck (mapcat #(repeat (:count % 1) (:text %)) cards)]))
+                                          (map (fn [[deck cards]]
+                                                 [deck (shuffle cards)]))
+                                          (into {}))}
+        ]
+    initial-state
+    )
+
+  (->> defs/board
+       :cards
+       (group-by :deck)
+       (map (fn [[deck cards]]
+              ;; TODO - this should be the card name/id when we have one
+              [deck (mapcat #(repeat (:count % 1) (:text %)) cards)]))
+       (map (fn [[deck cards]]
+              [deck (shuffle cards)]))
+       (into {}))
+
+
+  )
+
+
 
 ;;
