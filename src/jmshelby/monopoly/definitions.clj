@@ -2,10 +2,9 @@
 
 ;; Static definition of a board
 (def board
-  {:cells [
-
-           ;; 1
-           {:type :go}
+  {:cells [;; 1
+           {:type      :go
+            :allowance 200}
            {:type :property
             :name :mediterranean-ave}
            {:type :card
@@ -82,11 +81,9 @@
            {:type :property
             :name :park-place}
            {:type :tax
-            :cost 200}
+            :cost 100}
            {:type :property
-            :name :boardwalk}
-
-           ]
+            :name :boardwalk}]
 
    :properties #{;; Utilities
                  {:name     :water-works
@@ -108,14 +105,17 @@
                   :mortgage 100
                   :rent     [25 50 100 200]}
                  {:name     :pennsylvania-railroad
+                  :type     :railroad
                   :price    200
                   :mortgage 100
                   :rent     [25 50 100 200]}
                  {:name     :b&o-railroad
+                  :type     :railroad
                   :price    200
                   :mortgage 100
                   :rent     [25 50 100 200]}
                  {:name     :short-line-railroad
+                  :type     :railroad
                   :price    200
                   :mortgage 100
                   :rent     [25 50 100 200]}
@@ -334,8 +334,18 @@
                   :house-price 200
                   :house-rent  [200 600 1400 1700 2000]}}})
 
+(comment
 
-;; Game set, schema
+  (->> board
+       ;; :cells
+       :properties
+       (filter #(= :street (-> % :type)))
+       (group-by (juxt :type :group-name :name))
+       keys
+       sort
+       ;; (map :name)
+       ;; count
+       )
 
 
-;;
+  )
