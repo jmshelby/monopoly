@@ -100,9 +100,8 @@
                             :cards
                             (group-by :deck)
                             (map (fn [[deck cards]]
-                                   ;; TODO - this should be the card name/id when we have one
-                                   [deck (mapcat #(repeat (:count % 1)
-                                                          (:text %)) cards)]))
+                                   ;; Multiply certain cards
+                                   [deck (mapcat #(repeat (:count % 1) %) cards)]))
                             (map (fn [[deck cards]]
                                    [deck (shuffle cards)]))
                             (into {}))}]
@@ -114,7 +113,6 @@
 
   (->> (init-game-state 4)
        )
-
 
 
 
