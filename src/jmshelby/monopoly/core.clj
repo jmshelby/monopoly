@@ -72,12 +72,13 @@
    })
 
 
-
-
-(comment
-
-  (let [players
-        (->> (range 1 5)
+(defn init-game-state
+  ;; Very early version of this function,
+  ;; just creates n # of simple players
+  [player-count]
+  (let [;; Define initial player state
+        players
+        (->> (range 1 (inc player-count))
              (map (partial hash-map :id))
              ;; Add starting state values
              (map #(assoc %
@@ -86,33 +87,35 @@
                           :cell-residency 0 ;; All starting on "Go"
                           :cards []
                           :properties #{}
-                          :consecutive-doubles 0))
-             )
-        initial-state {:players      players
-                       :current-turn {:player (-> players first :id)
-                                      :phase  :pre-roll}
-                       :card-queue   (->> defs/board
-                                          :cards
-                                          (group-by :deck)
-                                          (map (fn [[deck cards]]
-                                                 ;; TODO - this should be the card name/id when we have one
-                                                 [deck (mapcat #(repeat (:count % 1) (:text %)) cards)]))
-                                          (map (fn [[deck cards]]
-                                                 [deck (shuffle cards)]))
-                                          (into {}))}
-        ]
-    initial-state
-    )
+                          :consecutive-doubles 0)))
+        ;; Define initial game state
+        initial-state
+        {:players      players
+         :current-turn {:player (-> players first :id)
+                        :phase  :pre-roll}
+         ;; Grab and preserve the default board/layout
+         :board        defs/board
+         ;; Shuffle all cards by deck
+         :card-queue   (->> defs/board
+                            :cards
+                            (group-by :deck)
+                            (map (fn [[deck cards]]
+                                   ;; TODO - this should be the card name/id when we have one
+                                   [deck (mapcat #(repeat (:count % 1)
+                                                          (:text %)) cards)]))
+                            (map (fn [[deck cards]]
+                                   [deck (shuffle cards)]))
+                            (into {}))}]
+    ;; Just return this state
+    initial-state))
 
-  (->> defs/board
-       :cards
-       (group-by :deck)
-       (map (fn [[deck cards]]
-              ;; TODO - this should be the card name/id when we have one
-              [deck (mapcat #(repeat (:count % 1) (:text %)) cards)]))
-       (map (fn [[deck cards]]
-              [deck (shuffle cards)]))
-       (into {}))
+
+(comment
+
+  (->> (init-game-state 4)
+       )
+
+
 
 
   )
