@@ -21,6 +21,7 @@
               ;; Number of consecutive doubles, current count
               :consecutive-doubles 2
               ;; If on jail cell (haha), visiting or incarcerated
+              ;; TODO - should we just track :incarcerated?
               :jail-status         :visiting-OR-incarcerated-OR-nil-for-none
               ;; The current set of owned "properties", and current state
               :properties          #{{:name        :park-place
@@ -36,6 +37,7 @@
                   :phase  :pre-roll
                   ;; Some sort of state around the comm status with the player
                   ;; TODO - need to figure out what this looks like
+                  ;; TODO - it could be a :phase thing, but maybe this tracks forced negotiation state/status
                   :status :?
                   }
 
@@ -107,6 +109,72 @@
                             (into {}))}]
     ;; Just return this state
     initial-state))
+
+(defn apply-dice-roll
+  "Given a game state, advance board as if current player rolled dice.
+  This function could advance the board forward by more than 1 transaction/move,
+  if the move requires further actions from players,
+  (like needing more money, bankrupcies/acquisitions, etc)"
+  [game-state]
+  ;; TODO - implement as loop / trampoline?
+
+  ;; - Validate that current player *can* roll
+  ;; - Get random dice pair roll result
+  ;;   - If double rolled, inc consecutive-doubles
+  ;;     - If consecutive-double == 3...
+  ;;       -> [Perform jail workflow]
+  ;; - Increment cell residency + dice roll sum
+  ;; - [Perform new cell residency]
+  ;;   - Property owned by player
+  ;;     -> If passed "Go", inc player money + allowance
+  ;;     -> Nothing needed, return new state
+  ;;   - Property owned by other player
+  ;;     -> If passed "Go", inc player money + allowance
+  ;;     * If insufficient funds, invoke forced negotiation workflow
+  ;;     -> Pay rent, transact cash to other player
+  ;;   - Landed on "Go"
+  ;;     -> Inc player money + allowance
+  ;;   - Landed on Type==tax
+  ;;     * If insufficient funds, invoke forced negotiation workflow
+  ;;     -> Pay tax
+  ;;   - Landed on Type==card
+  ;;     -> Pop card from corresponding deck
+  ;;     -> [Apply card rules to state]
+  ;;       - (This can result in another cell move; cash transaction...)
+  ;;       * If insufficient funds, invoke forced negotiation workflow
+
+
+
+  )
+
+(defn advance-board
+  "Given game state, advance the board, by
+  invoking player logic and applying decisions."
+  [game-state]
+
+  (let [;; Start right away by invoking player,
+        ;; to get next response/decision
+        decision nil
+
+        ;; TODO - validation, derive possible player actions
+        ;;        * if invalid response, log it, and replace with simple/dumb operation
+        ;;          - roll/decline/end-turn, etc..
+
+        ]
+
+    (cond
+      ;; Player done, end turn
+      ;; Make offer
+      ;; Mortgage/un-mortgage
+      ;; By/Sell houses
+      ;; Roll Dice
+      ;; TODO - detect if player is stuck in loop?
+      ;; TODO - player is taking too long?
+      )
+
+    )
+
+  )
 
 
 (comment
