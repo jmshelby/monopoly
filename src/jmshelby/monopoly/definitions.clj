@@ -115,12 +115,18 @@
 
             ;; Jail actions
             {:text       "Get Out of Jail Free"
-             :simplified "Collect card, get out of jail free"
+             :simplified "Collect card, later use, get out of jail"
              :deck       :chance}
+            {:text       "Get Out of Jail Free"
+             :simplified "Collect card, later use, get out of jail"
+             :deck       :community-chest}
 
             {:text       "Go to Jail. Go directly to Jail, do not pass Go, do not collect $200"
              :simplified "Go to Jail"
              :deck       :chance}
+            {:text       "Go to Jail. Go directly to jail, do not pass Go, do not collect $200"
+             :simplified "Go to Jail"
+             :deck       :community-chest}
 
             ;; Pay/receive actions
             {:text       "Bank pays you dividend of $50"
@@ -142,6 +148,10 @@
              :simplified ["Pay X money, multiplied by # owned houses."
                           "Pay Y money, multiplied by # owned hotels."]
              :deck       :chance}
+            {:text       "You are assessed for street repair. $40 per house. $115 per hotel"
+             :simplified ["Pay X money, multiplied by # owned houses."
+                          "Pay Y money, multiplied by # owned hotels."]
+             :deck       :community-chest}
 
             ;; Move + Pay actions
             {:text       ["Advance token to nearest Utility."
@@ -193,18 +203,9 @@
              :simplified "Receive X money"
              :deck       :community-chest}
 
-
-            {:text "It is your birthday. Collect $10 from every player"
-             :deck :community-chest}
-
-
-            {:text "Get Out of Jail Free"
-             :deck :community-chest}
-            {:text "Go to Jail. Go directly to jail, do not pass Go, do not collect $200"
-             :deck :community-chest}
-
-            {:text "You are assessed for street repair. $40 per house. $115 per hotel"
-             :deck :community-chest}
+            {:text       "It is your birthday. Collect $10 from every player"
+             :simplified "Receive X money, multiplied by # of players"
+             :deck       :community-chest}
 
             }
 
