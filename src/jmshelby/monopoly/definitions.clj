@@ -86,6 +86,7 @@
             :name :boardwalk}]
 
    ;; TODO - logic
+   ;; TODO - some cards are keepable/tradable
    :cards {:chance
            #{{:text "Advance to Boardwalk"}
              {:text "Advance to Go (Collect $200)"}
