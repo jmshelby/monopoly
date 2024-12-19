@@ -125,6 +125,20 @@
   ;;       -> [Perform jail workflow]
   ;; - Increment cell residency + dice roll sum
   ;; - [Perform new cell residency]
+  ;;   - Landed on "Free"
+  ;;     -> Return with new game state
+  ;;   - Landed on "Jail"
+  ;;     -> Return with new game state
+  ;;       - (probably having a jail status of :visiting ?)
+  ;;   - Landed on "Go to Jail"
+  ;;     -> [Perform jail workflow]
+  ;;   - Landed on "Go"
+  ;;     -> Inc player money + allowance
+  ;;   - Property unowned
+  ;;     -> Return state (caller will invoke property offer workflow)
+  ;;   - Landed on Type==tax
+  ;;     * If insufficient funds, invoke forced negotiation workflow
+  ;;     -> Pay tax
   ;;   - Property owned by player
   ;;     -> If passed "Go", inc player money + allowance
   ;;     -> Nothing needed, return new state
@@ -132,11 +146,6 @@
   ;;     -> If passed "Go", inc player money + allowance
   ;;     * If insufficient funds, invoke forced negotiation workflow
   ;;     -> Pay rent, transact cash to other player
-  ;;   - Landed on "Go"
-  ;;     -> Inc player money + allowance
-  ;;   - Landed on Type==tax
-  ;;     * If insufficient funds, invoke forced negotiation workflow
-  ;;     -> Pay tax
   ;;   - Landed on Type==card
   ;;     -> Pop card from corresponding deck
   ;;     -> [Apply card rules to state]
