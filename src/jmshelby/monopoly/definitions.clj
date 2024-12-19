@@ -87,40 +87,126 @@
 
    ;; TODO - logic
    ;; TODO - some cards are keepable/tradable
-   :cards {:chance
-           #{{:text "Advance to Boardwalk"}
-             {:text "Advance to Go (Collect $200)"}
-             {:text "Advance to Illinois Avenue. If you pass Go, collect $200"}
-             {:text "Advance to St. Charles Place. If you pass Go, collect $200"}
-             {:text "Advance token to nearest Utility. If unowned, you may buy it from the Bank. If owned, throw dice and pay owner a total ten times amount thrown."}
-             {:text "Bank pays you dividend of $50"}
-             {:text "Get Out of Jail Free"}
-             {:text "Go Back 3 Spaces"}
-             {:text "Go to Jail. Go directly to Jail, do not pass Go, do not collect $200"}
-             {:text "Make general repairs on all your property. For each house pay $25. For each hotel pay $100"}
-             {:text "Speeding fine $15"}
-             {:text "Take a trip to Reading Railroad. If you pass Go, collect $200"}
-             {:text "You have been elected Chairman of the Board. Pay each player $50"}
-             {:text "Your building loan matures. Collect $150"}
-             {:text  "Advance to the nearest Railroad. If unowned, you may buy it from the Bank. If owned, pay twice the rental to which they are otherwise entitled"
-              :count 2}}
-           :community-chest
-           #{{:text "Advance to Go (Collect $200)"}
-             {:text "Bank error in your favor. Collect $200"}
-             {:text "Doctor’s fee. Pay $50"}
-             {:text "From sale of stock you get $50"}
-             {:text "Get Out of Jail Free"}
-             {:text "Go to Jail. Go directly to jail, do not pass Go, do not collect $200"}
-             {:text "Holiday fund matures. Receive $100"}
-             {:text "Income tax refund. Collect $20"}
-             {:text "It is your birthday. Collect $10 from every player"}
-             {:text "Life insurance matures. Collect $100"}
-             {:text "Pay hospital fees of $100"}
-             {:text "Pay school fees of $50"}
-             {:text "Receive $25 consultancy fee"}
-             {:text "You are assessed for street repair. $40 per house. $115 per hotel"}
-             {:text "You have won second prize in a beauty contest. Collect $10"}
-             {:text "You inherit $100"}}}
+   :cards #{
+
+            ;; *Move* actions
+            {:text       "Advance to Go (Collect $200)"
+             :simplified "Move to X cell"
+             :deck       :chance}
+            {:text       "Advance to Go (Collect $200)"
+             :simplified "Move to X cell"
+             :deck       :community-chest}
+            {:text       "Advance to Boardwalk"
+             :simplified "Move to X cell"
+             :deck       :chance}
+            {:text       "Advance to Illinois Avenue. If you pass Go, collect $200"
+             :simplified "Move to X cell"
+             :deck       :chance}
+            {:text       "Advance to St. Charles Place. If you pass Go, collect $200"
+             :simplified "Move to X cell"
+             :deck       :chance}
+            {:text       "Take a trip to Reading Railroad. If you pass Go, collect $200"
+             :simplified "Move to X cell"
+             :deck       :chance}
+
+            {:text       "Go Back 3 Spaces"
+             :simplified "Move back x cells"
+             :deck       :chance}
+
+            ;; Jail actions
+            {:text       "Get Out of Jail Free"
+             :simplified "Collect card, get out of jail free"
+             :deck       :chance}
+
+            {:text       "Go to Jail. Go directly to Jail, do not pass Go, do not collect $200"
+             :simplified "Go to Jail"
+             :deck       :chance}
+
+            ;; Pay/receive actions
+            {:text       "Bank pays you dividend of $50"
+             :simplified "Receive X money"
+             :deck       :chance}
+            {:text       "Your building loan matures. Collect $150"
+             :simplified "Receive X money"
+             :deck       :chance}
+
+            {:text       "Speeding fine $15"
+             :simplified "Pay X money"
+             :deck       :chance}
+
+            {:text       "You have been elected Chairman of the Board. Pay each player $50"
+             :simplified "Pay X money, multiplied by # of players"
+             :deck       :chance}
+            {:text       ["Make general repairs on all your property."
+                          "For each house pay $25. For each hotel pay $100."]
+             :simplified ["Pay X money, multiplied by # owned houses."
+                          "Pay Y money, multiplied by # owned hotels."]
+             :deck       :chance}
+
+            ;; Move + Pay actions
+            {:text       ["Advance token to nearest Utility."
+                          "If unowned, you may buy it from the Bank."
+                          "If owned, throw dice and pay owner a total ten times amount thrown."]
+             :simplified "Move to next utility, roll dice, pay w/multiplier X"
+             :deck       :chance}
+            {:text       ["Advance to the nearest Railroad."
+                          "If unowned, you may buy it from the Bank."
+                          "If owned, pay twice the rental to which they are otherwise entitled."]
+             :simplified "Move to next type==X property; pay multiplied by Y"
+             :count      2
+             :deck       :chance}
+
+            ;; ===========
+
+            {:text       "Doctor’s fee. Pay $50"
+             :simplified "Pay X money"
+             :deck       :community-chest}
+            {:text       "Pay school fees of $50"
+             :simplified "Pay X money"
+             :deck       :community-chest}
+            {:text       "Pay hospital fees of $100"
+             :simplified "Pay X money"
+             :deck       :community-chest}
+
+            {:text       "You inherit $100"
+             :simplified "Receive X money"
+             :deck       :community-chest}
+            {:text       "Receive $25 consultancy fee"
+             :simplified "Receive X money"
+             :deck       :community-chest}
+            {:text       "Income tax refund. Collect $20"
+             :simplified "Receive X money"
+             :deck       :community-chest}
+            {:text       "From sale of stock you get $50"
+             :simplified "Receive X money"
+             :deck       :community-chest}
+            {:text       "Holiday fund matures. Receive $100"
+             :simplified "Receive X money"
+             :deck       :community-chest}
+            {:text       "Life insurance matures. Collect $100"
+             :simplified "Receive X money"
+             :deck       :community-chest}
+            {:text       "Bank error in your favor. Collect $200"
+             :simplified "Receive X money"
+             :deck       :community-chest}
+            {:text       "You have won second prize in a beauty contest. Collect $10"
+             :simplified "Receive X money"
+             :deck       :community-chest}
+
+
+            {:text "It is your birthday. Collect $10 from every player"
+             :deck :community-chest}
+
+
+            {:text "Get Out of Jail Free"
+             :deck :community-chest}
+            {:text "Go to Jail. Go directly to jail, do not pass Go, do not collect $200"
+             :deck :community-chest}
+
+            {:text "You are assessed for street repair. $40 per house. $115 per hotel"
+             :deck :community-chest}
+
+            }
 
    :properties #{;; Utilities
                  {:name     :water-works
