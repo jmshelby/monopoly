@@ -35,11 +35,7 @@
    ;; At any given type there is always a single player who's turn it is,
    ;; but other things can be happening at the same time.
    :current-turn {:player      "player uuid"
-                  ;; During a "turn", the player can be in different phases,
-                  ;; pre-roll or post-roll (anything else?)
-                  :phase       :pre-roll
                   ;; If/when the current player rolls their dice
-                  ;; Perhaps the presence of this, means we don't need a phase?
                   :rolled-dice []
                   ;; Some sort of state around the comm status with the player
                   ;; TODO - need to figure out what this looks like
@@ -159,8 +155,7 @@
         ;; Define initial game state
         initial-state
         {:players      players
-         :current-turn {:player (-> players first :id)
-                        :phase  :pre-roll}
+         :current-turn {:player (-> players first :id)}
          ;; Grab and preserve the default board/layout
          :board        defs/board
          ;; Shuffle all cards by deck
@@ -184,7 +179,6 @@
   (-> game-state
       ;; Remove dice
       (dissoc-in [:current-turn :rolled-dice])
-      (assoc-in [:current-turn :phase] :pre-roll)
       ;; Get/Set next player
       (assoc-in [:current-turn :player] (next-player game-state))))
 
@@ -211,7 +205,6 @@
         new-state
         (-> game-state
             ;; Current Turn Data
-            (assoc-in [:current-turn :phase] :post-roll)
             (assoc-in [:current-turn :rolled-dice] new-roll)
             ;; Move Player, looping back around if needed
             (update-in [:players pidx :cell-residency]
@@ -278,14 +271,13 @@
     :as   game-state}]
 
   (let [;; Get the current player by ID
-        ;; ? do we need to validate the player status here? Or does that happen before we go to that user?
         {:keys [function]}
         (->> players
              (filter #(= (:id %) (:player current-turn)))
              first)
         ;; Simple for now, just roll and done actions available
         ;; TODO - need to add other actions soon
-        actions  (set (vector :done (when (= :pre-roll (:phase current-turn))
+        actions  (set (vector :done (when-not (:rolled-dice current-turn)
                                       :roll)))
         ;; Start right away by invoking players turn
         ;; method, to get next response/decision
@@ -313,45 +305,19 @@
       :done (apply-end-turn game-state)
       ;; TODO - detect if player is stuck in loop?
       ;; TODO - player is taking too long?
-      )
-
-    )
-
-  )
-
+      )))
 
 (comment
-
-  (char 65)
 
   (->> (init-game-state 4)
        (iterate advance-board)
        (take 100)
        last
-       ;; (map-indexed vector)
        )
-
-  (get-in (init-game-state 4)
-          [:players 0 :cell-residency])
-
-
-  (->> #(roll-dice 2)
-       ;; (repeatedly 9000)
-       ;; frequencies
-       ;; (sort-by second)
-       )
-
-  (roll-dice 2)
 
   (next-cell {:board defs/board}
              30 12)
 
-
-  (dissoc-in {:thing {:stuff 1 :dice [1 3]}} [:thing :dice])
-
-
   )
-
-
 
   ;;
