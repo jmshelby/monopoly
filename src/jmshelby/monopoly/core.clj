@@ -95,7 +95,7 @@
 (defn- roll-dice
   "Return a random dice roll of n # of dice"
   [n]
-  (repeatedly n #(inc (rand-int 6))))
+  (vec (repeatedly n #(inc (rand-int 6)))))
 
 (defn- next-cell
   "Given a game-state, dice sum, and current cell idx, return
@@ -118,6 +118,15 @@
        (drop-while #(not= (:id %) (:player current-turn)))
        ;; Return next player ID
        fnext :id))
+
+(defn current-player
+  "Given a game-state, return the current player. Includes the index of the player"
+  [{:keys [players
+           current-turn]}]
+  (->> players
+       (map-indexed (fn [idx p] (assoc p :player-index idx)))
+       (filter #(= (:id %) (:player current-turn)))
+       first))
 
 (defn dumb-player-decision
   [_game-state method actions-available]
@@ -194,13 +203,9 @@
 
   ;; TEMP - Simple logic to start...
   (let [new-roll (roll-dice 2)
-        ;; Get the player/idx
-        ;; TODO - seems like good refactoring opp here
-        [pidx player]
-        (->> players
-             (map-indexed vector)
-             (filter #(= (-> % second :id) (:player current-turn)))
-             first)
+        ;; Get current player info
+        player (current-player game-state)
+        pidx   (:player-index player)
         ;; Update State
         new-state
         (-> game-state
@@ -267,21 +272,18 @@
 (defn advance-board
   "Given game state, advance the board, by
   invoking player logic and applying decisions."
-  [{:keys [players current-turn]
+  [{:keys [current-turn]
     :as   game-state}]
 
-  (let [;; Get the current player by ID
-        {:keys [function]}
-        (->> players
-             (filter #(= (:id %) (:player current-turn)))
-             first)
+  (let [;; Get current player function
+        {:keys [function]} (current-player game-state)
         ;; Simple for now, just roll and done actions available
         ;; TODO - need to add other actions soon
-        actions  (set (vector :done (when-not (:rolled-dice current-turn)
-                                      :roll)))
+        actions            (set (vector :done (when-not (:rolled-dice current-turn)
+                                                :roll)))
         ;; Start right away by invoking players turn
         ;; method, to get next response/decision
-        decision (function game-state :take-turn actions)
+        decision           (function game-state :take-turn actions)
 
         ;; TODO - validation, derive possible player actions
         ;;        * if invalid response, log it, and replace with simple/dumb operation
@@ -313,6 +315,7 @@
        (iterate advance-board)
        (take 100)
        last
+       :transactions
        )
 
   (next-cell {:board defs/board}
