@@ -105,11 +105,14 @@
   (mod (+ n idx)
        (-> game-state :board :cells count)))
 
+;; TODO - for consistency, this should just return the player map
 (defn- next-player
   "Given a game-state, return the player ID of next player in line"
   [{:keys [players
            current-turn]}]
   (->> players
+       ;; Attach ordinal
+       (map-indexed (fn [idx p] (assoc p :player-index idx)))
        ;; Only active, non-mortgaged, players
        (filter #(= (:status %) :playing))
        ;; Round Robin
@@ -117,13 +120,14 @@
        ;; Find current player
        (drop-while #(not= (:id %) (:player current-turn)))
        ;; Return next player ID
-       fnext :id))
+       fnext))
 
 (defn current-player
   "Given a game-state, return the current player. Includes the index of the player"
   [{:keys [players
            current-turn]}]
   (->> players
+       ;; Attach ordinal
        (map-indexed (fn [idx p] (assoc p :player-index idx)))
        (filter #(= (:id %) (:player current-turn)))
        first))
@@ -188,8 +192,8 @@
   (-> game-state
       ;; Remove dice
       (dissoc-in [:current-turn :rolled-dice])
-      ;; Get/Set next player
-      (assoc-in [:current-turn :player] (next-player game-state))))
+      ;; Get/Set next player ID
+      (assoc-in [:current-turn :player] (-> game-state next-player :id))))
 
 (defn apply-dice-roll
   "Given a game state, advance board as if current player rolled dice.
@@ -313,7 +317,7 @@
 
   (->> (init-game-state 4)
        (iterate advance-board)
-       (take 100)
+       (take 220)
        last
        :transactions
        )
