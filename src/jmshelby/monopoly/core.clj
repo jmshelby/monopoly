@@ -200,7 +200,6 @@
 
   ;; TEMP - Simple logic to start...
   (let [new-roll (roll-dice 2)
-        _        (println "new roll: " new-roll)
         ;; Get the player/idx
         ;; TODO - seems like good refactoring opp here
         [pidx player]
@@ -208,8 +207,6 @@
              (map-indexed vector)
              (filter #(= (-> % second :id) (:player current-turn)))
              first)
-        _        (println "current player: " [pidx player])
-        _        (println "current cell residency: " (get-in game-state [:players pidx :cell-residency]))
         ;; Update State
         new-state
         (-> game-state
