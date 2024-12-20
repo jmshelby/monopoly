@@ -154,7 +154,8 @@
                           :cell-residency 0 ;; All starting on "Go"
                           :cards []
                           :properties #{}
-                          :consecutive-doubles 0)))
+                          :consecutive-doubles 0))
+             vec)
         ;; Define initial game state
         initial-state
         {:players      players
@@ -199,12 +200,16 @@
 
   ;; TEMP - Simple logic to start...
   (let [new-roll (roll-dice 2)
+        _        (println "new roll: " new-roll)
         ;; Get the player/idx
         ;; TODO - seems like good refactoring opp here
         [pidx player]
         (->> players
              (map-indexed vector)
-             (some #(= (-> % second :id) (:player current-turn))))
+             (filter #(= (-> % second :id) (:player current-turn)))
+             first)
+        _        (println "current player: " [pidx player])
+        _        (println "current cell residency: " (get-in game-state [:players pidx :cell-residency]))
         ;; Update State
         new-state
         (-> game-state
@@ -213,7 +218,7 @@
             (assoc-in [:current-turn :rolled-dice] new-roll)
             ;; Move Player, looping back around if needed
             (update-in [:players pidx :cell-residency] +
-                       (partial next-cell game-state new-roll)))]
+                       (partial next-cell game-state (apply + new-roll))))]
     ;; Add transactions, before returning
     (update new-state :transactions conj
             {:type       :roll
@@ -272,15 +277,15 @@
 (defn advance-board
   "Given game state, advance the board, by
   invoking player logic and applying decisions."
-  [{:keys [current-turn]
+  [{:keys [players current-turn]
     :as   game-state}]
 
   (let [;; Get the current player by ID
         ;; ? do we need to validate the player status here? Or does that happen before we go to that user?
         {:keys [function]}
-        (->> game-state
-             :players
-             (some #(= (:id %) (:player current-turn))))
+        (->> players
+             (filter #(= (:id %) (:player current-turn)))
+             first)
         ;; Simple for now, just roll and done actions available
         ;; TODO - need to add other actions soon
         actions  (set (vector :done (when (= :pre-roll (:phase current-turn))
@@ -323,15 +328,23 @@
   (char 65)
 
   (->> (init-game-state 4)
-       ;; :players
+       ;; advance-board
+       ;; (iterate advance-board)
+       ;; (take 3)
        ;; (map-indexed vector)
        )
 
+  (get-in (init-game-state 4)
+          [:players 0 :cell-residency])
+
+
   (->> #(roll-dice 2)
-       (repeatedly 9000)
-       frequencies
-       (sort-by second)
+       ;; (repeatedly 9000)
+       ;; frequencies
+       ;; (sort-by second)
        )
+
+  (roll-dice 2)
 
   (next-cell {:board defs/board}
              30 12)
