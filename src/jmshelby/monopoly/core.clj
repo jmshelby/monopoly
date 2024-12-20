@@ -217,8 +217,9 @@
             (assoc-in [:current-turn :phase] :post-roll)
             (assoc-in [:current-turn :rolled-dice] new-roll)
             ;; Move Player, looping back around if needed
-            (update-in [:players pidx :cell-residency] +
-                       (partial next-cell game-state (apply + new-roll))))]
+            (update-in [:players pidx :cell-residency]
+                       (partial next-cell game-state)
+                       (apply + new-roll)))]
     ;; Add transactions, before returning
     (update new-state :transactions conj
             {:type       :roll
@@ -229,8 +230,7 @@
              :player      (:id player)
              :player-idx  pidx
              :before-cell (:cell-residency player)
-             :after-cell  (-> new-state :players pidx :cell-residency)}))
-
+             :after-cell  (get-in new-state [:players pidx :cell-residency])}))
 
   ;; - Validate that current player *can* roll
 
@@ -328,9 +328,9 @@
   (char 65)
 
   (->> (init-game-state 4)
-       ;; advance-board
-       ;; (iterate advance-board)
-       ;; (take 3)
+       (iterate advance-board)
+       (take 100)
+       last
        ;; (map-indexed vector)
        )
 
