@@ -5,7 +5,10 @@
 
 ;; Game state, schema
 (def example-state
-  {;; The list of players, in their game play order,
+  {;; Static board definition for the game
+   :board "[See definitions NS]"
+
+   ;; The list of players, in their game play order,
    ;; and their current state in the game.
    ;; When a game starts, players will be randomly sorted
    :players [{;; Probably some auto-generated one
@@ -31,14 +34,17 @@
    ;; Separately, track what is going on with the current "turn".
    ;; At any given type there is always a single player who's turn it is,
    ;; but other things can be happening at the same time.
-   :current-turn {:player "player uuid"
+   :current-turn {:player      "player uuid"
                   ;; During a "turn", the player can be in different phases,
                   ;; pre-roll or post-roll (anything else?)
-                  :phase  :pre-roll
+                  :phase       :pre-roll
+                  ;; If/when the current player rolls their dice
+                  ;; Perhaps the presence of this, means we don't need a phase?
+                  :rolled-dice []
                   ;; Some sort of state around the comm status with the player
                   ;; TODO - need to figure out what this looks like
                   ;; TODO - it could be a :phase thing, but maybe this tracks forced negotiation state/status
-                  :status :?
+                  :status      :?
                   }
 
    ;; The current *ordered* care queue to pull from.
@@ -69,9 +75,38 @@
                   ;; - Player goes bankrupt
                   ;; etc ...
 
+                  ;; Thoughts:
+                  ;;  - This is a lot like datomic...
+                  ;;  - Each item in this list could be every unique game state
                   ]
 
    })
+
+(defn- roll-dice
+  "Return a random dice roll of n # of dice"
+  [n]
+  (repeatedly n #(inc (rand-int 6))))
+
+(defn- next-cell
+  "Given a game-state, dice sum, and current cell idx, return
+  the next cell idx after moving that number of cells"
+  [game-state n idx]
+  ;; Modulo after adding dice sum to current spot
+  (mod (+ n idx)
+       (-> game-state :board :cells count)))
+
+(defn dumb-player-decision
+  [_game-state method actions-available]
+  {:action
+   ;; TODO - multimethod
+   (case method
+     ;; Dumb, always decline these actions
+     :acquisition    :decline
+     :auction-bid    :decline
+     :offer-proposal :decline
+     ;; Dumb, roll if we can, end turn if we can't
+     :take-turn      (if (:roll actions-available)
+                       :roll :done))})
 
 
 (defn init-game-state
@@ -84,6 +119,7 @@
              (map (partial hash-map :id))
              ;; Add starting state values
              (map #(assoc %
+                          :function dumb-player-decision
                           :status :playing
                           :cash 1500
                           :cell-residency 0 ;; All starting on "Go"
@@ -106,7 +142,8 @@
                                    [deck (mapcat #(repeat (:count % 1) %) cards)]))
                             (map (fn [[deck cards]]
                                    [deck (shuffle cards)]))
-                            (into {}))}]
+                            (into {}))
+         :transactions []}]
     ;; Just return this state
     initial-state))
 
@@ -115,8 +152,39 @@
   This function could advance the board forward by more than 1 transaction/move,
   if the move requires further actions from players,
   (like needing more money, bankrupcies/acquisitions, etc)"
-  [game-state]
-  ;; TODO - implement as loop / trampoline?
+  [{:keys [players
+           current-turn]
+    :as   game-state}]
+  ;; Thought - implement as loop / trampoline?
+
+  ;; TEMP - Simple logic to start...
+  (let [new-roll (roll-dice 2)
+        ;; Get the player/idx
+        ;; TODO - seems like good refactoring opp here
+        [pidx player]
+        (->> players
+             (map-indexed vector)
+             (some #(= (-> % second :id) (:player current-turn))))
+        ;; Update State
+        new-state
+        (-> game-state
+            ;; Current Turn Data
+            (assoc-in [:current-turn :phase] :post-roll)
+            (assoc-in [:current-turn :rolled-dice] new-roll)
+            ;; Move Player, looping back around if needed
+            (update-in [:players pidx :cell-residency] +
+                       (partial next-cell game-state new-roll)))]
+    ;; Add transactions, before returning
+    (update new-state :transactions conj
+            {:type       :roll
+             :player     (:id player)
+             :player-idx pidx
+             :roll       new-roll}
+            {:type        :move
+             :player      (:id player)
+             :player-idx  pidx
+             :before-cell (:cell-residency player)
+             :after-cell  (-> new-state :players pidx :cell-residency)}))
 
 
   ;; - Validate that current player *can* roll
@@ -159,17 +227,27 @@
   ;;       * If insufficient funds, invoke forced negotiation workflow
 
 
-
   )
 
 (defn advance-board
   "Given game state, advance the board, by
   invoking player logic and applying decisions."
-  [game-state]
+  [{:keys [current-turn]
+    :as   game-state}]
 
-  (let [;; Start right away by invoking player,
-        ;; to get next response/decision
-        decision nil
+  (let [;; Get the current player by ID
+        ;; ? do we need to validate the player status here? Or does that happen before we go to that user?
+        {:keys [function]}
+        (->> game-state
+             :players
+             (some #(= (:id %) (:player current-turn))))
+        ;; Simple for now, just roll and done actions available
+        ;; TODO - need to add other actions soon
+        actions  (set (vector :done (when (= :pre-roll (:phase current-turn))
+                                      :roll)))
+        ;; Start right away by invoking players turn
+        ;; method, to get next response/decision
+        decision (function game-state :take-turn actions)
 
         ;; TODO - validation, derive possible player actions
         ;;        * if invalid response, log it, and replace with simple/dumb operation
@@ -177,12 +255,20 @@
 
         ]
 
-    (cond
-      ;; Player done, end turn
-      ;; Make offer
-      ;; Mortgage/un-mortgage
-      ;; By/Sell houses
+    ;; TODO - Different actions/logic when in jail?
+    ;;         * maybe just after dice rolls, looking for doubles
+    ;;         * When sending list of available actions, we can now offer get "out of jail"
+    ;;           - for $50
+    ;;           - for single get out of jail card
+
+    (case (-> decision :action)
       ;; Roll Dice
+      :roll (apply-dice-roll game-state)
+      ;; TODO - Make offer
+      ;; TODO - Mortgage/un-mortgage
+      ;; TODO - By/Sell houses
+      ;; Player done, end turn
+      :done nil
       ;; TODO - detect if player is stuck in loop?
       ;; TODO - player is taking too long?
       )
@@ -195,8 +281,19 @@
 (comment
 
   (->> (init-game-state 4)
+       ;; :players
+       ;; (map-indexed vector)
        )
 
+  (->> #(roll-dice 2)
+       (repeatedly 9000)
+       frequencies
+       (sort-by second)
+       )
+
+  (next-cell {:board defs/board}
+             30 12
+             )
 
 
   )
