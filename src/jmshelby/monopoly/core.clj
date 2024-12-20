@@ -82,6 +82,20 @@
 
    })
 
+(defn dissoc-in
+  "Dissociates an entry from a nested associative structure returning a new
+  nested structure. keys is a sequence of keys. Any empty maps that result
+  will not be present in the new structure."
+  [m [k & ks]]
+  (if ks
+    (if-let [nextmap (get m k)]
+      (let [newmap (dissoc-in nextmap ks)]
+        (if (seq newmap)
+          (assoc m k newmap)
+          (dissoc m k)))
+      m)
+    (dissoc m k)))
+
 (defn- roll-dice
   "Return a random dice roll of n # of dice"
   [n]
@@ -94,6 +108,20 @@
   ;; Modulo after adding dice sum to current spot
   (mod (+ n idx)
        (-> game-state :board :cells count)))
+
+(defn- next-player
+  "Given a game-state, return the player ID of next player in line"
+  [{:keys [players
+           current-turn]}]
+  (->> players
+       ;; Only active, non-mortgaged, players
+       (filter #(= (:status %) :playing))
+       ;; Round Robin
+       cycle
+       ;; Find current player
+       (drop-while #(not= (:id %) (:player current-turn)))
+       ;; Return next player ID
+       fnext :id))
 
 (defn dumb-player-decision
   [_game-state method actions-available]
@@ -108,14 +136,15 @@
      :take-turn      (if (:roll actions-available)
                        :roll :done))})
 
-
 (defn init-game-state
   ;; Very early version of this function,
   ;; just creates n # of simple players
   [player-count]
   (let [;; Define initial player state
         players
-        (->> (range 1 (inc player-count))
+        (->> (range 65 (+ player-count 65))
+             (map char)
+             (map str)
              (map (partial hash-map :id))
              ;; Add starting state values
              (map #(assoc %
@@ -146,6 +175,17 @@
          :transactions []}]
     ;; Just return this state
     initial-state))
+
+(defn apply-end-turn
+  "Given a game state, advance board, changing
+  turns to the next active player in line."
+  [game-state]
+  (-> game-state
+      ;; Remove dice
+      (dissoc-in [:current-turn :rolled-dice])
+      (assoc-in [:current-turn :phase] :pre-roll)
+      ;; Get/Set next player
+      (assoc-in [:current-turn :player] (next-player game-state))))
 
 (defn apply-dice-roll
   "Given a game state, advance board as if current player rolled dice.
@@ -268,7 +308,7 @@
       ;; TODO - Mortgage/un-mortgage
       ;; TODO - By/Sell houses
       ;; Player done, end turn
-      :done nil
+      :done (apply-end-turn game-state)
       ;; TODO - detect if player is stuck in loop?
       ;; TODO - player is taking too long?
       )
@@ -279,6 +319,8 @@
 
 
 (comment
+
+  (char 65)
 
   (->> (init-game-state 4)
        ;; :players
@@ -292,12 +334,14 @@
        )
 
   (next-cell {:board defs/board}
-             30 12
-             )
+             30 12)
+
+
+  (dissoc-in {:thing {:stuff 1 :dice [1 3]}} [:thing :dice])
 
 
   )
 
 
 
-;;
+  ;;
