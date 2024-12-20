@@ -200,36 +200,56 @@
   This function could advance the board forward by more than 1 transaction/move,
   if the move requires further actions from players,
   (like needing more money, bankrupcies/acquisitions, etc)"
-  [{:keys [players
+  [{:keys [board players
            current-turn]
     :as   game-state}]
   ;; Thought - implement as loop / trampoline?
 
   ;; TEMP - Simple logic to start...
-  (let [new-roll (roll-dice 2)
-        ;; Get current player info
-        player (current-player game-state)
-        pidx   (:player-index player)
+  (let [;; Get current player info
+        player      (current-player game-state)
+        player-id   (:id player)
+        pidx        (:player-index player)
+        player-cash (:cash player)
+        old-cell    (:cell-residency player)
+        ;; Start with a dice roll
+        new-roll    (roll-dice 2)
+        new-cell    (next-cell game-state (apply + new-roll) old-cell)
+        ;; Check for allowance
+        allowance   (when (> old-cell new-cell)
+                      (+ player-cash
+                         (get-in board [:cells 0 :allowance])))
         ;; Update State
         new-state
-        (-> game-state
-            ;; Current Turn Data
-            (assoc-in [:current-turn :rolled-dice] new-roll)
-            ;; Move Player, looping back around if needed
-            (update-in [:players pidx :cell-residency]
-                       (partial next-cell game-state)
-                       (apply + new-roll)))]
-    ;; Add transactions, before returning
-    (update new-state :transactions conj
-            {:type       :roll
-             :player     (:id player)
-             :player-idx pidx
-             :roll       new-roll}
-            {:type        :move
-             :player      (:id player)
-             :player-idx  pidx
-             :before-cell (:cell-residency player)
-             :after-cell  (get-in new-state [:players pidx :cell-residency])}))
+        (cond-> game-state
+          ;; Save current new roll
+          ;; TODO - what's the condition here?
+          true (assoc-in [:current-turn :rolled-dice] new-roll)
+          ;; Move Player, looping back around if needed
+          ;; TODO - conditional, only if this wasn't the 3 consecutive double
+          true (assoc-in [:players pidx :cell-residency] new-cell)
+          ;; Check if we've passed/landed on go, for allowance payout
+          ;; TODO - could probably refactor this
+          allowance
+          (assoc-in [:players pidx :cash] allowance))]
+    (let [txactions
+          (keep identity
+                [{:type       :roll
+                  :player     player-id
+                  :player-idx pidx
+                  :roll       new-roll}
+                 {:type        :move
+                  :player      player-id
+                  :player-idx  pidx
+                  :before-cell old-cell
+                  :after-cell  new-cell}
+                 (when allowance
+                   {:type   :payment
+                    :from   :bank
+                    :to     player-id
+                    :amount allowance})])]
+      ;; Add transactions, before returning
+      (update new-state :transactions concat txactions)))
 
   ;; - Validate that current player *can* roll
 
@@ -315,15 +335,27 @@
 
 (comment
 
-  (->> (init-game-state 4)
-       (iterate advance-board)
-       (take 220)
-       last
-       :transactions
-       )
+  (as-> (init-game-state 4) *
+    (iterate advance-board *)
+    (take 500 *)
+    (last *)
+    ;; (:transactions *)
+    ;; (group-by :player *)
+    ;; (get * "A")
+    ;; (filter #(= :move (:type %)) *)
+    ;; (filter #(= :payment (:type %)) *)
+    ;; (map :after-cell *)
+    ;; (map #(get (:cells defs/board) %) *)
+    )
 
   (next-cell {:board defs/board}
              30 12)
+
+  (->> defs/board
+
+       )
+
+  (keep identity [1 nil 2 3 4 nil])
 
   )
 
