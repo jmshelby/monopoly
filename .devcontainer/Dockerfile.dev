@@ -1,0 +1,18 @@
+FROM clojure:temurin-21-tools-deps-jammy
+
+RUN apt-get update && apt-get install -y gpg curl httpie vim sudo zip
+
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+       unzip awscliv2.zip && \
+       sudo ./aws/install
+
+RUN clojure -Ttools install io.github.seancorfield/deps-new '{:git/tag "v0.5.2"}' :as deps-new
+
+# Add Babashka
+RUN curl -sLO https://raw.githubusercontent.com/babashka/babashka/master/install \
+    && chmod +x install \
+    && ./install --static
+
+WORKDIR /workspaces/monopoly
+# RUN clojure -A:dev -P # TODO - add dev alias
+RUN clojure -A:dev -P

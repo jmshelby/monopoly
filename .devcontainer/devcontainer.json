@@ -1,0 +1,34 @@
+{
+
+	"build": {
+		"dockerfile": "Dockerfile.dev"
+	},
+
+	"privileged": true,
+	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	"features": {
+		// For docker-in-docker
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+		// Github CLI
+		"ghcr.io/devcontainers/features/github-cli:1": {}
+    },
+
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"betterthantomorrow.calva",
+				"betterthantomorrow.joyride",
+				"djblue.portal",
+				"redhat.vscode-yaml",
+				"usernamehw.errorlens",
+				"rangav.vscode-thunder-client"
+			]
+		}
+
+	},
+	"remoteEnv": {
+		"DATOMIC_DEV_LOCAL":"1"
+	}
+}
