@@ -213,8 +213,7 @@
   they are currently on, if so, invoke player decision logic to determine
   if they want to buy the property. Apply game state changes for either a
   property purchase, or the result of an invoked auction workflow."
-  [{:keys [board players
-           current-turn]
+  [{:keys [board]
     :as   game-state}]
   (let [;; Get player details
         {:keys [cash function
@@ -222,21 +221,23 @@
                 cell-residency]
          :as   player}
         (current-player game-state)
-        current-cell (get-in game-state [:board :cells cell-residency])
+        current-cell (get-in board [:cells cell-residency])
         ;; Get the definition of the current cell *if* it's a property
         property     (and (-> current-cell :type (= :property))
-                          (->> game-state :board :properties
+                          (->> board :properties
                                (filter #(= (:name %) (:name current-cell)))
                                first))
         taken        (owned-properties game-state)]
     ;; Either process initial property purchase, or auction off
+    (when property
+      (println "Landed on property" (:id player) property))
     (if (and
           ;; We're on an actual property
           property
           ;; It's unowned
           (not (taken (:name property)))
           ;; Player has enough money
-          (>= cash (:price property))
+          (> cash (:price property))
           ;; Player wants to buy it...
           ;; [invoke player for option decision]
           (= :buy (function game-state :property-option {:property property})))
@@ -376,7 +377,7 @@
         actions            (set (vector :done (when can-roll? :roll)))
         ;; Start right away by invoking players turn
         ;; method, to get next response/decision
-        decision           (function game-state :take-turn {:available-actions actions})
+        decision           (function game-state :take-turn {:actions-available actions})
 
         ;; TODO - validation, derive possible player actions
         ;;        * if invalid response, log it, and replace with simple/dumb operation
@@ -412,7 +413,7 @@
 
   (as-> (init-game-state 4) *
     (iterate advance-board *)
-    (take 500 *)
+    (take 20 *)
     (last *)
     ;; (:transactions *)
     ;; (group-by :player *)
