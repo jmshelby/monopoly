@@ -281,9 +281,9 @@
         new-roll       (roll-dice 2)
         new-cell       (next-cell game-state (apply + new-roll) old-cell)
         ;; Check for allowance
+        allowance      (get-in board [:cells 0 :allowance])
         with-allowance (when (> old-cell new-cell)
-                         (+ player-cash
-                            (get-in board [:cells 0 :allowance])))
+                         (+ player-cash allowance))
         ;; Update State
         new-state
         (cond-> game-state
@@ -312,7 +312,7 @@
                    {:type   :payment
                     :from   :bank
                     :to     player-id
-                    :amount with-allowance})])]
+                    :amount allowance})])]
       ;; Add transactions, before returning
       ;; TODO - Had to comp with vec to keep it a vector ... can we make this look better?
       (update new-state :transactions (comp vec concat) (vec txactions))))
@@ -414,14 +414,15 @@
     (iterate advance-board *)
     (take 500 *)
     (last *)
-    ;; (:transactions *)
-    ;; (group-by :player *)
-    ;; (get * "A")
-    ;; (filter #(= :move (:type %)) *)
-    ;; (filter #(= :payment (:type %)) *)
-    ;; (map :after-cell *)
-    ;; (map #(get (:cells defs/board) %) *)
+
+    ;; Player property count
+    ;; (:players *)
+    ;; (map (fn [p]
+    ;;        [(:id p) (count (:properties p))]
+    ;;        ) *)
+
     )
+
 
   (next-cell {:board defs/board}
              30 12)
