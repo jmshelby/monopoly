@@ -34,13 +34,14 @@
    ;; Separately, track what is going on with the current "turn".
    ;; At any given type there is always a single player who's turn it is,
    ;; but other things can be happening at the same time.
-   :current-turn {:player      "player uuid"
-                  ;; If/when the current player rolls their dice
-                  :rolled-dice []
+   :current-turn {:player     "player uuid"
+                  ;; All the dice rolls from the current turn player,
+                  ;; multiple because doubles get another roll
+                  :dice-rolls []
                   ;; Some sort of state around the comm status with the player
                   ;; TODO - need to figure out what this looks like
                   ;; TODO - it could be a :phase thing, but maybe this tracks forced negotiation state/status
-                  :status      :?
+                  :status     :?
                   }
 
    ;; The current *ordered* care queue to pull from.
@@ -168,7 +169,8 @@
         ;; Define initial game state
         initial-state
         {:players      players
-         :current-turn {:player (-> players first :id)}
+         :current-turn {:player     (-> players first :id)
+                        :dice-rolls []}
          ;; Grab and preserve the default board/layout
          :board        defs/board
          ;; Shuffle all cards by deck
@@ -190,8 +192,8 @@
   turns to the next active player in line."
   [game-state]
   (-> game-state
-      ;; Remove dice
-      (dissoc-in [:current-turn :rolled-dice])
+      ;; Remove dice rolls
+      (assoc-in [:current-turn :dice-rolls] [])
       ;; Get/Set next player ID
       (assoc-in [:current-turn :player] (-> game-state next-player :id))))
 
@@ -224,7 +226,7 @@
         (cond-> game-state
           ;; Save current new roll
           ;; TODO - what's the condition here?
-          true (assoc-in [:current-turn :rolled-dice] new-roll)
+          true (update-in [:current-turn :dice-rolls] conj new-roll)
           ;; Move Player, looping back around if needed
           ;; TODO - conditional, only if this wasn't the 3 consecutive double
           true (assoc-in [:players pidx :cell-residency] new-cell)
@@ -303,8 +305,11 @@
         {:keys [function]} (current-player game-state)
         ;; Simple for now, just roll and done actions available
         ;; TODO - need to add other actions soon
-        actions            (set (vector :done (when-not (:rolled-dice current-turn)
-                                                :roll)))
+        last-roll          (->> current-turn :dice-rolls last)
+        can-roll?          (or (nil? last-roll)
+                               (and (vector? last-roll)
+                                    (apply = last-roll)))
+        actions            (set (vector :done (when can-roll? :roll)))
         ;; Start right away by invoking players turn
         ;; method, to get next response/decision
         decision           (function game-state :take-turn actions)
