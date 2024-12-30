@@ -314,7 +314,8 @@
                     :to     player-id
                     :amount with-allowance})])]
       ;; Add transactions, before returning
-      (update new-state :transactions concat txactions)))
+      ;; TODO - Had to comp with vec to keep it a vector ... can we make this look better?
+      (update new-state :transactions (comp vec concat) (vec txactions))))
 
   ;; - Validate that current player *can* roll
 
@@ -411,7 +412,7 @@
 
   (as-> (init-game-state 4) *
     (iterate advance-board *)
-    (take 20 *)
+    (take 500 *)
     (last *)
     ;; (:transactions *)
     ;; (group-by :player *)
