@@ -1,5 +1,6 @@
 (ns jmshelby.monopoly.core
-  (:require [jmshelby.monopoly.definitions :as defs]))
+  (:require [clojure.set :as set]
+            [jmshelby.monopoly.definitions :as defs]))
 
 ;; TODO - need to determine where and how many "seeds" to store
 
@@ -27,9 +28,8 @@
               ;; TODO - should we just track :incarcerated?
               :jail-status         :visiting-OR-incarcerated-OR-nil-for-none
               ;; The current set of owned "properties", and current state
-              :properties          #{{:name        :park-place
-                                      :status      :paid-OR-mortgaged
-                                      :house-count 0}}}]
+              :properties          {:park-place {:status      :paid-OR-mortgaged
+                                                 :house-count 0}}}]
 
    ;; Separately, track what is going on with the current "turn".
    ;; At any given type there is always a single player who's turn it is,
@@ -133,18 +133,29 @@
        (filter #(= (:id %) (:player current-turn)))
        first))
 
+(defn owned-properties
+  "Given a game-state, return the set of owned property ids/names"
+  [game-state]
+  (->> game-state :players
+       (mapcat :properties)
+       (map :key) set))
+
 (defn dumb-player-decision
-  [_game-state method actions-available]
+  [_game-state method params]
   {:action
    ;; TODO - multimethod
    (case method
      ;; Dumb, always decline these actions
-     :acquisition    :decline
-     :auction-bid    :decline
-     :offer-proposal :decline
+     :acquisition     :decline
+     :auction-bid     :decline
+     :offer-proposal  :decline
+     ;; Dumb, always buy a property if we can
+     :property-option :buy
      ;; Dumb, roll if we can, end turn if we can't
-     :take-turn      (if (:roll actions-available)
-                       :roll :done))})
+     ;; TODO - If we can buy the current property, do it
+     :take-turn       (if (:roll (:actions-available params))
+                        :roll :done))}
+  )
 
 (defn init-game-state
   ;; Very early version of this function,
@@ -163,7 +174,7 @@
                           :cash 1500
                           :cell-residency 0 ;; All starting on "Go"
                           :cards []
-                          :properties #{}
+                          :properties {}
                           :consecutive-doubles 0))
              vec)
         ;; Define initial game state
@@ -197,6 +208,59 @@
       ;; Get/Set next player ID
       (assoc-in [:current-turn :player] (-> game-state next-player :id))))
 
+(defn apply-property-option
+  "Given a game state, check if current player is able to buy the property
+  they are currently on, if so, invoke player decision logic to determine
+  if they want to buy the property. Apply game state changes for either a
+  property purchase, or the result of an invoked auction workflow."
+  [{:keys [board players
+           current-turn]
+    :as   game-state}]
+  (let [;; Get player details
+        {:keys [cash function
+                player-index
+                cell-residency]
+         :as   player}
+        (current-player game-state)
+        current-cell (get-in game-state [:board :cells cell-residency])
+        ;; Get the definition of the current cell *if* it's a property
+        property     (and (-> current-cell :type (= :property))
+                          (->> game-state :board :properties
+                               (filter #(= (:name %) (:name current-cell)))
+                               first))
+        taken        (owned-properties game-state)]
+    ;; Either process initial property purchase, or auction off
+    (if (and
+          ;; We're on an actual property
+          property
+          ;; It's unowned
+          (not (taken (:name property)))
+          ;; Player has enough money
+          (>= cash (:price property))
+          ;; Player wants to buy it...
+          ;; [invoke player for option decision]
+          (= :buy (function game-state :property-option {:property property})))
+
+      ;; Apply the purchase
+      (-> game-state
+          ;; Add to player's owned collection
+          (update-in [:players player-index :properties]
+                     assoc (:name property) {:status      :paid
+                                             :house-count 0})
+          ;; Subtract money
+          (update-in [:players player-index :cash]
+                     - (:price property))
+          ;; Track transaction
+          (update :transactions conj
+                  {:type     :purchase
+                   :player   (:id player)
+                   :property (:name property)
+                   :price    (:price property)}))
+
+      ;; Apply auction workflow
+      ;; TODO - need to implement this
+      game-state)))
+
 (defn apply-dice-roll
   "Given a game state, advance board as if current player rolled dice.
   This function could advance the board forward by more than 1 transaction/move,
@@ -209,18 +273,18 @@
 
   ;; TEMP - Simple logic to start...
   (let [;; Get current player info
-        player      (current-player game-state)
-        player-id   (:id player)
-        pidx        (:player-index player)
-        player-cash (:cash player)
-        old-cell    (:cell-residency player)
+        player         (current-player game-state)
+        player-id      (:id player)
+        pidx           (:player-index player)
+        player-cash    (:cash player)
+        old-cell       (:cell-residency player)
         ;; Start with a dice roll
-        new-roll    (roll-dice 2)
-        new-cell    (next-cell game-state (apply + new-roll) old-cell)
+        new-roll       (roll-dice 2)
+        new-cell       (next-cell game-state (apply + new-roll) old-cell)
         ;; Check for allowance
-        allowance   (when (> old-cell new-cell)
-                      (+ player-cash
-                         (get-in board [:cells 0 :allowance])))
+        with-allowance (when (> old-cell new-cell)
+                         (+ player-cash
+                            (get-in board [:cells 0 :allowance])))
         ;; Update State
         new-state
         (cond-> game-state
@@ -232,8 +296,8 @@
           true (assoc-in [:players pidx :cell-residency] new-cell)
           ;; Check if we've passed/landed on go, for allowance payout
           ;; TODO - could probably refactor this
-          allowance
-          (assoc-in [:players pidx :cash] allowance))]
+          with-allowance
+          (assoc-in [:players pidx :cash] with-allowance))]
     (let [txactions
           (keep identity
                 [{:type       :roll
@@ -245,11 +309,11 @@
                   :player-idx  pidx
                   :before-cell old-cell
                   :after-cell  new-cell}
-                 (when allowance
+                 (when with-allowance
                    {:type   :payment
                     :from   :bank
                     :to     player-id
-                    :amount allowance})])]
+                    :amount with-allowance})])]
       ;; Add transactions, before returning
       (update new-state :transactions concat txactions)))
 
@@ -312,7 +376,7 @@
         actions            (set (vector :done (when can-roll? :roll)))
         ;; Start right away by invoking players turn
         ;; method, to get next response/decision
-        decision           (function game-state :take-turn actions)
+        decision           (function game-state :take-turn {:available-actions actions})
 
         ;; TODO - validation, derive possible player actions
         ;;        * if invalid response, log it, and replace with simple/dumb operation
@@ -328,15 +392,21 @@
 
     (case (-> decision :action)
       ;; Roll Dice
-      :roll (apply-dice-roll game-state)
+      :roll (-> game-state
+                ;; Do the roll and move
+                apply-dice-roll
+                ;; Check and give option to buy property
+                apply-property-option)
       ;; TODO - Make offer
       ;; TODO - Mortgage/un-mortgage
       ;; TODO - By/Sell houses
-      ;; Player done, end turn
+      ;; Player done, end turn, advance to next player
       :done (apply-end-turn game-state)
       ;; TODO - detect if player is stuck in loop?
       ;; TODO - player is taking too long?
-      )))
+      )
+
+    ))
 
 (comment
 
@@ -361,6 +431,21 @@
        )
 
   (keep identity [1 nil 2 3 4 nil])
+
+
+  (let [state
+        {:players [{:properties {:one {} :three {}}}
+                   {:properties {}}
+                   {:properties {:five {}}}
+                   {:properties {}}
+                   {:properties {:nine {}}}
+                   ]}]
+    (->> state :players
+         (mapcat :properties)
+         (map key) set
+         )
+    )
+
 
   )
 
