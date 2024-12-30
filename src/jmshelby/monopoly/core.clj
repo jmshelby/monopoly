@@ -229,8 +229,6 @@
                                first))
         taken        (owned-properties game-state)]
     ;; Either process initial property purchase, or auction off
-    (when property
-      (println "Landed on property" (:id player) property))
     (if (and
           ;; We're on an actual property
           property
@@ -240,7 +238,7 @@
           (> cash (:price property))
           ;; Player wants to buy it...
           ;; [invoke player for option decision]
-          (= :buy (function game-state :property-option {:property property})))
+          (= :buy (:action (function game-state :property-option {:property property}))))
 
       ;; Apply the purchase
       (-> game-state
