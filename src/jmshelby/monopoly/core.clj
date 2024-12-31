@@ -140,6 +140,24 @@
        (mapcat :properties)
        (map :key) set))
 
+(defn owned-property-details
+  "Given a game-state, return the set of owned property
+  details as a map of prop ID -> owned state with attached
+  owner ID and property details/definition."
+  [{:keys [board]
+    :as   game-state}]
+  (->> game-state :players
+       (mapcat (fn [player]
+                 (map (fn [[prop-name owner-state]]
+                        [prop-name
+                         (assoc owner-state
+                                :owner (:id player)
+                                :def (->> board :properties
+                                          (filter #(= prop-name (:name %)))
+                                          first))])
+                      (:properties player))))
+       (into {})))
+
 (defn dumb-player-decision
   [_game-state method params]
   {:action
