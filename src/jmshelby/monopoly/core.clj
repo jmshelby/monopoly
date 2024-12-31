@@ -158,6 +158,50 @@
                       (:properties player))))
        (into {})))
 
+(defn rent-owed?
+  "Given a game-state, when rent is owed by the current player
+  on their current spot in the game, return the cash amount due,
+  and the id of the player owed. Returns nil if no rent is due."
+  [{:keys [board current-turn]
+    :as   game-state}]
+  (let [{:keys [cell-residency]
+         :as   player} (current-player game-state)
+        ;; Get the definition of the current cell *if* it's a property
+        current-cell   (get-in board [:cells cell-residency])
+        on-prop        (and (-> current-cell :type (= :property))
+                            (->> board :properties
+                                 (filter #(= (:name %) (:name current-cell)))
+                                 first))
+        owned-prop     (get (owned-property-details game-state)
+                            (:name on-prop))]
+
+    ;; Check if the current player...
+    (when (and
+            ;; ..is on an owned property
+            owned-prop
+            ;; ..is owned by someone else
+            (not= (:owner owned-prop)
+                  (:id player))
+            ;; TODO - Check mortgaged status
+            )
+
+      ;; TODO - Check for monopoly upcharge
+      ;;        - dispatch on prop type (util/street/railroad)
+
+      ;; TODO - probably good for poly-dispatch
+      (let [rent (case (:type on-prop)
+                   ;; Street type
+                   ;; TODO - Check for monopoly upcharge
+                   ;; TODO - Check for building/house/hotel upcharge
+                   :street   (:rent on-prop)
+                   ;; TODO - Apply based on number owned
+                   ;; !!!! - it shouldn't happen, but what if no dice rolls exist?
+                   :utility  (* (-> on-prop :rent first :dice-multiplier)
+                                (->> current-turn :dice-rolls last (apply +)))
+                   ;; TODO - Apply based on number owned
+                   :railroad (-> on-prop :rent first))]
+        [(:owner owned-prop) rent]))))
+
 (defn dumb-player-decision
   [_game-state method params]
   {:action
@@ -237,15 +281,15 @@
         {:keys [cash function
                 player-index
                 cell-residency]
-         :as   player}
-        (current-player game-state)
-        current-cell (get-in board [:cells cell-residency])
+         :as   player} (current-player game-state)
+        current-cell   (get-in board [:cells cell-residency])
         ;; Get the definition of the current cell *if* it's a property
-        property     (and (-> current-cell :type (= :property))
-                          (->> board :properties
-                               (filter #(= (:name %) (:name current-cell)))
-                               first))
-        taken        (owned-properties game-state)]
+        property       (and (-> current-cell :type (= :property))
+                            (->> board :properties
+                                 (filter #(= (:name %) (:name current-cell)))
+                                 first))
+        taken          (owned-properties game-state)
+        ]
     ;; Either process initial property purchase, or auction off
     (if (and
           ;; We're on an actual property
@@ -302,6 +346,8 @@
         allowance      (get-in board [:cells 0 :allowance])
         with-allowance (when (> old-cell new-cell)
                          (+ player-cash allowance))
+        ;; Check for any rent owed
+        rent-owed      (rent-owed? game-state)
         ;; Update State
         new-state
         (cond-> game-state
@@ -428,10 +474,13 @@
 
 (comment
 
+  (def temp (atom nil))
+
   (as-> (init-game-state 4) *
     (iterate advance-board *)
     (take 500 *)
     (last *)
+    ;; (reset! temp *)
 
     ;; Player property count
     ;; (:players *)
@@ -439,8 +488,21 @@
     ;;        [(:id p) (count (:properties p))]
     ;;        ) *)
 
+    ;; Player property details
+    ;; (owned-property-details *)
     )
 
+
+  (owned-property-details @temp)
+
+
+  (->> @temp
+       :players
+       )
+
+  (->> (init-game-state 4)
+       owned-property-details
+       )
 
   (next-cell {:board defs/board}
              30 12)
