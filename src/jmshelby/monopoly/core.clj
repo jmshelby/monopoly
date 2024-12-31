@@ -185,9 +185,6 @@
             ;; TODO - Check mortgaged status
             )
 
-      ;; TODO - Check for monopoly upcharge
-      ;;        - dispatch on prop type (util/street/railroad)
-
       ;; TODO - probably good for poly-dispatch
       (let [rent (case (:type on-prop)
                    ;; Street type
@@ -346,8 +343,6 @@
         allowance      (get-in board [:cells 0 :allowance])
         with-allowance (when (> old-cell new-cell)
                          (+ player-cash allowance))
-        ;; Check for any rent owed
-        rent-owed      (rent-owed? game-state)
         ;; Update State
         new-state
         (cond-> game-state
@@ -360,8 +355,30 @@
           ;; Check if we've passed/landed on go, for allowance payout
           ;; TODO - could probably refactor this
           with-allowance
-          (assoc-in [:players pidx :cash] with-allowance))]
-    (let [txactions
+          (assoc-in [:players pidx :cash] with-allowance)
+          )]
+    (let [;; Pay rent if needed
+          rent-owed (rent-owed? new-state)
+          new-state (if-not rent-owed
+                      ;; No transfer
+                      new-state
+                      ;; Perform transfer
+                      (-> new-state
+                          ;; Take from current player
+                          (update-in [:players pidx :cash] - (second rent-owed))
+                          ;; Give to owner
+                          (update-in [:players
+                                      ;; Get the player index of owed player
+                                      ;; TODO - this could probably be refactored
+                                      (->> players
+                                           (map-indexed vector)
+                                           (filter #(= (:id (second %))
+                                                       (first rent-owed)))
+                                           first first)
+                                      :cash]
+                                     + (second rent-owed))))
+          ;; Add transactions
+          txactions
           (keep identity
                 [{:type       :roll
                   :player     player-id
@@ -376,7 +393,15 @@
                    {:type   :payment
                     :from   :bank
                     :to     player-id
-                    :amount allowance})])]
+                    :amount allowance})
+
+                 (when rent-owed
+                   {:type   :payment
+                    :from   player-id
+                    :to     (first rent-owed)
+                    :amount (second rent-owed)})
+
+                 ])]
       ;; Add transactions, before returning
       ;; TODO - Had to comp with vec to keep it a vector ... can we make this look better?
       (update new-state :transactions (comp vec concat) (vec txactions))))
@@ -478,7 +503,7 @@
 
   (as-> (init-game-state 4) *
     (iterate advance-board *)
-    (take 500 *)
+    (take 300 *)
     (last *)
     ;; (reset! temp *)
 
