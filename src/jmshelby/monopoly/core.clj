@@ -158,6 +158,24 @@
                       (:properties player))))
        (into {})))
 
+(defmulti calculate-rent
+  "Given a property id/name, owned property details state/map, and the previous dice role;
+  calculate the amount of rent that would be owed"
+  (fn [prop owned-props _dice-roll]
+    (get-in owned-props [prop :def :type])))
+
+(defmethod calculate-rent :street
+  [prop owned-props dice-roll]
+  )
+
+(defmethod calculate-rent :utility
+  [prop owned-props dice-roll]
+  )
+
+(defmethod calculate-rent :railroad
+  [prop owned-props dice-roll]
+  )
+
 (defn rent-owed?
   "Given a game-state, when rent is owed by the current player
   on their current spot in the game, return the cash amount due,
@@ -180,10 +198,9 @@
             ;; ..is on an owned property
             owned-prop
             ;; ..is owned by someone else
-            (not= (:owner owned-prop)
-                  (:id player))
             ;; TODO - Check mortgaged status
-            )
+            (not= (:owner owned-prop)
+                  (:id player)))
 
       ;; TODO - probably good for poly-dispatch
       (let [rent (case (:type on-prop)
@@ -355,8 +372,7 @@
           ;; Check if we've passed/landed on go, for allowance payout
           ;; TODO - could probably refactor this
           with-allowance
-          (assoc-in [:players pidx :cash] with-allowance)
-          )]
+          (assoc-in [:players pidx :cash] with-allowance))]
     (let [;; Pay rent if needed
           rent-owed (rent-owed? new-state)
           new-state (if-not rent-owed
@@ -394,14 +410,11 @@
                     :from   :bank
                     :to     player-id
                     :amount allowance})
-
                  (when rent-owed
                    {:type   :payment
                     :from   player-id
                     :to     (first rent-owed)
-                    :amount (second rent-owed)})
-
-                 ])]
+                    :amount (second rent-owed)})])]
       ;; Add transactions, before returning
       ;; TODO - Had to comp with vec to keep it a vector ... can we make this look better?
       (update new-state :transactions (comp vec concat) (vec txactions))))
@@ -503,18 +516,25 @@
 
   (as-> (init-game-state 4) *
     (iterate advance-board *)
-    (take 300 *)
+    (take 1000 *)
     (last *)
+    ;; (:players *)
+    ;; (map #(select-keys % [:id :cash]) *)
+    )
+
+  (as-> (init-game-state 4) *
+    (iterate advance-board *)
+    (take 500 *)
+    (last *)
+
     ;; (reset! temp *)
 
     ;; Player property count
-    ;; (:players *)
-    ;; (map (fn [p]
-    ;;        [(:id p) (count (:properties p))]
-    ;;        ) *)
+    (:players *)
+    (map (fn [p]
+           [(:id p) (count (:properties p))]
+           ) *)
 
-    ;; Player property details
-    ;; (owned-property-details *)
     )
 
 
