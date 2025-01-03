@@ -94,6 +94,11 @@
       m)
     (dissoc m k)))
 
+(defn- sum
+  "More concise way to sum dice roll"
+  [nums]
+  (apply + nums))
+
 (defn- roll-dice
   "Return a random dice roll of n # of dice"
   [n]
@@ -186,17 +191,41 @@
 
 (defmulti calculate-rent
   "Given a property id/name, owned property details state/map, and the previous dice role;
-  calculate the amount of rent that would be owed"
+  calculate the amount of rent that would be owed."
+  ;; TODO - list assmptions: we don't know who rolled, assuming it's not the owner. We need a valid dice roll
   (fn [prop owned-props _dice-roll]
     (get-in owned-props [prop :def :type])))
 
 (defmethod calculate-rent :street
   [prop owned-props dice-roll]
+  (let [deets       (get owned-props prop)
+        ;; Total number owned for this group
+        owned-count (->> owned-props vals
+                         (filter #(= (:owner deets) (:owner %)))
+                         (map :def)
+                         (filter #(and (= :street (:type %))
+                                       (= (:group-name deets) (:group-name %))))
+                         count)
+        ]
+    ;; TODO - what to do if def doesn't include required info?
+    (-> deets :def
+        :rent
+        (nth (dec owned-count))))
   )
 
 (defmethod calculate-rent :utility
   [prop owned-props dice-roll]
-  )
+  ;; TODO - should we assume the util is owned? Or do we need to check that, and return 0?
+  (let [deets       (get owned-props prop)
+        ;; Total number of utils owned by owner
+        owned-count (:type-owned-count deets)
+        ;; Dice multipier, based on number of utils owned
+        ;; TODO - what to do if def doesn't include required info?
+        multiplier  (-> deets :def :rent
+                        (nth (dec owned-count))
+                        :dice-multiplier)]
+    ;; TODO - it shouldn't happen, but what if no dice rolls exist?
+    (* multiplier (sum dice-roll))))
 
 (defmethod calculate-rent :railroad
   [prop owned-props _dice-roll]
@@ -545,10 +574,11 @@
 
   (def temp (atom nil))
 
-  (as-> (init-game-state 4) *
+  (as-> (init-game-state 2) *
     (iterate advance-board *)
     (take 1000 *)
     (last *)
+    (reset! temp *)
     ;; (:players *)
     ;; (map #(select-keys % [:id :cash]) *)
     ;; (->> * :players
@@ -564,11 +594,13 @@
 
     ;; (reset! temp *)
 
+    (owned-property-details *)
+
     ;; Player property count
-    (:players *)
-    (map (fn [p]
-           [(:id p) (count (:properties p))]
-           ) *)
+    ;; (:players *)
+    ;; (map (fn [p]
+    ;;        [(:id p) (count (:properties p))]
+    ;;        ) *)
 
     )
 
@@ -577,7 +609,7 @@
 
 
   (->> @temp
-       :players
+       owned-property-details
        )
 
   (->> (init-game-state 4)
@@ -588,7 +620,10 @@
              30 12)
 
   (->> defs/board
-
+       :properties
+       (filter #(= :street (:type %)))
+       (group-by :group-name)
+       (map (fn [[k coll]] [k (count coll)]))
        )
 
   (keep identity [1 nil 2 3 4 nil])
@@ -606,6 +641,22 @@
          (map key) set
          )
     )
+
+
+  ;; Test rent calc logic
+  (let [d     [6 1]
+        state (->> (init-game-state 4)
+                   (iterate advance-board)
+                   (take 1000)
+                   last)
+        ;; state @temp
+        props (owned-property-details state)
+        ]
+    ;; (calculate-rent :reading-railroad props d)
+    (calculate-rent :electric-company props d)
+    )
+
+
 
 
   )
