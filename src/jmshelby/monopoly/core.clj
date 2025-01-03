@@ -269,6 +269,20 @@
                        owned-props
                        (-> current-turn :dice-rolls last))])))
 
+(defn tax-owed?
+  "Given a game-state, when a tax is owed by the
+  current player, return the amount. Returns nil
+  if no tax is due."
+  [{:keys [board]
+    :as   game-state}]
+  (let [{:keys [cell-residency]}
+        (current-player game-state)
+        ;; Get the definition of the current cell *if* it's a property
+        current-cell (get-in board [:cells cell-residency])]
+    ;; Only return if tax is actually owed
+    (when (= :tax (:type current-cell))
+      (:cost current-cell))))
+
 (defn dumb-player-decision
   [_game-state method params]
   {:action
@@ -428,10 +442,16 @@
           (assoc-in [:players pidx :cash] with-allowance))]
     (let [;; Pay rent if needed
           rent-owed (rent-owed? new-state)
+          tax-owed  (tax-owed? new-state)
+          ;; TODO - yikes, getting messy, impl dispatch by cell type
           new-state (if-not rent-owed
-                      ;; No transfer
-                      new-state
-                      ;; Perform transfer
+                      ;; No rent, check for tax
+                      (if tax-owed
+                        ;; Peform tax transfer
+                        (update-in new-state [:players pidx :cash] - tax-owed)
+                        ;; Nothing else do
+                        new-state)
+                      ;; Perform rent transfer
                       (-> new-state
                           ;; Take from current player
                           (update-in [:players pidx :cash] - (second rent-owed))
@@ -462,12 +482,20 @@
                    {:type   :payment
                     :from   :bank
                     :to     player-id
-                    :amount allowance})
+                    :amount allowance
+                    :reason :allowance})
+                 (when tax-owed
+                   {:type   :payment
+                    :from   player-id
+                    :to     :bank
+                    :amount tax-owed
+                    :reason :tax})
                  (when rent-owed
                    {:type   :payment
                     :from   player-id
                     :to     (first rent-owed)
-                    :amount (second rent-owed)})])]
+                    :amount (second rent-owed)
+                    :reason :rent})])]
       ;; Add transactions, before returning
       ;; TODO - Had to comp with vec to keep it a vector ... can we make this look better?
       (update new-state :transactions (comp vec concat) (vec txactions))))
@@ -569,12 +597,12 @@
 
   (as-> (init-game-state 4) *
     (iterate advance-board *)
-    (take 100 *)
+    (take 1000 *)
     (last *)
     ;; (reset! temp *)
-    (:transactions *)
-    (filter #(= :payment (:type %)) *)
-    (remove #(= :bank (:from %)) *)
+    ;; (:transactions *)
+    ;; (filter #(= :payment (:type %)) *)
+    ;; (remove #(= :bank (:from %)) *)
     )
 
 
@@ -610,10 +638,7 @@
              30 12)
 
   (->> defs/board
-       :properties
-       (filter #(= :street (:type %)))
-       (group-by :group-name)
-       (map (fn [[k coll]] [k (count coll)]))
+       ;; :properties
        )
 
   (keep identity [1 nil 2 3 4 nil])
