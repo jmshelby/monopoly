@@ -199,8 +199,13 @@
   )
 
 (defmethod calculate-rent :railroad
-  [prop owned-props dice-roll]
-  )
+  [prop owned-props _dice-roll]
+  (let [deets       (get owned-props prop)
+        owned-count (:type-owned-count deets)]
+    ;; TODO - what to do if def doesn't include required info?
+    (-> deets :def
+        :rent
+        (nth (dec owned-count)))))
 
 (defn rent-owed?
   "Given a game-state, when rent is owed by the current player
