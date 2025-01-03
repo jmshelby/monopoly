@@ -242,6 +242,7 @@
   "Given a game-state, when rent is owed by the current player
   on their current spot in the game, return the cash amount due,
   and the id of the player owed. Returns nil if no rent is due."
+  ;; TODO - Assumes current player has rolled dice at least once
   [{:keys [board current-turn]
     :as   game-state}]
   (let [{:keys [cell-residency]
@@ -252,10 +253,9 @@
                             (->> board :properties
                                  (filter #(= (:name %) (:name current-cell)))
                                  first))
-        owned-prop     (get (owned-property-details game-state)
-                            (:name on-prop))]
-
-    ;; Check if the current player...
+        owned-props    (owned-property-details game-state)
+        owned-prop     (get owned-props (:name on-prop))]
+    ;; Only return if rent is actually owed
     (when (and
             ;; ..is on an owned property
             owned-prop
@@ -263,20 +263,11 @@
             ;; TODO - Check mortgaged status
             (not= (:owner owned-prop)
                   (:id player)))
-
-      ;; TODO - probably good for poly-dispatch
-      (let [rent (case (:type on-prop)
-                   ;; Street type
-                   ;; TODO - Check for monopoly upcharge
-                   ;; TODO - Check for building/house/hotel upcharge
-                   :street   (:rent on-prop)
-                   ;; TODO - Apply based on number owned
-                   ;; !!!! - it shouldn't happen, but what if no dice rolls exist?
-                   :utility  (* (-> on-prop :rent first :dice-multiplier)
-                                (->> current-turn :dice-rolls last (apply +)))
-                   ;; TODO - Apply based on number owned
-                   :railroad (-> on-prop :rent first))]
-        [(:owner owned-prop) rent]))))
+      ;; Return the owner ID and rent amount owed
+      [(:owner owned-prop)
+       (calculate-rent (:name on-prop)
+                       owned-props
+                       (-> current-turn :dice-rolls last))])))
 
 (defn dumb-player-decision
   [_game-state method params]
@@ -576,16 +567,14 @@
 
   (def temp (atom nil))
 
-  (as-> (init-game-state 2) *
+  (as-> (init-game-state 4) *
     (iterate advance-board *)
-    (take 1000 *)
+    (take 100 *)
     (last *)
-    (reset! temp *)
-    ;; (:players *)
-    ;; (map #(select-keys % [:id :cash]) *)
-    ;; (->> * :players
-    ;;      (map :properties)
-    ;;      (map count))
+    ;; (reset! temp *)
+    (:transactions *)
+    (filter #(= :payment (:type %)) *)
+    (remove #(= :bank (:from %)) *)
     )
 
 
@@ -594,15 +583,14 @@
     (take 500 *)
     (last *)
 
-    ;; (reset! temp *)
-
-    (owned-property-details *)
-
     ;; Player property count
     ;; (:players *)
     ;; (map (fn [p]
     ;;        [(:id p) (count (:properties p))]
     ;;        ) *)
+
+    ;; Player cash
+    ;; (map #(select-keys % [:id :cash]) *)
 
     )
 
