@@ -138,7 +138,7 @@
   [game-state]
   (->> game-state :players
        (mapcat :properties)
-       (map :key) set))
+       (map key) set))
 
 (defn owned-property-details
   "Given a game-state, return the set of owned property
