@@ -520,7 +520,11 @@
     (last *)
     ;; (:players *)
     ;; (map #(select-keys % [:id :cash]) *)
+    ;; (->> * :players
+    ;;      (map :properties)
+    ;;      (map count))
     )
+
 
   (as-> (init-game-state 4) *
     (iterate advance-board *)
