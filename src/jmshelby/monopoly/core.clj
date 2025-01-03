@@ -197,21 +197,23 @@
     (get-in owned-props [prop :def :type])))
 
 (defmethod calculate-rent :street
-  [prop owned-props dice-roll]
-  (let [deets       (get owned-props prop)
-        ;; Total number owned for this group
-        owned-count (->> owned-props vals
-                         (filter #(= (:owner deets) (:owner %)))
-                         (map :def)
-                         (filter #(and (= :street (:type %))
-                                       (= (:group-name deets) (:group-name %))))
-                         count)
-        ]
-    ;; TODO - what to do if def doesn't include required info?
-    (-> deets :def
-        :rent
-        (nth (dec owned-count))))
-  )
+  [prop owned-props _dice-roll]
+  (let [;; Pull out relavant info
+        {houses               :house-count
+         monopoly?            :group-monopoly?
+         {:keys [rent group-rent
+                 house-rent]} :def}
+        (get owned-props prop)]
+    (cond
+      ;; Monoply + houses owned
+      ;; TODO - what to do if def doesn't include required info?
+      (and monopoly?
+           (< 0 houses))
+      (nth house-rent (nth (dec houses)))
+      ;; Monoply, no houses
+      monopoly? group-rent
+      ;; Base rent rate
+      :else     rent)))
 
 (defmethod calculate-rent :utility
   [prop owned-props dice-roll]
@@ -653,7 +655,8 @@
         props (owned-property-details state)
         ]
     ;; (calculate-rent :reading-railroad props d)
-    (calculate-rent :electric-company props d)
+    ;; (calculate-rent :electric-company props d)
+    (calculate-rent :boardwalk props d)
     )
 
 
