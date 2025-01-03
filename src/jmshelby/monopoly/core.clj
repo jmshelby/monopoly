@@ -1,5 +1,6 @@
 (ns jmshelby.monopoly.core
   (:require [clojure.set :as set]
+            [jmshelby.monopoly.util :as util]
             [jmshelby.monopoly.definitions :as defs]))
 
 ;; TODO - need to determine where and how many "seeds" to store
@@ -142,21 +143,46 @@
 
 (defn owned-property-details
   "Given a game-state, return the set of owned property
-  details as a map of prop ID -> owned state with attached
-  owner ID and property details/definition."
+  details as a map of prop ID -> owned state with attached:
+    - owner ID
+    - monopoly? (if a street type, does owner have a monopoly)
+    - property details/definition"
   [{:keys [board]
     :as   game-state}]
-  (->> game-state :players
-       (mapcat (fn [player]
-                 (map (fn [[prop-name owner-state]]
-                        [prop-name
-                         (assoc owner-state
-                                :owner (:id player)
-                                :def (->> board :properties
-                                          (filter #(= prop-name (:name %)))
-                                          first))])
-                      (:properties player))))
-       (into {})))
+  (let [;; Prep static aggs
+        street-group->count (util/street-group-counts board)
+        ;; First pass, basic assembly of info
+        props               (mapcat (fn [player]
+                                      (map (fn [[prop-name owner-state]]
+                                             [prop-name
+                                              (assoc owner-state
+                                                     :owner (:id player)
+                                                     :def (->> board :properties
+                                                               (filter #(= prop-name (:name %)))
+                                                               first))])
+                                           (:properties player)))
+                                    (:players game-state))]
+    ;; Derive/Attach monopoly status to each street type
+    (->> props
+         (map (fn [[prop-name deets]]
+                (let [type-owned        (->> props (map second)
+                                             (filter #(= (:owner %) (:owner deets) ))
+                                             (map :def)
+                                             (filter #(= (:type %) (-> deets :def :type) )))
+                      type-owned-count  (count type-owned)
+                      group-owned-count (->> type-owned
+                                             (filter #(= (:group-name %) (-> deets :def :group-name)))
+                                             count)]
+                  [prop-name
+                   (assoc deets
+                          :type-owned-count type-owned-count
+                          :group-owned-count group-owned-count
+                          :group-monopoly?
+                          (= group-owned-count
+                             ;; Number required for a monopoly, by this group
+                             ;; TODO - this assumes that only one type of prop has a group name
+                             (street-group->count (-> deets :def :group-name))))])))
+         (into {}))))
 
 (defmulti calculate-rent
   "Given a property id/name, owned property details state/map, and the previous dice role;
