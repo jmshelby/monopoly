@@ -127,7 +127,8 @@
              vec)
         ;; Define initial game state
         initial-state
-        {:players      players
+        {:status       :playing
+         :players      players
          :current-turn {:player     (-> players first :id)
                         :dice-rolls []}
          ;; Grab and preserve the default board/layout
@@ -448,11 +449,7 @@
       ;; If they have cash, and it's not time to end the train
       ;; proceed with regular player turn
       :else
-      (let [_          (println "Player turn logic:" player-id
-                                "players left: " (->> players
-                                                      (filter #(= :playing (:status %)))
-                                                      count) )
-            ;; Basic/jumbled for now, long lets nested ifs...
+      (let [;; Basic/jumbled for now, long lets nested ifs...
             ;; TODO - need to add other actions soon, and this logic
             ;;        _could_ blow up, need another fn
             last-roll  (->> current-turn :dice-rolls last)
@@ -523,8 +520,12 @@
   (->> (init-game-state players)
        (iterate advance-board)
        ;; Skip past all iterations until game is done, and there is a winner
-       ;; TODO - it would be nice to have some kind of fail safe/limit, in case of a endless loop bug
-       (drop-while #(= :player (:status %)))
+       ;; OR, failsafe, the transactions have gone beyond X, most likely endless game
+       (drop-while
+         (fn [{:keys [status transactions]}]
+           (and (= :playing status)
+                ;; Some arbitrary limit
+                (> 2000 (count transactions)))))
        first))
 
 (comment
