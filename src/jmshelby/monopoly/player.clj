@@ -50,4 +50,4 @@
 
         ;; No other options, end turn
         ;; TODO - soon, "done" might not be available in all cases
-        :else :done))))
+        :else {:action :done}))))

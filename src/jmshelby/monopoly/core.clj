@@ -351,16 +351,13 @@
 
   (let [;; Get current player function
         {:keys [function]} (util/current-player game-state)
-        ;; Simple for now, just roll and done actions available
+        ;; Basic/jumbled for now, long lets nested ifs...
         ;; TODO - need to add other actions soon, and this logic
         ;;        _could_ blow up, need another fn
         last-roll          (->> current-turn :dice-rolls last)
         can-roll?          (or (nil? last-roll)
                                (and (vector? last-roll)
                                     (apply = last-roll)))
-        ;; Impl/Notes:
-        ;; - Of the (a) paid (b) street properties that (c) have a monopoly, is the total group house count less than [5 * group count]?
-        ;; - Of all the potential places to buy a house (foreach prop owned, how many more houses can be built, represented by a dollar amount), is the cheapest one in the player's affordability?
         can-build?         (util/can-buy-house? game-state)
         actions            (->> (vector
                                   ;; TODO - Need to force certain number of rolls before :done can be available
@@ -389,16 +386,18 @@
 
     (case (-> decision :action)
       ;; Roll Dice
-      :roll (-> game-state
-                ;; Do the roll and move
-                apply-dice-roll
-                ;; Check and give option to buy property
-                apply-property-option)
+      :roll      (-> game-state
+                     ;; Do the roll and move
+                     apply-dice-roll
+                     ;; Check and give option to buy property
+                     apply-property-option)
       ;; TODO - Make offer
       ;; TODO - Mortgage/un-mortgage
-      ;; TODO - By/Sell houses
+      ;; TODO - Buy houses
+      :buy-house game-state
+      ;; TODO - Sell houses
       ;; Player done, end turn, advance to next player
-      :done (apply-end-turn game-state)
+      :done      (apply-end-turn game-state)
       ;; TODO - detect if player is stuck in loop?
       ;; TODO - player is taking too long?
       )
@@ -416,9 +415,9 @@
 
   (as-> (init-game-state 4) *
     (iterate advance-board *)
-    (take 1000 *)
+    (take 500 *)
     (last *)
-    (:transactions *)
+    ;; (:transactions *)
     ;; (filter #(= :payment (:type %)) *)
     ;; (remove #(= :bank (:from %)) *)
     )
