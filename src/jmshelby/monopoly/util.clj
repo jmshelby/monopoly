@@ -85,6 +85,7 @@
        (mapcat :properties)
        (map key) set))
 
+;; TODO - Is a better name owned-properties-details?
 (defn owned-property-details
   "Given a game-state, return the set of owned property
   details as a map of prop ID -> owned state with attached:
@@ -231,6 +232,48 @@
 ;; - Are hotels any different from houses?
 ;;   - In this engine, a hotel is just the last house that can be bought..
 ;;   - The only difference _will_ be, when implementing the building inventory logic
+
+;; TODO - Useful fns based on this input
+;;        - Filter, in order, which potential purchases can be afforded with $x dollars
+(defn potential-house-purchases
+  "Given a player's owned properties details collection,
+  return a list potential building purchase tuples.
+  Form of: [group property price]"
+  [player-owned-props]
+  (->> player-owned-props
+       ;; Filter out mortgaged properties
+       (filter #(= :paid (:status %)))
+       ;; Only properties that have a monopoly
+       (filter :group-monopoly?)
+       ;; Filter out ones that already have a hotel (5 max/houses)
+       (filter #(> 5 (:house-count %)))
+       ;; TODO - Filter to ensure *even* building is happening
+       (mapcat (fn [deets]
+                 ;; Expand potential house purchases
+                 (repeat (- 5 (:house-count deets))
+                         ;; TODO - At this point this is probably best as a map ..
+                         ;; TODO - We could also include the potential total count this purchase would bring to the prop
+                         [(-> deets :def :group-name)
+                          (-> deets :def :name)
+                          (-> deets :def :house-price)])))))
+
+(defn can-buy-house?
+  "Given a game-state, return wether or not the
+  current player is in the position to buy a house or not [bool].
+  Considers all game rules, along with current liquid cash."
+  [game-state]
+  (let [{player-id :id
+         cash      :cash} (current-player game-state)
+        potential         (->> game-state
+                               owned-property-details
+                               (map second)
+                               (filter #(= player-id (:owner %)))
+                               potential-house-purchases)
+        cheapest          (->> potential
+                               (sort-by #(nth % 2))
+                               first)]
+    ;; Can they afford the cheapest single potential purchase?
+    (>= cash (nth cheapest 2))))
 
 (comment
   (let [;; Just pull some details out

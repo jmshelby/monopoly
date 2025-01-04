@@ -1,6 +1,7 @@
 (ns jmshelby.monopoly.core
   (:require [clojure.set :as set]
             [jmshelby.monopoly.util :as util]
+            [jmshelby.monopoly.player :as player]
             [jmshelby.monopoly.definitions :as defs]))
 
 ;; TODO - need to determine where and how many "seeds" to store
@@ -377,8 +378,16 @@
         ;; Impl/Notes:
         ;; - Of the (a) paid (b) street properties that (c) have a monopoly, is the total group house count less than [5 * group count]?
         ;; - Of all the potential places to buy a house (foreach prop owned, how many more houses can be built, represented by a dollar amount), is the cheapest one in the player's affordability?
-        ;; can-buy-house?     (house-potential)
-        actions            (set (vector :done (when can-roll? :roll)))
+        can-build?         (util/can-buy-house? game-state)
+        actions            (->> (vector
+                                  ;; TODO - Need to force certain number of rolls before :done can be available
+                                  :done
+                                  ;; TODO - Need to take jail into account
+                                  (when can-roll? :roll)
+                                  ;; House building
+                                  (when can-build? :buy-house))
+                                (filter identity)
+                                set)
         ;; Start right away by invoking players turn
         ;; method, to get next response/decision
         decision           (function game-state :take-turn {:actions-available actions})
