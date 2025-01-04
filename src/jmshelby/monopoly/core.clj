@@ -102,23 +102,6 @@
     (when (= :tax (:type current-cell))
       (:cost current-cell))))
 
-(defn dumb-player-decision
-  [_game-state method params]
-  {:action
-   ;; TODO - multimethod
-   (case method
-     ;; Dumb, always decline these actions
-     :acquisition     :decline
-     :auction-bid     :decline
-     :offer-proposal  :decline
-     ;; Dumb, always buy a property if we can
-     :property-option :buy
-     ;; Dumb, roll if we can, end turn if we can't
-     ;; TODO - If we can buy the current property, do it
-     :take-turn       (if (:roll (:actions-available params))
-                        :roll :done))}
-  )
-
 (defn init-game-state
   ;; Very early version of this function,
   ;; just creates n # of simple players
@@ -131,7 +114,7 @@
              (map (partial hash-map :id))
              ;; Add starting state values
              (map #(assoc %
-                          :function dumb-player-decision
+                          :function player/dumb-player-decision
                           :status :playing
                           :cash 1500
                           :cell-residency 0 ;; All starting on "Go"
