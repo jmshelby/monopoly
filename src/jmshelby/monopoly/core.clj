@@ -509,7 +509,7 @@
 
       )))
 
-(defn- rand-game-state
+(defn rand-game-state
   "Return a game state, with # of given players, as of the given, nth iteration"
   [players n]
   (->> (init-game-state players)
@@ -517,13 +517,31 @@
        (take n)
        last))
 
+(defn rand-game-end-state
+  "Return a new, random, completed game state, with # of given players"
+  [players]
+  (->> (init-game-state players)
+       (iterate advance-board)
+       ;; Skip past all iterations until game is done, and there is a winner
+       ;; TODO - it would be nice to have some kind of fail safe/limit, in case of a endless loop bug
+       (drop-while #(= :player (:status %)))
+       first))
+
 (comment
 
   (->> defs/board
        ;; :properties
        )
 
-  (def sim (rand-game-state 4 1000))
+  (def sim (rand-game-state 4 1))
+
+
+  (as-> sim *
+    (iterate advance-board *)
+    (nth * 201)
+    ;; (:transactions *)
+    (:players *)
+    )
 
   (->> (rand-game-state 4 1000)
        ;; :transactions

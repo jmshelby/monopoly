@@ -240,22 +240,32 @@
   return a list potential building purchase tuples.
   Form of: [group property price]"
   [player-owned-props]
-  (->> player-owned-props
-       ;; Filter out mortgaged properties
-       (filter #(= :paid (:status %)))
-       ;; Only properties that have a monopoly
-       (filter :group-monopoly?)
-       ;; Filter out ones that already have a hotel (5 max/houses)
-       (filter #(> 5 (:house-count %)))
-       ;; TODO - Filter to ensure *even* building is happening
-       (mapcat (fn [deets]
-                 ;; Expand potential house purchases
-                 (repeat (- 5 (:house-count deets))
-                         ;; TODO - At this point this is probably best as a map ..
-                         ;; TODO - We could also include the potential total count this purchase would bring to the prop
-                         [(-> deets :def :group-name)
-                          (-> deets :def :name)
-                          (-> deets :def :house-price)])))))
+  (let [;; Agg current min count of houses by group name,
+        ;; to enforce even/distributed building
+        group->min (->> player-owned-props
+                        (map #(vector (-> % :def :group-name)
+                                      (:house-count %)))
+                        (group-by first)
+                        (map (fn [[g pairs]]
+                               [g (apply min (map second pairs))]))
+                        (into {}))]
+    (->> player-owned-props
+         ;; Filter out mortgaged properties
+         (filter #(= :paid (:status %)))
+         ;; Only properties that have a monopoly
+         (filter :group-monopoly?)
+         ;; Filter out ones that already have a hotel (5 max/houses)
+         (filter #(> 5 (:house-count %)))
+         ;; Filter out "uneven" properties (more than the min count already)
+         (filter #(= (:house-count %)
+                     (group->min (-> % :def :group-name))))
+         ;; Represent as a tuple
+         (map (fn [deets]
+                ;; TODO - At this point this is probably best as a map ..
+                ;; TODO - We could also include the potential total count this purchase would bring to the prop
+                [(-> deets :def :group-name)
+                 (-> deets :def :name)
+                 (-> deets :def :house-price)])))))
 
 (defn can-buy-house?
   "Given a game-state, return wether or not the
@@ -281,6 +291,7 @@
      (and (< 0 (count potential))
           (>= cash (nth cheapest 2)))))
   ;; 2-Arity, check single property
+  ;; TODO - There's a lot of duplication in these impls
   ([game-state prop-name]
    (let [{player-id :id
           cash      :cash} (current-player game-state)
