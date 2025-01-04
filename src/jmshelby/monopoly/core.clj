@@ -595,6 +595,11 @@
 
   (def temp (atom nil))
 
+  (def sim (->> (init-game-state 4)
+                (iterate advance-board )
+                (take 1000 )
+                last))
+
   (as-> (init-game-state 4) *
     (iterate advance-board *)
     (take 1000 *)
