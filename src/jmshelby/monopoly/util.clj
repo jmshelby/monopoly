@@ -60,8 +60,8 @@
        cycle
        ;; Find current player
        (drop-while #(not= (:id %) (:player current-turn)))
-       ;; Only active, non-mortgaged, players
-       (filter #(= (:status %) :playing))
+       ;; Only active, non-bankrupt, players
+       (filter #(= :playing (:status %)))
        ;; Return next player ID
        fnext))
 

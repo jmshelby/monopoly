@@ -11,6 +11,9 @@
   {;; Static board definition for the game
    :board "[See definitions NS]"
 
+   ;; Game Status - playing | complete
+   :status :playing
+
    ;; The list of players, in their game play order,
    ;; and their current state in the game.
    ;; When a game starts, players will be randomly sorted
@@ -389,7 +392,7 @@
 (defn advance-board
   "Given game state, advance the board, by
   invoking player logic and applying decisions."
-  [{:keys [current-turn]
+  [{:keys [players current-turn]
     :as   game-state}]
 
   (let [;; Get current player function
@@ -398,22 +401,58 @@
          :keys     [cash status function]}
         (util/current-player game-state)]
 
-    ;; Basic bankrupt logic, before turn..
-    (if (or (= :bankrupt status) ;; probably don't need to check this?
-            (> 0 cash))
+    (cond
 
+      ;; Check if game is already complete
+      (= :complete (:status game-state))
+      (do (println "Game complete, can't advance further")
+          game-state)
+
+      ;; Check if it's time to end the game,
+      ;; only 1 active player left?
+      ;; TODO - is it possible for 0 to be left?
+      (->> players
+           (filter #(= :playing (:status %)))
+           count
+           (= 1))
+      (do (println "Only one active player left, marking game as complete")
+          (assoc game-state :status :complete))
+
+      ;; !!! Just in case !!! (TEMP)
+      ;; Check if it's time to end the game,
+      ;; no active player left?
+      ;; This shouldn't happen, but let's log if it does
+      (->> players
+           (filter #(= :playing (:status %)))
+           count
+           (= 0))
+      (do (println "!!Zero active players left, this shouldn't happen!!")
+          (assoc game-state :status :complete))
+
+      ;; Basic bankrupt logic, before turn..
       ;; If the player is out of money,
       ;; take them out of rotation (bankrupt)
       ;; and move on to next player
+      (or (= :bankrupt status) ;; probably don't need to check this? If I remove it, there's an endless loop
+          (> 0 cash))
       (do
         (println "Need to bankrupt player:" player-id)
         (-> game-state
-            (assoc-in [:players pidx :status] :bankrupt)
+            ;; Move to next player FIRST
+            ;; (we can get caught in a loop if we don't do this right)
+            apply-end-turn
+            ;; Then mark player with bankrupt status
             ;; TODO - transaction?
-            apply-end-turn))
+            (assoc-in [:players pidx :status] :bankrupt)))
 
-      ;; If they have cash, proceed with regular player turn
-      (let [;; Basic/jumbled for now, long lets nested ifs...
+      ;; If they have cash, and it's not time to end the train
+      ;; proceed with regular player turn
+      :else
+      (let [_          (println "Player turn logic:" player-id
+                                "players left: " (->> players
+                                                      (filter #(= :playing (:status %)))
+                                                      count) )
+            ;; Basic/jumbled for now, long lets nested ifs...
             ;; TODO - need to add other actions soon, and this logic
             ;;        _could_ blow up, need another fn
             last-roll  (->> current-turn :dice-rolls last)
@@ -466,8 +505,9 @@
 
           ;; TODO - detect if player is stuck in loop?
           ;; TODO - player is taking too long?
-          )))
+          ))
 
+      )
     ))
 
 ;; Remaining Logic
@@ -523,16 +563,11 @@
 
   (def sim (rand-game-state 4 1000))
 
-  (->> sim
-       util/owned-property-details
-       )
-
   (->> (rand-game-state 4 1000)
        ;; :transactions
        ;; (filter #(= :payment (:type %)))
        ;; (remove #(= :bank (:from %)))
        )
-
 
   (as-> (rand-game-state 4 500) *
 
