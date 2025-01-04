@@ -551,11 +551,16 @@
   (let [;; Get current player function
         {:keys [function]} (current-player game-state)
         ;; Simple for now, just roll and done actions available
-        ;; TODO - need to add other actions soon
+        ;; TODO - need to add other actions soon, and this logic
+        ;;        _could_ blow up, need another fn
         last-roll          (->> current-turn :dice-rolls last)
         can-roll?          (or (nil? last-roll)
                                (and (vector? last-roll)
                                     (apply = last-roll)))
+        ;; Impl/Notes:
+        ;; - Of the (a) paid (b) street properties that (c) have a monopoly, is the total group house count less than [5 * group count]?
+        ;; - Of all the potential places to buy a house (foreach prop owned, how many more houses can be built, represented by a dollar amount), is the cheapest one in the player's affordability?
+        ;; can-buy-house?     (house-potential)
         actions            (set (vector :done (when can-roll? :roll)))
         ;; Start right away by invoking players turn
         ;; method, to get next response/decision
@@ -678,6 +683,48 @@
     )
 
 
+  ;; - Of the (a) paid (b) street properties that (c) have a monopoly,
+  ;;   is the total group house count less than [5 * group count]?
+
+  ;; - Of all the potential places to buy a house
+  ;;   (foreach prop owned, how many more houses can be built, represented by a dollar amount),
+  ;;   is the cheapest one in the player's affordability?
+
+  ;; Caveats
+  ;; - You need to build houses across props evenly
+  ;;   - Can't build more than 1+(sister prop with least amount of house count)
+  ;; - There is a certain "stock" or "inventory" of houses and
+  ;;   hotels, that is allowed to be bought from the bank,
+  ;;   and be in play at a given time
+  ;;   - This logic isn't implemented at this moment
+  ;; - Are hotels any different from houses?
+  ;;   - In this engine, a hotel is just the last house that can be bought..
+  ;;   - The only difference _will_ be, when implementing the building inventory logic
+
+  (let [;; Just pull some details out
+        {:keys [board players
+                current-turn]
+         :as   game-state} sim
+        player             (current-player game-state)
+        player-id          (:id player)
+        potential          (->> game-state
+                                owned-property-details
+                                (map second)
+                                (filter #(= player-id (:owner %)))
+                                (filter #(= :paid (:status %)))
+                                (filter :group-monopoly?)
+                                (filter #(> 5 (:house-count %)))
+                                (mapcat (fn [deets]
+                                          ;; Expand potential house purchases
+                                          (repeat (- 5 (:house-count deets))
+                                                  ;; TODO - we could also include the potential total count this purchase would bring to the prop
+                                                  [(-> deets :def :group-name)
+                                                   (-> deets :def :name)
+                                                   (-> deets :def :house-price)]))))
+
+        ]
+    potential
+    )
 
 
   )
