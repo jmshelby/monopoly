@@ -246,8 +246,7 @@
                             (->> board :properties
                                  (filter #(= (:name %) (:name current-cell)))
                                  first))
-        taken          (util/owned-properties game-state)
-        ]
+        taken          (util/owned-properties game-state)]
     ;; Either process initial property purchase, or auction off
     (if (and
           ;; We're on an actual property
@@ -287,9 +286,11 @@
   (like needing more money, bankrupcies/acquisitions, etc)"
   [{:keys [board players]
     :as   game-state}]
-  ;; Thought - implement as loop / trampoline?
 
-  ;; TEMP - Simple logic to start...
+  ;; THOUGHT - implement as loop / trampoline?
+  ;; THOUGHT - Can we produce an ordered transaction list, and the caller can apply it to game-state?
+
+  ;; TEMP - Basic/messy impl to start ...
   (let [;; Get current player info
         player         (util/current-player game-state)
         player-id      (:id player)
@@ -300,10 +301,13 @@
         new-roll       (util/roll-dice 2)
         new-cell       (next-cell game-state (apply + new-roll) old-cell)
         ;; Check for allowance
+        ;; If the old cell index is GT the new,
+        ;; then we've looped around, easy
         allowance      (get-in board [:cells 0 :allowance])
         with-allowance (when (> old-cell new-cell)
                          (+ player-cash allowance))
-        ;; Update State
+
+        ;; Initial state update, things that have to happen
         new-state
         (cond-> game-state
           ;; Save current new roll
@@ -315,66 +319,70 @@
           ;; Check if we've passed/landed on go, for allowance payout
           ;; TODO - could probably refactor this
           with-allowance
-          (assoc-in [:players pidx :cash] with-allowance))]
-    (let [;; Pay rent if needed
-          rent-owed (util/rent-owed? new-state)
-          tax-owed  (tax-owed? new-state)
-          ;; TODO - yikes, getting messy, impl dispatch by cell type
-          new-state (if-not rent-owed
-                      ;; No rent, check for tax
-                      (if tax-owed
-                        ;; Peform tax transfer
-                        (update-in new-state [:players pidx :cash] - tax-owed)
-                        ;; Nothing else do
-                        new-state)
-                      ;; Perform rent transfer
-                      (-> new-state
-                          ;; Take from current player
-                          (update-in [:players pidx :cash] - (second rent-owed))
-                          ;; Give to owner
-                          (update-in [:players
-                                      ;; Get the player index of owed player
-                                      ;; TODO - this could probably be refactored
-                                      (->> players
-                                           (map-indexed vector)
-                                           (filter #(= (:id (second %))
-                                                       (first rent-owed)))
-                                           first first)
-                                      :cash]
-                                     + (second rent-owed))))
-          ;; Add transactions
-          txactions
-          (keep identity
-                [{:type       :roll
-                  :player     player-id
-                  :player-idx pidx
-                  :roll       new-roll}
-                 {:type        :move
-                  :player      player-id
-                  :player-idx  pidx
-                  :before-cell old-cell
-                  :after-cell  new-cell}
-                 (when with-allowance
-                   {:type   :payment
-                    :from   :bank
-                    :to     player-id
-                    :amount allowance
-                    :reason :allowance})
-                 (when tax-owed
-                   {:type   :payment
-                    :from   player-id
-                    :to     :bank
-                    :amount tax-owed
-                    :reason :tax})
-                 (when rent-owed
-                   {:type   :payment
-                    :from   player-id
-                    :to     (first rent-owed)
-                    :amount (second rent-owed)
-                    :reason :rent})])]
-      ;; Add transactions, before returning
-      ;; TODO - Had to comp with vec to keep it a vector ... can we make this look better?
-      (update new-state :transactions (comp vec concat) (vec txactions))))
+          (assoc-in [:players pidx :cash] with-allowance))
+
+        ;; Check if any payments are needed
+        rent-owed (util/rent-owed? new-state)
+        tax-owed  (tax-owed? new-state)
+
+        ;; Next state update, make needed payments
+        ;; TODO - yikes, getting messy, impl dispatch by cell type
+        new-state (if-not rent-owed
+                    ;; No rent, check for tax
+                    (if tax-owed
+                      ;; Peform tax transfer
+                      (update-in new-state [:players pidx :cash] - tax-owed)
+                      ;; Nothing else do
+                      new-state)
+                    ;; Perform rent transfer
+                    (-> new-state
+                        ;; Take from current player
+                        (update-in [:players pidx :cash] - (second rent-owed))
+                        ;; Give to owner
+                        (update-in [:players
+                                    ;; Get the player index of owed player
+                                    ;; TODO - this could probably be refactored
+                                    (->> players
+                                         (map-indexed vector)
+                                         (filter #(= (:id (second %))
+                                                     (first rent-owed)))
+                                         first first)
+                                    :cash]
+                                   + (second rent-owed))))
+
+        ;; Assemble transactions
+        txactions (keep identity
+                        [{:type       :roll
+                          :player     player-id
+                          :player-idx pidx
+                          :roll       new-roll}
+                         {:type        :move
+                          :player      player-id
+                          :player-idx  pidx
+                          :before-cell old-cell
+                          :after-cell  new-cell}
+                         (when with-allowance
+                           {:type   :payment
+                            :from   :bank
+                            :to     player-id
+                            :amount allowance
+                            :reason :allowance})
+                         (when tax-owed
+                           {:type   :payment
+                            :from   player-id
+                            :to     :bank
+                            :amount tax-owed
+                            :reason :tax})
+                         (when rent-owed
+                           {:type   :payment
+                            :from   player-id
+                            :to     (first rent-owed)
+                            :amount (second rent-owed)
+                            :reason :rent})])]
+
+    ;; Add transactions, before returning
+    ;; TODO - Had to comp with vec to keep it a vector ... can we make this look better?
+    (update new-state :transactions (comp vec concat) (vec txactions)))
 
   ;; - Validate that current player *can* roll
 
@@ -425,8 +433,7 @@
     :as   game-state}]
 
   (let [;; Get current player function
-        {pidx      :player-index
-         player-id :id
+        {player-id :id
          :keys     [cash status function]}
         (util/current-player game-state)]
 
@@ -552,7 +559,7 @@
          (fn [{:keys [status transactions]}]
            (and (= :playing status)
                 ;; Some arbitrary limit
-                (> 2000 (count transactions)))))
+                (> 3000 (count transactions)))))
        first))
 
 (comment
@@ -564,7 +571,6 @@
   (rand-game-end-state 4)
 
   (def sim (rand-game-state 4 1))
-
 
   (as-> sim *
     (iterate advance-board *)

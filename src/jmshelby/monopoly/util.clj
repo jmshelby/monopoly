@@ -80,6 +80,7 @@
 
 (defn owned-properties
   "Given a game-state, return the set of owned property ids/names"
+  ;; TODO - Ignore bankrupt players?
   [game-state]
   (->> game-state :players
        (mapcat :properties)
@@ -95,18 +96,19 @@
   [{:keys [board]
     :as   game-state}]
   (let [;; Prep static aggs
-        street-group->count (street-group-counts board)
+        street-group->count
+        (street-group-counts board)
         ;; First pass, basic assembly of info
-        props               (mapcat (fn [player]
-                                      (map (fn [[prop-name owner-state]]
-                                             [prop-name
-                                              (assoc owner-state
-                                                     :owner (:id player)
-                                                     :def (->> board :properties
-                                                               (filter #(= prop-name (:name %)))
-                                                               first))])
-                                           (:properties player)))
-                                    (:players game-state))]
+        props (mapcat (fn [player]
+                        (map (fn [[prop-name owner-state]]
+                               [prop-name
+                                (assoc owner-state
+                                       :owner (:id player)
+                                       :def (->> board :properties
+                                                 (filter #(= prop-name (:name %)))
+                                                 first))])
+                             (:properties player)))
+                      (:players game-state))]
     ;; Derive/Attach monopoly status to each street type
     (->> props
          (map (fn [[prop-name deets]]
