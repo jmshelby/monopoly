@@ -147,6 +147,34 @@
     ;; Just return this state
     initial-state))
 
+(defn- simple-bankupt-player
+  "Apply simple bankruptcy logic to player in game state.
+  Remove houses from properties, remove properties, making
+  them available back to bank and to other players.
+  Finally mark player status as bankrupt."
+  [{:keys [players]
+    :as   game-state}
+   player-id]
+  (let [player
+        (->> players
+             ;; Attach ordinal
+             (map-indexed (fn [idx p] (assoc p :player-index idx)))
+             (filter #(= (:id %) player-id))
+             first)
+        pidx (:player-index player)]
+    (-> game-state
+        ;; Remove all properties, this is like giving back
+        ;; to the bank, freeing up for others to buy
+        (assoc-in [:players pidx :properties] {})
+        ;; Final marker
+        (assoc-in [:players pidx :status] :bankrupt)
+        ;; Transaction, just a single one for this basic->bank style
+        (update :transactions conj
+                {:type       :bankruptcy
+                 :player     player-id
+                 :properties (:properties player)
+                 :acquistion [:basic :bank]}))))
+
 (defn apply-end-turn
   "Given a game state, advance board, changing
   turns to the next active player in line."
@@ -434,7 +462,7 @@
       ;; If the player is out of money,
       ;; take them out of rotation (bankrupt)
       ;; and move on to next player
-      (or (= :bankrupt status) ;; probably don't need to check this? If I remove it, there's an endless loop
+      (or (= :bankrupt status) ;; probably don't need to check this?
           (> 0 cash))
       (do
         (println "Need to bankrupt player:" player-id)
@@ -442,9 +470,8 @@
             ;; Move to next player FIRST
             ;; (we can get caught in a loop if we don't do this right)
             apply-end-turn
-            ;; Then mark player with bankrupt status
-            ;; TODO - transaction?
-            (assoc-in [:players pidx :status] :bankrupt)))
+            ;; Then process bankruptcy workflow
+            (simple-bankupt-player player-id)))
 
       ;; If they have cash, and it's not time to end the train
       ;; proceed with regular player turn
@@ -534,6 +561,8 @@
        ;; :properties
        )
 
+  (rand-game-end-state 4)
+
   (def sim (rand-game-state 4 1))
 
 
@@ -541,7 +570,7 @@
     (iterate advance-board *)
     (nth * 201)
     ;; (:transactions *)
-    (:players *)
+    ;; (:players *)
     )
 
   (->> (rand-game-state 4 1000)

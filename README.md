@@ -17,9 +17,9 @@ Monopoly Game Engine + Pluggable Player API
  - House Buying
  - [Simple] Player "lose" logic
    - When player is out of money, take them out of the game
+ - Require "even" and distributed house building
  ---------------------------
 #### Remaining Logic
- - Require "even" and distributed house building
  - Go to Jail
    - "go to jail" cell/spot
    - Roll 3 consecutive doubles, "got to jail"
