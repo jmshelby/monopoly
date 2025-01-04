@@ -260,45 +260,39 @@
 (defn can-buy-house?
   "Given a game-state, return wether or not the
   current player is in the position to buy a house or not [bool].
-  Considers all game rules, along with current liquid cash."
-  [game-state]
-  (let [{player-id :id
-         cash      :cash} (current-player game-state)
-        potential         (->> game-state
-                               owned-property-details
-                               (map second)
-                               (filter #(= player-id (:owner %)))
-                               potential-house-purchases)
-        cheapest          (->> potential
-                               (sort-by #(nth % 2))
-                               first)]
-    ;; Can they afford the cheapest single potential purchase?
-    (>= cash (nth cheapest 2))))
+  Considers all game rules, along with current liquid cash.
 
-(comment
-  (let [;; Just pull some details out
-        {:keys [board players
-                current-turn]
-         :as   game-state} {} ;; *sim* ... when I was prototyping
-        player             (current-player game-state)
-        player-id          (:id player)
-        potential          (->> game-state
+  Optionally provide a property ID/name, to determine if a house
+  can be purchased on that property, by the current player."
+  ;; 1-Arity, any potential property
+  ([game-state]
+   (let [{player-id :id
+          cash      :cash} (current-player game-state)
+         potential         (->> game-state
                                 owned-property-details
                                 (map second)
                                 (filter #(= player-id (:owner %)))
-                                (filter #(= :paid (:status %)))
-                                (filter :group-monopoly?)
-                                (filter #(> 5 (:house-count %)))
-                                (mapcat (fn [deets]
-                                          ;; Expand potential house purchases
-                                          (repeat (- 5 (:house-count deets))
-                                                  ;; TODO - we could also include the potential total count this purchase would bring to the prop
-                                                  [(-> deets :def :group-name)
-                                                   (-> deets :def :name)
-                                                   (-> deets :def :house-price)]))))
-        ;; TODO - Useful fns based on this input
-        ;;        - Filter, in order, which potential purchases can be afforded with $x dollars
-
-        ]
-    potential
-    ))
+                                potential-house-purchases)
+         cheapest          (->> potential
+                                (sort-by #(nth % 2))
+                                first)]
+     ;; Do they have purchase potential, and can they
+     ;; afford the cheapest single potential purchase?
+     (and (< 0 (count potential))
+          (>= cash (nth cheapest 2)))))
+  ;; 2-Arity, check single property
+  ([game-state prop-name]
+   (let [{player-id :id
+          cash      :cash} (current-player game-state)
+         potential         (->> game-state
+                                owned-property-details
+                                (map second)
+                                (filter #(= player-id (:owner %)))
+                                potential-house-purchases)
+         single-prop       (->> potential
+                                (filter #(= prop-name (second %)))
+                                first)]
+     ;; Can they build on this single property,
+     ;; and can they afford it?
+     (and single-prop
+          (>= cash (nth single-prop 2))))))
