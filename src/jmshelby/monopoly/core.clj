@@ -209,7 +209,7 @@
       ;; TODO - what to do if def doesn't include required info?
       (and monopoly?
            (< 0 houses))
-      (nth house-rent (nth (dec houses)))
+      (nth house-rent (dec houses))
       ;; Monoply, no houses
       monopoly? group-rent
       ;; Base rent rate
@@ -259,8 +259,9 @@
     (when (and
             ;; ..is on an owned property
             owned-prop
+            ;; ..is paid, not morgaged
+            (= :paid (:status owned-prop))
             ;; ..is owned by someone else
-            ;; TODO - Check mortgaged status
             (not= (:owner owned-prop)
                   (:id player)))
       ;; Return the owner ID and rent amount owed
