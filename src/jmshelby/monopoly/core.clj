@@ -18,23 +18,26 @@
    ;; and their current state in the game.
    ;; When a game starts, players will be randomly sorted
    :players [{;; Probably some auto-generated one
-              :id                  "some-uuid"
+              :id             "some-uuid"
               ;; Status, playing/bankrupt
-              :status              :playing
+              :status         :playing
               ;; Current amount of money on hand
-              :cash                1
+              :cash           1
               ;; Special card collection, current set
-              :cards               [:get-out-of-jail-free]
+              :cards          [:get-out-of-jail-free]
               ;; Which cell on the board are they currently in
-              :cell-residency      0
-              ;; Number of consecutive doubles, current count
-              :consecutive-doubles 2
-              ;; If on jail cell (haha), visiting or incarcerated
-              ;; TODO - should we just track :incarcerated?
-              :jail-status         :visiting-OR-incarcerated-OR-nil-for-none
+              :cell-residency 0
+              ;; If on jail cell (haha), and incarcerated,
+              ;; track stats on stay
+              :jail-spell     {:cause?     "[optional] how did they end up in jail"
+                               :periods?   "[optional] turns; rounds; .. each attempt to get out with a double"
+                               ;; While in jail, the dice roll attempts
+                               ;; made to get a double, one for each
+                               ;; turn only 3 max are allowed
+                               :dice-rolls []}
               ;; The current set of owned "properties", and current state
-              :properties          {:park-place {:status      :paid-OR-mortgaged
-                                                 :house-count 0}}}]
+              :properties     {:park-place {:status      :paid-OR-mortgaged
+                                            :house-count 0}}}]
 
    ;; Separately, track what is going on with the current "turn".
    ;; At any given type there is always a single player who's turn it is,
@@ -383,15 +386,6 @@
     ;; Add transactions, before returning
     ;; TODO - Had to comp with vec to keep it a vector ... can we make this look better?
     (update new-state :transactions (comp vec concat) (vec txactions)))
-
-  ;; - Validate that current player *can* roll
-
-  ;; - Get random dice pair roll result
-  ;;   - If double rolled, inc consecutive-doubles
-  ;;     - If consecutive-double == 3...
-  ;;       -> [Perform jail workflow]
-
-  ;; - Increment cell residency + dice roll sum
 
   ;; NOTE - The below can/should be categorized based on the cell "type",
   ;;        and then further categorized for "properties", based on their types
