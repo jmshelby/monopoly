@@ -449,29 +449,73 @@
 
     ))
 
+;; Remaining Logic
+;; - [Simple] Player "lose" logic
+;;   - When player is out of money, take them out of the game
+;; - Require "even" and distributed house building
+;; - Go to Jail
+;;   - "go to jail" cell/spot
+;;   - Roll 3 consecutive doubles, "got to jail"
+;;   - "go to jail" card
+;; - In Jail
+;;   - Pay $X to get out
+;;   - Roll double dice to get out
+;;   - [Force out, after being in jail a certain amount of time?]
+;;   - "Get out of jail free" card
+;; - Cards
+;;   - Chance
+;;   - Community Chest
+;;   - Keepable cards
+;;     - With current rules, it's only "get out of jail free cards"
+;; - Proposals
+;;   - On player turn action
+;;     - offer workflow
+;;   - Counter offer workflow
+;; - [Full] Player "lose" logic
+;;   - detect if bankrupt
+;;     - Acquisition workflow to owed party (if not bank)
+;;   - force sell off, "raise funds" workflow
+;; - Mortgage/Un-mortgage
+;;   - On player turn action
+;;   - on "raise funds" workflow
+;; - Sell House
+;;   - On player turn action
+;;   - On "raise funds" workflow
+;; - Auction of property (when purchased denied/unable)
+;;   - [still need to figure out a good way to do this]
+
+
+
+(defn rand-game-state
+  "Return a game state, with # of given players, as of the given, nth iteration"
+  [players n]
+  (->> (init-game-state players)
+       (iterate advance-board)
+       (take n)
+       last))
+
 (comment
 
-  (def temp (atom nil))
-
-  (def sim (->> (init-game-state 4)
-                (iterate advance-board )
-                (take 1000 )
-                last))
-
-  (as-> (init-game-state 3) *
-    (iterate advance-board *)
-    (take 1000 *)
-    (last *)
-    ;; (:transactions *)
-    ;; (filter #(= :payment (:type %)) *)
-    ;; (remove #(= :bank (:from %)) *)
-    )
+  (->> defs/board
+       ;; :properties
+       )
 
 
-  (as-> (init-game-state 4) *
-    (iterate advance-board *)
-    (take 500 *)
-    (last *)
+  (def sim (rand-game-state 4 1000))
+
+  (->> sim
+       util/owned-property-details
+       )
+
+
+  (->> (rand-game-state 4 1000)
+       ;; :transactions
+       ;; (filter #(= :payment (:type %)))
+       ;; (remove #(= :bank (:from %)))
+       )
+
+
+  (as-> (rand-game-state 4 500) *
 
     ;; Player property count
     ;; (:players *)
@@ -480,60 +524,10 @@
     ;;        ) *)
 
     ;; Player cash
-    ;; (map #(select-keys % [:id :cash]) *)
+    (:players *)
+    (map #(select-keys % [:id :cash]) *)
 
     )
-
-
-  (util/owned-property-details @temp)
-
-
-  (->> @temp
-       util/owned-property-details
-       )
-
-  (->> (init-game-state 4)
-       util/owned-property-details
-       )
-
-  (next-cell {:board defs/board}
-             30 12)
-
-  (->> defs/board
-       ;; :properties
-       )
-
-  (keep identity [1 nil 2 3 4 nil])
-
-
-  (let [state
-        {:players [{:properties {:one {} :three {}}}
-                   {:properties {}}
-                   {:properties {:five {}}}
-                   {:properties {}}
-                   {:properties {:nine {}}}
-                   ]}]
-    (->> state :players
-         (mapcat :properties)
-         (map key) set
-         )
-    )
-
-
-  ;; Test rent calc logic
-  (let [d     [6 1]
-        state (->> (init-game-state 4)
-                   (iterate advance-board)
-                   (take 1000)
-                   last)
-        ;; state @temp
-        props (util/owned-property-details state)
-        ]
-    ;; (calculate-rent :reading-railroad props d)
-    ;; (calculate-rent :electric-company props d)
-    (util/calculate-rent :boardwalk props d)
-    )
-
 
 
   )
