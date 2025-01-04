@@ -426,8 +426,6 @@
     ;;           - for $50
     ;;           - for single get out of jail card
 
-    (println "player decision action: " (-> decision :action))
-
     (case (:action decision)
       ;; Player done, end turn, advance to next player
       :done      (apply-end-turn game-state)
@@ -460,9 +458,9 @@
                 (take 1000 )
                 last))
 
-  (as-> (init-game-state 2) *
+  (as-> (init-game-state 3) *
     (iterate advance-board *)
-    (take 500 *)
+    (take 1000 *)
     (last *)
     ;; (:transactions *)
     ;; (filter #(= :payment (:type %)) *)
