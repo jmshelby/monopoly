@@ -151,7 +151,8 @@
       ;; Remove dice rolls
       (assoc-in [:current-turn :dice-rolls] [])
       ;; Get/Set next player ID
-      (assoc-in [:current-turn :player] (-> game-state util/next-player :id))))
+      (assoc-in [:current-turn :player]
+                (-> game-state util/next-player :id))))
 
 (defn apply-house-purchase
   "Given a game state and property, apply purchase of a single house
@@ -392,60 +393,76 @@
     :as   game-state}]
 
   (let [;; Get current player function
-        {:keys [function]} (util/current-player game-state)
-        ;; Basic/jumbled for now, long lets nested ifs...
-        ;; TODO - need to add other actions soon, and this logic
-        ;;        _could_ blow up, need another fn
-        last-roll          (->> current-turn :dice-rolls last)
-        can-roll?          (or (nil? last-roll)
-                               (and (vector? last-roll)
-                                    (apply = last-roll)))
-        can-build?         (util/can-buy-house? game-state)
-        actions            (->> (vector
-                                  ;; TODO - Need to force certain number of rolls before :done can be available
-                                  :done
-                                  ;; TODO - Need to take jail into account
-                                  (when can-roll? :roll)
-                                  ;; House building
-                                  (when can-build? :buy-house))
-                                (filter identity)
-                                set)
-        ;; Start right away by invoking players turn
-        ;; method, to get next response/decision
-        decision           (function game-state :take-turn {:actions-available actions})
+        {pidx  :player-index
+         :keys [cash status function]}
+        (util/current-player game-state)]
 
-        ;; TODO - validation, derive possible player actions
-        ;;        * if invalid response, log it, and replace with simple/dumb operation
-        ;;          - roll/decline/end-turn, etc..
+    ;; Basic bankrupt logic, before turn..
+    (if (or (= :bankrupt status) ;; probably don't need to check this?
+            (> 0 cash))
 
-        ]
+      ;; If the player is out of money,
+      ;; take them out of rotation (bankrupt)
+      ;; and move on to next player
+      (-> game-state
+          (assoc-in [:players pidx :status] :bankrupt)
+          apply-end-turn)
 
-    ;; TODO - Different actions/logic when in jail?
-    ;;         * maybe just after dice rolls, looking for doubles
-    ;;         * When sending list of available actions, we can now offer get "out of jail"
-    ;;           - for $50
-    ;;           - for single get out of jail card
+      ;; If they have cash, proceed with regular player turn
+      (let [;; Basic/jumbled for now, long lets nested ifs...
+            ;; TODO - need to add other actions soon, and this logic
+            ;;        _could_ blow up, need another fn
+            last-roll  (->> current-turn :dice-rolls last)
+            can-roll?  (or (nil? last-roll)
+                           (and (vector? last-roll)
+                                (apply = last-roll)))
+            can-build? (util/can-buy-house? game-state)
+            actions    (->> (vector
+                              ;; TODO - Need to force certain number of rolls before :done can be available
+                              :done
+                              ;; TODO - Need to take jail into account
+                              (when can-roll? :roll)
+                              ;; House building
+                              (when can-build? :buy-house))
+                            (filter identity)
+                            set)
+            ;; Start right away by invoking players turn
+            ;; method, to get next response/decision
+            decision   (function game-state :take-turn {:actions-available actions})
 
-    (case (:action decision)
-      ;; Player done, end turn, advance to next player
-      :done      (apply-end-turn game-state)
-      ;; Roll Dice
-      :roll      (-> game-state
-                     ;; Do the roll and move
-                     apply-dice-roll
-                     ;; Check and give option to buy property
-                     apply-property-option)
-      ;; Buy house(s)
-      :buy-house (apply-house-purchase
-                   game-state
-                   (:property-name decision))
-      ;; TODO - Sell house(s)
-      ;; TODO - Make offer
-      ;; TODO - Mortgage/un-mortgage
+            ;; TODO - validation, derive possible player actions
+            ;;        * if invalid response, log it, and replace with simple/dumb operation
+            ;;          - roll/decline/end-turn, etc..
 
-      ;; TODO - detect if player is stuck in loop?
-      ;; TODO - player is taking too long?
-      )
+            ]
+
+
+        ;; TODO - Different actions/logic when in jail?
+        ;;         * maybe just after dice rolls, looking for doubles
+        ;;         * When sending list of available actions, we can now offer get "out of jail"
+        ;;           - for $50
+        ;;           - for single get out of jail card
+
+        (case (:action decision)
+          ;; Player done, end turn, advance to next player
+          :done      (apply-end-turn game-state)
+          ;; Roll Dice
+          :roll      (-> game-state
+                         ;; Do the roll and move
+                         apply-dice-roll
+                         ;; Check and give option to buy property
+                         apply-property-option)
+          ;; Buy house(s)
+          :buy-house (apply-house-purchase
+                       game-state
+                       (:property-name decision))
+          ;; TODO - Sell house(s)
+          ;; TODO - Make offer
+          ;; TODO - Mortgage/un-mortgage
+
+          ;; TODO - detect if player is stuck in loop?
+          ;; TODO - player is taking too long?
+          )))
 
     ))
 
