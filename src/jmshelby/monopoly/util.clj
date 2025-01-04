@@ -56,12 +56,12 @@
   (->> players
        ;; Attach ordinal
        (map-indexed (fn [idx p] (assoc p :player-index idx)))
-       ;; Only active, non-mortgaged, players
-       (filter #(= (:status %) :playing))
        ;; Round Robin
        cycle
        ;; Find current player
        (drop-while #(not= (:id %) (:player current-turn)))
+       ;; Only active, non-mortgaged, players
+       (filter #(= (:status %) :playing))
        ;; Return next player ID
        fnext))
 

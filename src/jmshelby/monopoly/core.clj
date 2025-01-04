@@ -393,8 +393,9 @@
     :as   game-state}]
 
   (let [;; Get current player function
-        {pidx  :player-index
-         :keys [cash status function]}
+        {pidx      :player-index
+         player-id :id
+         :keys     [cash status function]}
         (util/current-player game-state)]
 
     ;; Basic bankrupt logic, before turn..
@@ -404,9 +405,12 @@
       ;; If the player is out of money,
       ;; take them out of rotation (bankrupt)
       ;; and move on to next player
-      (-> game-state
-          (assoc-in [:players pidx :status] :bankrupt)
-          apply-end-turn)
+      (do
+        (println "Need to bankrupt player:" player-id)
+        (-> game-state
+            (assoc-in [:players pidx :status] :bankrupt)
+            ;; TODO - transaction?
+            apply-end-turn))
 
       ;; If they have cash, proceed with regular player turn
       (let [;; Basic/jumbled for now, long lets nested ifs...
@@ -517,13 +521,11 @@
        ;; :properties
        )
 
-
   (def sim (rand-game-state 4 1000))
 
   (->> sim
        util/owned-property-details
        )
-
 
   (->> (rand-game-state 4 1000)
        ;; :transactions
