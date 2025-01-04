@@ -153,6 +153,48 @@
       ;; Get/Set next player ID
       (assoc-in [:current-turn :player] (-> game-state util/next-player :id))))
 
+(defn apply-house-purchase
+  "Given a game state and property, apply purchase of a single house
+  for current player on given property. Validates and throws if house
+  purchase is not allowed by game rules."
+  [game-state property-name]
+  (let [{player-id :id
+         pidx      :player-index}
+        (util/current-player game-state)
+        ;; Get property definition
+        property (->> game-state :board :properties
+                      (filter #(= :street (:type %)))
+                      (filter #(= property-name (:name %)))
+                      first)]
+
+    ;; Validation
+    ;; TODO - Should this be done by the caller?
+    (when-not (util/can-buy-house? game-state property-name)
+      (throw (ex-info "Player decision not allowed"
+                      {:action   :buy-house
+                       :player   player-id
+                       :property property-name
+                       ;; TODO - could be: prop not purchased; no
+                       ;;        monopoly; house even distribution
+                       ;;        violation; cash; etc ...
+                       :reason   :unspecified})))
+
+    ;; Apply the purchase
+    (-> game-state
+        ;; Inc house count in player's owned collection
+        (update-in [:players pidx :properties
+                    property-name :house-count]
+                   inc)
+        ;; Subtract money
+        (update-in [:players pidx :cash]
+                   - (:house-price property))
+        ;; Track transaction
+        (update :transactions conj
+                {:type     :purchase-house
+                 :player   player-id
+                 :property property-name
+                 :price    (:house-price property)}))))
+
 (defn apply-property-option
   "Given a game state, check if current player is able to buy the property
   they are currently on, if so, invoke player decision logic to determine
@@ -384,20 +426,25 @@
     ;;           - for $50
     ;;           - for single get out of jail card
 
-    (case (-> decision :action)
+    (println "player decision action: " (-> decision :action))
+
+    (case (:action decision)
+      ;; Player done, end turn, advance to next player
+      :done      (apply-end-turn game-state)
       ;; Roll Dice
       :roll      (-> game-state
                      ;; Do the roll and move
                      apply-dice-roll
                      ;; Check and give option to buy property
                      apply-property-option)
+      ;; Buy house(s)
+      :buy-house (apply-house-purchase
+                   game-state
+                   (:property-name decision))
+      ;; TODO - Sell house(s)
       ;; TODO - Make offer
       ;; TODO - Mortgage/un-mortgage
-      ;; TODO - Buy houses
-      :buy-house game-state
-      ;; TODO - Sell houses
-      ;; Player done, end turn, advance to next player
-      :done      (apply-end-turn game-state)
+
       ;; TODO - detect if player is stuck in loop?
       ;; TODO - player is taking too long?
       )
@@ -413,7 +460,7 @@
                 (take 1000 )
                 last))
 
-  (as-> (init-game-state 4) *
+  (as-> (init-game-state 2) *
     (iterate advance-board *)
     (take 500 *)
     (last *)
