@@ -1,10 +1,9 @@
-# monopoly
+# Monopoly
 Monopoly Game Engine + Pluggable Player API
 
 ## Current Progress
 
- ==========================================
- ** Finished Logic **
+#### Finished Logic
  - Basic dice roll and move
  - Double dice roll goes again
  - Pass Go "allowance"
@@ -19,7 +18,7 @@ Monopoly Game Engine + Pluggable Player API
  - [Simple] Player "lose" logic
    - When player is out of money, take them out of the game
  ---------------------------
- ** Remaining Logic **
+#### Remaining Logic
  - Require "even" and distributed house building
  - Go to Jail
    - "go to jail" cell/spot
