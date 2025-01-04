@@ -510,9 +510,23 @@
       )
     ))
 
-;; Remaining Logic
+;; ==========================================
+;; ** Finished Logic **
+;; - Basic dice roll and move
+;; - Double dice roll goes again
+;; - Pass Go "allowance"
+;; - Tax payment due
+;; - Property Purchase option
+;; - Property Rent charge
+;;   - with full rules implemented by type
+;;     - street: monopoly; houses; hotel
+;;     - utility: monopoly; dice roll w/multiplier
+;;     - railroad: rent based on # owned
+;; - House Buying
 ;; - [Simple] Player "lose" logic
 ;;   - When player is out of money, take them out of the game
+;; ---------------------------
+;; ** Remaining Logic **
 ;; - Require "even" and distributed house building
 ;; - Go to Jail
 ;;   - "go to jail" cell/spot
