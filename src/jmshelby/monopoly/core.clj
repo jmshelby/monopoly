@@ -313,12 +313,14 @@
       game-state)))
 
 (defn apply-dice-roll
-  "Given a game state, advance board as if current player rolled dice.
-  This function could advance the board forward by more than 1 transaction/move,
+  "Given a game state and dice roll, advance board as
+  if current player rolled dice. This function could
+  advance the board forward by more than 1 transaction/move,
   if the move requires further actions from players,
   (like needing more money, bankrupcies/acquisitions, etc)"
   [{:keys [board players]
-    :as   game-state}]
+    :as   game-state}
+   new-roll]
 
   ;; THOUGHT - implement as loop / trampoline?
   ;; THOUGHT - Can we produce an ordered transaction list, and the caller can apply it to game-state?
@@ -330,8 +332,7 @@
         pidx           (:player-index player)
         player-cash    (:cash player)
         old-cell       (:cell-residency player)
-        ;; Start with a dice roll
-        new-roll       (util/roll-dice 2)
+        ;; Find next board position
         new-cell       (next-cell game-state (apply + new-roll) old-cell)
         ;; Check for allowance
         ;; If the old cell index is GT the new,
@@ -552,7 +553,7 @@
           ;; Roll Dice
           :roll      (-> game-state
                          ;; Do the roll and move
-                         apply-dice-roll
+                         (apply-dice-roll (util/roll-dice 2))
                          ;; Check and give option to buy property
                          apply-property-option)
           ;; Buy house(s)
@@ -597,11 +598,13 @@
        ;; :properties
        )
 
-  (rand-game-end-state 4)
+  (let [state (rand-game-end-state 4)]
+    [(:status state)
+     (-> state :transactions count)])
 
   (def sim (rand-game-state 4 1))
 
-  (->> (rand-game-state 4 200)
+  (->> (rand-game-state 4 300)
        ;; :transactions
        ;; (filter #(= :payment (:type %)))
        ;; (remove #(= :bank (:from %)))
