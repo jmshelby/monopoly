@@ -30,7 +30,6 @@
               ;; If on jail cell (haha), and incarcerated,
               ;; track stats on stay
               :jail-spell     {:cause?     "[optional] how did they end up in jail"
-                               :periods?   "[optional] turns; rounds; .. each attempt to get out with a double"
                                ;; While in jail, the dice roll attempts
                                ;; made to get a double, one for each
                                ;; turn only 3 max are allowed
@@ -160,7 +159,6 @@
    player-id]
   (let [player
         (->> players
-             ;; Attach ordinal
              (map-indexed (fn [idx p] (assoc p :player-index idx)))
              (filter #(= (:id %) player-id))
              first)
@@ -177,6 +175,38 @@
                  :player     player-id
                  :properties (:properties player)
                  :acquistion [:basic :bank]}))))
+
+(defn send-to-jail
+  "Given game state, move given player into an
+  incarcerated jail state. Also provide the cause
+  for why a player is being sent to jail."
+  [{:keys [board players]
+    :as   game-state}
+   player-id cause]
+  (let [{pidx     :player-index
+         old-cell :cell-residency}
+        (->> players
+             (map-indexed (fn [idx p] (assoc p :player-index idx)))
+             (filter #(= (:id %) player-id))
+             first)
+        new-cell (util/jail-cell-index board)]
+    (-> game-state
+        ;; Move player to jail spot
+        (assoc-in [:players pidx :cell-residency]
+                  new-cell)
+        ;; Set new jail key on player,
+        ;; to track jail workflow
+        (assoc-in [:players pidx :jail-spell]
+                  {:cause      cause
+                   :dice-rolls []})
+        ;; Transaction
+        (update :transactions conj
+                {:type        :move
+                 :driver      :incarceration
+                 :cause       cause
+                 :player      player-id
+                 :before-cell old-cell
+                 :after-cel   new-cell}))))
 
 (defn apply-end-turn
   "Given a game state, advance board, changing
@@ -306,6 +336,7 @@
         ;; Check for allowance
         ;; If the old cell index is GT the new,
         ;; then we've looped around, easy
+        ;; ! - this assumes GO is on cell 0, possibly okay...
         allowance      (get-in board [:cells 0 :allowance])
         with-allowance (when (> old-cell new-cell)
                          (+ player-cash allowance))
@@ -353,12 +384,22 @@
                                     :cash]
                                    + (second rent-owed))))
 
+        ;; Check for "go to jail" cell landing...
+        new-state (if (= :go-to-jail
+                         (get-in board [:cells new-cell :type]))
+                    ;; Send to jail
+                    (send-to-jail new-state player-id
+                                  [:cell :go-to-jail])
+                    ;; Nothing
+                    new-state)
+
         ;; Assemble transactions
         txactions (keep identity
                         [{:type   :roll
                           :player player-id
                           :roll   new-roll}
                          {:type        :move
+                          :driver      :roll
                           :player      player-id
                           :before-cell old-cell
                           :after-cell  new-cell}
@@ -492,16 +533,12 @@
                               (when can-build? :buy-house))
                             (filter identity)
                             set)
+
             ;; Start right away by invoking players turn
             ;; method, to get next response/decision
-            decision   (function game-state :take-turn {:actions-available actions})
-
-            ;; TODO - validation, derive possible player actions
-            ;;        * if invalid response, log it, and replace with simple/dumb operation
-            ;;          - roll/decline/end-turn, etc..
+            decision (function game-state :take-turn {:actions-available actions})
 
             ]
-
 
         ;; TODO - Different actions/logic when in jail?
         ;;         * maybe just after dice rolls, looking for doubles
@@ -564,14 +601,7 @@
 
   (def sim (rand-game-state 4 1))
 
-  (as-> sim *
-    (iterate advance-board *)
-    (nth * 201)
-    ;; (:transactions *)
-    ;; (:players *)
-    )
-
-  (->> (rand-game-state 4 1000)
+  (->> (rand-game-state 4 200)
        ;; :transactions
        ;; (filter #(= :payment (:type %)))
        ;; (remove #(= :bank (:from %)))

@@ -45,6 +45,16 @@
        (map (fn [[k coll]] [k (count coll)]))
        (into {})))
 
+(defn jail-cell-index
+  "Given a board definition, return the ordinal
+  index on the board of the \"jail\" type cell."
+  [board]
+  (->> board :cells
+       (map-indexed (fn [idx c]
+                      (assoc c :cell-index idx)))
+       (filter #(= :jail (:type %)))
+       first
+       :cell-index))
 
 ;; ======= Player Management ===================
 
