@@ -355,13 +355,11 @@
 
         ;; Assemble transactions
         txactions (keep identity
-                        [{:type       :roll
-                          :player     player-id
-                          :player-idx pidx
-                          :roll       new-roll}
+                        [{:type   :roll
+                          :player player-id
+                          :roll   new-roll}
                          {:type        :move
                           :player      player-id
-                          :player-idx  pidx
                           :before-cell old-cell
                           :after-cell  new-cell}
                          (when with-allowance
