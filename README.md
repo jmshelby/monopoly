@@ -18,16 +18,18 @@ Monopoly Game Engine + Pluggable Player API
  - [Simple] Player "lose" logic
    - When player is out of money, take them out of the game
  - Require "even" and distributed house building
+ - Go to Jail
+   - "go to jail" cell/spot
+ - In Jail
+   - Roll double dice to get out
+   - [Force out, after being in jail a certain amount of time?]
  ---------------------------
 #### Remaining Logic
  - Go to Jail
-   - "go to jail" cell/spot
    - Roll 3 consecutive doubles, "got to jail"
    - "go to jail" card
  - In Jail
-   - Pay $X to get out
-   - Roll double dice to get out
-   - [Force out, after being in jail a certain amount of time?]
+   - Pay $X to get out (partial)
    - "Get out of jail free" card
  - Cards
    - Chance

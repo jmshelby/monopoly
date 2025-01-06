@@ -220,51 +220,6 @@
       (assoc-in [:current-turn :player]
                 (-> game-state util/next-player :id))))
 
-(defn apply-jail-spell
-  "Given a game state and player jail specific action,
-  apply decision and all affects. This be as little as a
-  double dice roll attempt and staying in jail, to getting
-  out, moving spaces and landing on another which can cause
-  other side affects."
-  [game-state action]
-
-  ;; ?TODO? - should this validate that certain things can happen? like affording bail or having the bail card? or should the caller do that?
-
-  (let [player (util/current-player game-state)
-        pidx   (:player-index player)]
-    (case action
-      ;; Attempt roll for doubles
-      :jail/roll
-      (let [new-roll (roll-dice 2)]
-        (if (apply = new-roll)
-          ;; It's a double! Take out of jail,
-          ;; and apply as a regular dice roll
-          (-> game-state
-              (dissoc-in [:players pidx :jail-spell])
-              ;; TODO - Transactions?
-              (apply-dice-roll new-roll)
-              )
-          ;; Not a double, register roll
-          (-> game-state
-              ;; To both current, and jail spell records
-              (update-in [:current-turn :dice-rolls] conj new-roll)
-              (update-in [:players pidx :jail-spell :dice-rolls] conj new-roll)
-              )
-
-          )
-        )
-      ;; If you can afford it, pay to get out of jail,
-      ;; staying on the same cell
-      ;; TODO
-      :jail/bail      game-state
-      ;; If you have the card, use it to get out of jail,
-      ;; staying on the same cell
-      ;; TODO
-      :jail/bail-card game-state
-      ))
-
-  )
-
 (defn apply-house-purchase
   "Given a game state and property, apply purchase of a single house
   for current player on given property. Validates and throws if house
@@ -499,8 +454,85 @@
   ;;       - (This can result in another cell move; cash transaction...)
   ;;       * If insufficient funds, invoke forced negotiation workflow
 
-
   )
+
+(defn apply-jail-spell
+  "Given a game state and player jail specific action,
+  apply decision and all affects. This be as little as a
+  double dice roll attempt and staying in jail, to getting
+  out, moving spaces and landing on another which can cause
+  other side affects."
+  [game-state action]
+
+  ;; ?TODO? - Should this validate that certain things can happen?
+  ;;          like affording bail or having the bail card? or
+  ;;          should the caller do that?
+
+  (let [player    (util/current-player game-state)
+        player-id (:player-id player)
+        pidx      (:player-index player)]
+    (case action
+      ;; Attempt roll for doubles
+      :jail/roll
+      (let [new-roll (roll-dice 2)
+            ;; Which attempt num to roll out of jail
+            attempt  (-> player :jail-spell :dice-rolls count inc)]
+        (cond
+          ;; It's a double! Take out of jail,
+          ;; and apply as a regular dice roll
+          (apply = new-roll)
+          (-> game-state
+              (dissoc-in [:players pidx :jail-spell])
+              (update :transactions conj
+                      {:type   :bail
+                       :player player-id
+                       :means  [:roll :double new-roll]})
+              ;; TODO - Somehow need to signal that they don't get another
+              ;;        roll, because a double thrown while in jail doesn't
+              ;;        grant that priviledge
+              (apply-dice-roll new-roll)
+              ;; TODO - Should the apply-dice-roll fn just do this?
+              apply-property-option)
+
+          ;; Not a double, third attempt.
+          ;; Force bail payment, and move
+          (<= 3 attempt)
+          (-> game-state
+              (dissoc-in [:players pidx :jail-spell])
+              (update-in [:players pidx :cash] - 50)
+              (update :transactions conj
+                      {:type   :bail
+                       :player player-id
+                       :means  [:cash 50]})
+              (apply-dice-roll new-roll)
+              ;; TODO - Should the apply-dice-roll fn just do this?
+              apply-property-option)
+
+          ;; Not a double, register roll
+          :else
+          (-> game-state
+              ;; To both current, and jail spell records
+              (update-in [:current-turn :dice-rolls] conj new-roll)
+              (update-in [:players pidx :jail-spell :dice-rolls] conj new-roll))))
+
+      ;; If you can afford it, pay to get out of jail,
+      ;; staying on the same cell
+      :jail/bail
+      ;; TODO - this is quite duplicated code..
+      (-> game-state
+          (dissoc-in [:players pidx :jail-spell])
+          (update-in [:players pidx :cash] - 50)
+          (update :transactions conj
+                  {:type   :bail
+                   :player player-id
+                   :means  [:cash 50]}))
+
+      ;; If you have the card, use it to get out of jail,
+      ;; staying on the same cell
+      ;; TODO
+      :jail/bail-card game-state
+      ;; :means [:card :chance-or-community-chest]
+      )))
 
 (defn advance-board
   "Given game state, advance the board, by
@@ -565,18 +597,17 @@
             ;;        _could_ blow up, need another fn
             jail-spell (:jail-spell player)
             last-roll  (->> current-turn :dice-rolls last)
-            can-roll?  (or (not jail-spell)
-                           (nil? last-roll)
+            can-roll?  (or (nil? last-roll)
                            (and (vector? last-roll)
                                 (apply = last-roll)))
             can-build? (util/can-buy-house? game-state)
             actions    (->> (vector
                               ;; TODO - Need to force certain number of rolls before :done can be available
                               :done
-                              ;; Jail actions
-                              (when jail-spell
-                                [
-                                 ;; TODO - Attempt double roll
+                              (if jail-spell
+
+                                ;; Jail actions
+                                [;; TODO - Attempt double roll
                                  (when (nil? last-roll)
                                    :jail/roll)
                                  ;; TODO - Pay bail
@@ -586,18 +617,20 @@
                                  ;; TODO - Get out of jail card
                                  ;; (when (has-jail-card? player)
                                  ;;   :jail/bail-card)
-                                 ])
-                              ;; Regular dice rolls
-                              ;; TODO - probably have an if around jail first
-                              (when can-roll? :roll)
+                                 ]
+
+                                ;; Regular dice rolls
+                                (when can-roll? :roll))
+
                               ;; House building
-                              (when can-build? :buy-house)
-                              )
+                              (when can-build? :buy-house))
+                            flatten
                             (filter identity)
                             set)
 
             ;; Start right away by invoking players turn
             ;; method, to get next response/decision
+            _        (println "Actions avail: " player-id actions)
             decision (function game-state :take-turn {:actions-available actions})
 
             ]
@@ -616,6 +649,7 @@
                          ;; Do the roll and move
                          (apply-dice-roll (roll-dice 2))
                          ;; Check and give option to buy property
+                         ;; TODO - should the apply-dice-roll fn just do this?
                          apply-property-option)
           ;; Buy house(s)
           :buy-house (apply-house-purchase
@@ -669,9 +703,9 @@
     [(:status state)
      (-> state :transactions count)])
 
-  (def sim (rand-game-state 4 1))
+  (def sim (rand-game-state 4 80))
 
-  (->> (rand-game-state 4 300)
+  (->> (rand-game-state 4 200)
        ;; :transactions
        ;; (filter #(= :payment (:type %)))
        ;; (remove #(= :bank (:from %)))
