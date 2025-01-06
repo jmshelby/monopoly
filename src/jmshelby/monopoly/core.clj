@@ -630,7 +630,6 @@
 
             ;; Start right away by invoking players turn
             ;; method, to get next response/decision
-            _        (println "Actions avail: " player-id actions)
             decision (function game-state :take-turn {:actions-available actions})
 
             ]
