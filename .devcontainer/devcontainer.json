@@ -23,7 +23,8 @@
 				"djblue.portal",
 				"redhat.vscode-yaml",
 				"usernamehw.errorlens",
-				"rangav.vscode-thunder-client"
+				"rangav.vscode-thunder-client",
+				"vscodevim.vim"
 			]
 		}
 
