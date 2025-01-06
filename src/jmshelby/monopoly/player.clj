@@ -7,6 +7,16 @@
 ;; For now we just have some dumb logic, to help
 ;; develop and test the engine until it's done
 
+
+(defn- percent-props-owned
+  [game-state]
+  (let [total (->> game-state :board :properties
+                   (map :name) count)
+        owned (->> game-state
+                   util/owned-properties
+                   count)]
+    (/ owned total)))
+
 ;; TODO - multimethods..
 (defn dumb-player-decision
   [game-state method params]
@@ -30,6 +40,13 @@
         ;; First, check if we can roll, and do it
         (-> params :actions-available :roll)
         {:action :roll}
+
+        ;; OR, if we are in jail and can pay bail,
+        ;; AND there's more than 25% of prop for sell,
+        ;; THEN post bail
+        (and (-> params :actions-available :jail/bail)
+             (> 0.75 (percent-props-owned game-state)))
+        {:action :jail/bail}
 
         ;; OR, if we are in jail and can roll for doubles, do that
         (-> params :actions-available :jail/roll)

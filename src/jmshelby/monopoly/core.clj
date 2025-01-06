@@ -470,7 +470,10 @@
 
   (let [player    (util/current-player game-state)
         player-id (:player-id player)
-        pidx      (:player-index player)]
+        pidx      (:player-index player)
+        bail      (->> game-state :board :cells
+                       (filter #(= :jail (:type %)))
+                       first :bail)]
     (case action
       ;; Attempt roll for doubles
       :jail/roll
@@ -499,11 +502,11 @@
           (<= 3 attempt)
           (-> game-state
               (dissoc-in [:players pidx :jail-spell])
-              (update-in [:players pidx :cash] - 50)
+              (update-in [:players pidx :cash] - bail)
               (update :transactions conj
                       {:type   :bail
                        :player player-id
-                       :means  [:cash 50]})
+                       :means  [:cash bail]})
               (apply-dice-roll new-roll)
               ;; TODO - Should the apply-dice-roll fn just do this?
               apply-property-option)
@@ -521,11 +524,11 @@
       ;; TODO - this is quite duplicated code..
       (-> game-state
           (dissoc-in [:players pidx :jail-spell])
-          (update-in [:players pidx :cash] - 50)
+          (update-in [:players pidx :cash] - bail)
           (update :transactions conj
                   {:type   :bail
                    :player player-id
-                   :means  [:cash 50]}))
+                   :means  [:cash bail]}))
 
       ;; If you have the card, use it to get out of jail,
       ;; staying on the same cell
@@ -607,13 +610,16 @@
                               (if jail-spell
 
                                 ;; Jail actions
-                                [;; TODO - Attempt double roll
+                                [;; Attempt double roll
                                  (when (nil? last-roll)
                                    :jail/roll)
-                                 ;; TODO - Pay bail
-                                 ;; TODO - where is the price defined?
-                                 ;; (when (has-enough-cash? player)
-                                 ;;   :jail/bail)
+                                 ;; Pay bail
+                                 (let [bail (->> game-state :board :cells
+                                                 (filter #(= :jail (:type %)))
+                                                 first :bail)]
+                                   ;; TODO - Need to restrict this if they just landed in jail
+                                   (when (>= cash bail)
+                                     :jail/bail))
                                  ;; TODO - Get out of jail card
                                  ;; (when (has-jail-card? player)
                                  ;;   :jail/bail-card)
@@ -630,15 +636,7 @@
 
             ;; Start right away by invoking players turn
             ;; method, to get next response/decision
-            decision (function game-state :take-turn {:actions-available actions})
-
-            ]
-
-        ;; TODO - Different actions/logic when in jail?
-        ;;         * maybe just after dice rolls, looking for doubles
-        ;;         * When sending list of available actions, we can now offer get "out of jail"
-        ;;           - for $50
-        ;;           - for single get out of jail card
+            decision (function game-state :take-turn {:actions-available actions})]
 
         (case (:action decision)
           ;; Player done, end turn, advance to next player
@@ -702,7 +700,9 @@
     [(:status state)
      (-> state :transactions count)])
 
-  (def sim (rand-game-state 4 80))
+  (def sim (rand-game-state 4 700))
+
+  sim
 
   (->> (rand-game-state 4 200)
        ;; :transactions

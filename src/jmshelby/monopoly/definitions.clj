@@ -25,7 +25,8 @@
             :name :connecticut-ave}
 
            ;; 2
-           {:type :jail}
+           {:type :jail
+            :bail 50}
            {:type :property
             :name :st-charles-place}
            {:type :property
