@@ -360,39 +360,35 @@
         rent-owed (util/rent-owed? new-state)
         tax-owed  (tax-owed? new-state)
 
-        ;; Next state update, make needed payments
+        ;; Next state update, needed payments or jail
         ;; TODO - yikes, getting messy, impl dispatch by cell type
-        new-state (if-not rent-owed
-                    ;; No rent, check for tax
-                    (if tax-owed
-                      ;; Peform tax transfer
-                      (update-in new-state [:players pidx :cash] - tax-owed)
-                      ;; Nothing else do
-                      new-state)
-                    ;; Perform rent transfer
-                    (-> new-state
-                        ;; Take from current player
-                        (update-in [:players pidx :cash] - (second rent-owed))
-                        ;; Give to owner
-                        (update-in [:players
-                                    ;; Get the player index of owed player
-                                    ;; TODO - this could probably be refactored
-                                    (->> players
-                                         (map-indexed vector)
-                                         (filter #(= (:id (second %))
-                                                     (first rent-owed)))
-                                         first first)
-                                    :cash]
-                                   + (second rent-owed))))
+        new-state
+        (cond-> new-state
+          ;; Tax
+          tax-owed
+          (update-in [:players pidx :cash] - tax-owed)
+          ;; Rent
+          rent-owed
+          (->
+            ;; Take from current player
+            (update-in [:players pidx :cash] - (second rent-owed))
+            ;; Give to owner
+            (update-in [:players
+                        ;; Get the player index of owed player
+                        ;; TODO - this could probably be refactored
+                        (->> players
+                             (map-indexed vector)
+                             (filter #(= (:id (second %))
+                                         (first rent-owed)))
+                             first first)
+                        :cash]
+                       + (second rent-owed)))
 
-        ;; Check for "go to jail" cell landing...
-        new-state (if (= :go-to-jail
-                         (get-in board [:cells new-cell :type]))
-                    ;; Send to jail
-                    (send-to-jail new-state player-id
-                                  [:cell :go-to-jail])
-                    ;; Nothing
-                    new-state)
+          ;; "Go to Jail" cell landing
+          (= :go-to-jail
+             (get-in board [:cells new-cell :type]))
+          ;; TODO - this adds it's own transaction ... but the below transactions will be out of order
+          (send-to-jail player-id [:cell :go-to-jail]))
 
         ;; Assemble transactions
         txactions (keep identity
