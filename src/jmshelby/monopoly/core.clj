@@ -30,7 +30,7 @@
               :cell-residency 0
               ;; If on jail cell (haha), and incarcerated,
               ;; track stats on stay
-              :jail-spell     {:cause?     "[optional] how did they end up in jail"
+              :jail-spell     {:cause      "[polymorphic] How did they end up in jail"
                                ;; While in jail, the dice roll attempts
                                ;; made to get a double, one for each
                                ;; turn only 3 max are allowed
@@ -318,7 +318,9 @@
   if current player rolled dice. This function could
   advance the board forward by more than 1 transaction/move,
   if the move requires further actions from players,
-  (like needing more money, bankrupcies/acquisitions, etc)"
+  (like needing more money, bankrupcies/acquisitions, etc).
+  Assumes:
+  - player is not currently in jail"
   [{:keys [board players]
     :as   game-state}
    new-roll]
@@ -335,12 +337,17 @@
         old-cell       (:cell-residency player)
         ;; Find next board position
         new-cell       (next-cell game-state (apply + new-roll) old-cell)
+        ;; Jail trigger based on dice roll,
+        ;; 3rd consecutive dice roll, player goes to jail
+        dice-jailed?   (and (apply = new-roll)
+                            (<= 2 (-> game-state :current-turn :dice-rolls count)))
         ;; Check for allowance
         ;; If the old cell index is GT the new,
         ;; then we've looped around, easy
         ;; ! - this assumes GO is on cell 0, possibly okay...
         allowance      (get-in board [:cells 0 :allowance])
-        with-allowance (when (> old-cell new-cell)
+        with-allowance (when (and (not dice-jailed?)
+                                  (> old-cell new-cell))
                          (+ player-cash allowance))
 
         ;; Initial state update, things that have to happen
@@ -348,10 +355,12 @@
         (cond-> game-state
           ;; Save current new roll
           ;; TODO - what's the condition here?
-          true (update-in [:current-turn :dice-rolls] conj new-roll)
-          ;; Move Player, looping back around if needed
-          ;; TODO - conditional, only if this wasn't the 3 consecutive double
-          true (assoc-in [:players pidx :cell-residency] new-cell)
+          true
+          (update-in [:current-turn :dice-rolls] conj new-roll)
+          ;; If they're not going to jail,
+          ;; move player, looping back around if needed
+          (not dice-jailed?)
+          (assoc-in [:players pidx :cell-residency] new-cell)
           ;; Check if we've passed/landed on go, for allowance payout
           ;; TODO - could probably refactor this
           with-allowance
@@ -388,8 +397,13 @@
           ;; "Go to Jail" cell landing
           (= :go-to-jail
              (get-in board [:cells new-cell :type]))
-          ;; TODO - this adds it's own transaction ... but the below transactions will be out of order
-          (send-to-jail player-id [:cell :go-to-jail]))
+          ;; TODO - This adds it's own transaction ... but the
+          ;;        below transactions will be out of order
+          (send-to-jail player-id [:cell :go-to-jail])
+
+          ;; "Go to Jail" dice roll, 3 consecutive doubles
+          dice-jailed?
+          (send-to-jail player-id [:roll :double 3]))
 
         ;; Assemble transactions
         txactions (keep identity
@@ -486,6 +500,8 @@
           (apply = new-roll)
           (-> game-state
               (dissoc-in [:players pidx :jail-spell])
+              ;; TODO - There is also a :roll transaction type,
+              ;;        how should it work here?
               (update :transactions conj
                       {:type   :bail
                        :player player-id
@@ -503,6 +519,8 @@
           (-> game-state
               (dissoc-in [:players pidx :jail-spell])
               (update-in [:players pidx :cash] - bail)
+              ;; TODO - There is also a :roll transaction type,
+              ;;        how should it work here?
               (update :transactions conj
                       {:type   :bail
                        :player player-id
@@ -703,6 +721,8 @@
   (def sim (rand-game-state 4 700))
 
   sim
+
+  (rand-game-end-state 4)
 
   (->> (rand-game-state 4 200)
        ;; :transactions
