@@ -31,6 +31,10 @@
         (-> params :actions-available :roll)
         {:action :roll}
 
+        ;; OR, if we are in jail and can roll for doubles, do that
+        (-> params :actions-available :jail/roll)
+        {:action :jail/roll}
+
         ;; Next, if we can buy a house,
         ;; and have more than $40 left (yes very dumb)
         (and (-> params :actions-available :buy-house)
