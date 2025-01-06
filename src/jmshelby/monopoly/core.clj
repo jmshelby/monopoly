@@ -402,6 +402,7 @@
           (send-to-jail player-id [:cell :go-to-jail])
 
           ;; "Go to Jail" dice roll, 3 consecutive doubles
+          ;; TODO - Still need to test if this is working...
           dice-jailed?
           (send-to-jail player-id [:roll :double 3]))
 
