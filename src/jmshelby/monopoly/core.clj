@@ -719,6 +719,7 @@
     [(:status state)
      (-> state :transactions count)])
 
+  
   (def sim (rand-game-state 4 700))
 
   sim
@@ -726,10 +727,13 @@
   (rand-game-end-state 4)
 
   (->> (rand-game-state 4 200)
-       ;; :transactions
+        :transactions
+        (drop 100)
        ;; (filter #(= :payment (:type %)))
        ;; (remove #(= :bank (:from %)))
-       )
+       ) 
+
+
 
   (as-> (rand-game-state 4 500) *
 

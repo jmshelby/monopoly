@@ -91,13 +91,18 @@
    :cards #{;; *Move* actions
             {:text       "Advance to Go (Collect $200)"
              :simplified "Move to X cell"
-             :deck       :chance}
+             :deck       :chance
+             :card/action :move
+             :card.action.move/cell [:type :go]
+             }
             {:text       "Advance to Go (Collect $200)"
              :simplified "Move to X cell"
              :deck       :community-chest}
             {:text       "Advance to Boardwalk"
              :simplified "Move to X cell"
-             :deck       :chance}
+             :deck       :chance
+             :card/action :move
+             :card.action.move/cell [:property :some-name]}
             {:text       "Advance to Illinois Avenue. If you pass Go, collect $200"
              :simplified "Move to X cell"
              :deck       :chance}
