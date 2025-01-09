@@ -522,6 +522,11 @@
 
 (comment
 
+  ;; Cell exploration
+  (-> board
+      :cells
+      (get 13))
+
   ;; Property exploration
   (->> board
        ;; :cells

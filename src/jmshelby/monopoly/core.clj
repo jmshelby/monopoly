@@ -185,11 +185,22 @@
         ;; Final marker
         (assoc-in [:players pidx :status] :bankrupt)
         ;; Transaction, just a single one for this basic->bank style
-        (update :transactions conj
-                {:type       :bankruptcy
-                 :player     player-id
-                 :properties (:properties player)
-                 :acquistion [:basic :bank]}))))
+        (append-tx {:type       :bankruptcy
+                    :player     player-id
+                    :properties (:properties player)
+                    :acquistion [:basic :bank]}))))
+
+(defn apply-end-turn
+  "Given a game state, advance board, changing
+  turns to the next active player in line."
+  [game-state]
+  ;; TODO - add transaction for this?
+  (-> game-state
+      ;; Remove dice rolls
+      (assoc-in [:current-turn :dice-rolls] [])
+      ;; Get/Set next player ID
+      (assoc-in [:current-turn :player]
+                (-> game-state util/next-player :id))))
 
 (defn send-to-jail
   "Given game state, move given player into an
@@ -215,24 +226,17 @@
                   {:cause      cause
                    :dice-rolls []})
         ;; Transaction
-        (update :transactions conj
-                {:type        :move
-                 :driver      :incarceration
-                 :cause       cause
-                 :player      player-id
-                 :before-cell old-cell
-                 :after-cel   new-cell}))))
-
-(defn apply-end-turn
-  "Given a game state, advance board, changing
-  turns to the next active player in line."
-  [game-state]
-  (-> game-state
-      ;; Remove dice rolls
-      (assoc-in [:current-turn :dice-rolls] [])
-      ;; Get/Set next player ID
-      (assoc-in [:current-turn :player]
-                (-> game-state util/next-player :id))))
+        (append-tx {:type        :move
+                    :driver      :incarceration
+                    :cause       cause
+                    :player      player-id
+                    :before-cell old-cell
+                    :after-cel   new-cell})
+        ;; All causes for going to jail result in forced end of turn
+        ;; TODO - Verify this, the instructions seem clear, but
+        ;;        I thought the player might have time to do
+        ;;        trades or purchases
+        apply-end-turn)))
 
 (defn apply-house-purchase
   "Given a game state and property, apply purchase of a single house
@@ -270,11 +274,10 @@
         (update-in [:players pidx :cash]
                    - (:house-price property))
         ;; Track transaction
-        (update :transactions conj
-                {:type     :purchase-house
-                 :player   player-id
-                 :property property-name
-                 :price    (:house-price property)}))))
+        (append-tx {:type     :purchase-house
+                    :player   player-id
+                    :property property-name
+                    :price    (:house-price property)}))))
 
 (defn apply-property-option
   "Given a game state, check if current player is able to buy the property
@@ -317,11 +320,10 @@
           (update-in [:players player-index :cash]
                      - (:price property))
           ;; Track transaction
-          (update :transactions conj
-                  {:type     :purchase
-                   :player   (:id player)
-                   :property (:name property)
-                   :price    (:price property)}))
+          (append-tx {:type     :purchase
+                      :player   (:id player)
+                      :property (:name property)
+                      :price    (:price property)}))
 
       ;; Apply auction workflow
       ;; TODO - need to implement this
@@ -476,8 +478,8 @@
   )
 
 (defn apply-jail-spell
-  "Given a game state and player jail specific action,
-  apply decision and all affects. This be as little as a
+  "Given a game state and player jail specific action, apply
+  decision and all affects. This can be as little as a
   double dice roll attempt and staying in jail, to getting
   out, moving spaces and landing on another which can cause
   other side affects."
@@ -505,13 +507,11 @@
           (apply = new-roll)
           (-> game-state
               (dissoc-in [:players pidx :jail-spell])
-              ;; TODO - There is also a :roll transaction type,
-              ;;        how should it work here?
-              ;; TODO - Looks ^ like the roll transaction is happening after the bail, should be the other way
-              (update :transactions conj
-                      {:type   :bail
-                       :player player-id
-                       :means  [:roll :double new-roll]})
+              ;; TODO - The "roll" transaction should happen here,
+              ;;        but the apply-dice-roll is doing that for us ...
+              (append-tx {:type   :bail
+                          :player player-id
+                          :means  [:roll :double new-roll]})
               ;; TODO - Somehow need to signal that they don't get another
               ;;        roll, because a double thrown while in jail doesn't
               ;;        grant that priviledge
@@ -525,12 +525,11 @@
           (-> game-state
               (dissoc-in [:players pidx :jail-spell])
               (update-in [:players pidx :cash] - bail)
-              ;; TODO - There is also a :roll transaction type,
-              ;;        how should it work here?
-              (update :transactions conj
-                      {:type   :bail
-                       :player player-id
-                       :means  [:cash bail]})
+              ;; TODO - The "roll" transaction should happen here,
+              ;;        but the apply-dice-roll is doing that for us ...
+              (append-tx {:type   :bail
+                          :player player-id
+                          :means  [:cash bail]})
               (apply-dice-roll new-roll)
               ;; TODO - Should the apply-dice-roll fn just do this?
               apply-property-option)
@@ -540,7 +539,10 @@
           (-> game-state
               ;; To both current, and jail spell records
               (update-in [:current-turn :dice-rolls] conj new-roll)
-              (update-in [:players pidx :jail-spell :dice-rolls] conj new-roll))))
+              (update-in [:players pidx :jail-spell :dice-rolls] conj new-roll)
+              (append-tx {:type   :roll
+                          :player player-id
+                          :roll   new-roll}))))
 
       ;; If you can afford it, pay to get out of jail,
       ;; staying on the same cell
@@ -549,10 +551,9 @@
       (-> game-state
           (dissoc-in [:players pidx :jail-spell])
           (update-in [:players pidx :cash] - bail)
-          (update :transactions conj
-                  {:type   :bail
-                   :player player-id
-                   :means  [:cash bail]}))
+          (append-tx {:type   :bail
+                      :player player-id
+                      :means  [:cash bail]}))
 
       ;; If you have the card, use it to get out of jail,
       ;; staying on the same cell
@@ -688,9 +689,7 @@
 
           ;; TODO - detect if player is stuck in loop?
           ;; TODO - player is taking too long?
-          ))
-
-      )))
+          )))))
 
 (defn rand-game-state
   "Return a game state, with # of given players, as of the given, nth iteration"
@@ -729,7 +728,8 @@
 
   sim
 
-  (rand-game-end-state 4)
+  (def sim
+    (rand-game-end-state 4))
 
   (->> (rand-game-state 4 1000)
        ;; :transactions
