@@ -327,6 +327,7 @@
 
       ;; Apply auction workflow
       ;; TODO - need to implement this
+      ;; TODO - need also add another condition that it's unowned
       game-state)))
 
 (defn apply-dice-roll
@@ -400,6 +401,12 @@
         rent-owed (util/rent-owed? new-state)
         tax-owed  (tax-owed? new-state)]
 
+    ;;   - Landed on Type==card
+    ;;     -> Pop card from corresponding deck
+    ;;     -> [Apply card rules to state]
+    ;;       - (This can result in another cell move; cash transaction...)
+    ;;       * If insufficient funds, invoke forced negotiation workflow
+
     ;; Next state update, needed payments; jail; draw/apply card
     ;; TODO - card draw
     ;; TODO - yikes, getting messy, impl dispatch by cell type
@@ -436,46 +443,17 @@
       ;; "Go to Jail" cell landing
       (= :go-to-jail
          (get-in board [:cells new-cell :type]))
-      ;; TODO - This adds it's own transaction ... but the
-      ;;        below transactions will be out of order
       (send-to-jail player-id [:cell :go-to-jail])
 
       ;; "Go to Jail" dice roll, 3 consecutive doubles
-      ;; TODO - Still need to test if this is working...
       dice-jailed?
-      (send-to-jail player-id [:roll :double 3])))
+      (send-to-jail player-id [:roll :double 3])
 
-  ;; NOTE - The below can/should be categorized based on the cell "type",
-  ;;        and then further categorized for "properties", based on their types
-  ;; - [Perform new cell residency]
-  ;;   - Landed on "Free"
-  ;;     -> Return with new game state
-  ;;   - Landed on "Jail"
-  ;;     -> Return with new game state
-  ;;       - (probably having a jail status of :visiting ?)
-  ;;   - Landed on "Go to Jail"
-  ;;     -> [Perform jail workflow]
-  ;;   - Landed on "Go"
-  ;;     -> Inc player money + allowance
-  ;;   - Property unowned
-  ;;     -> Return state (caller will invoke property offer workflow)
-  ;;   - Landed on Type==tax
-  ;;     * If insufficient funds, invoke forced negotiation workflow
-  ;;     -> Pay tax
-  ;;   - Property owned by player
-  ;;     -> If passed "Go", inc player money + allowance
-  ;;     -> Nothing needed, return new state
-  ;;   - Property owned by other player
-  ;;     -> If passed "Go", inc player money + allowance
-  ;;     * If insufficient funds, invoke forced negotiation workflow
-  ;;     -> Pay rent, transact cash to other player
-  ;;   - Landed on Type==card
-  ;;     -> Pop card from corresponding deck
-  ;;     -> [Apply card rules to state]
-  ;;       - (This can result in another cell move; cash transaction...)
-  ;;       * If insufficient funds, invoke forced negotiation workflow
+      ;; TODO "Go to Jail" card
 
-  )
+      ;; None of the above, player option
+      ;; or auction off property
+      :else apply-property-option)))
 
 (defn apply-jail-spell
   "Given a game state and player jail specific action, apply
@@ -515,9 +493,7 @@
               ;; TODO - Somehow need to signal that they don't get another
               ;;        roll, because a double thrown while in jail doesn't
               ;;        grant that priviledge
-              (apply-dice-roll new-roll)
-              ;; TODO - Should the apply-dice-roll fn just do this?
-              apply-property-option)
+              (apply-dice-roll new-roll))
 
           ;; Not a double, third attempt.
           ;; Force bail payment, and move
@@ -530,9 +506,7 @@
               (append-tx {:type   :bail
                           :player player-id
                           :means  [:cash bail]})
-              (apply-dice-roll new-roll)
-              ;; TODO - Should the apply-dice-roll fn just do this?
-              apply-property-option)
+              (apply-dice-roll new-roll))
 
           ;; Not a double, register roll
           :else
@@ -669,10 +643,7 @@
           ;; Roll Dice
           :roll      (-> game-state
                          ;; Do the roll and move
-                         (apply-dice-roll (roll-dice 2))
-                         ;; Check and give option to buy property
-                         ;; TODO - should the apply-dice-roll fn just do this?
-                         apply-property-option)
+                         (apply-dice-roll (roll-dice 2)))
           ;; Buy house(s)
           :buy-house (apply-house-purchase
                        game-state
