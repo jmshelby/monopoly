@@ -94,6 +94,21 @@
   (mod (+ n idx)
        (-> game-state :board :cells count)))
 
+(defn append-tx [game-state & txs]
+  ;; Allow transactions to come in as individual params or vectors of txs,
+  ;; or even as nil, which will be filtered out (handy use with merge/when)
+  (let [prepped (->> txs
+                     (mapcat (fn [tx]
+                               (cond
+                                 (map? tx)        [tx]
+                                 (sequential? tx) tx
+                                 (nil? tx)        []
+                                 :else            (throw (ex-info "Appending a tx requires a map or collection of maps" {:type-given (type tx)})))))
+                     vec)]
+    ;; For now we have to ensure we are concat'ing a vector with a vector...
+    ;; TODO - Not sure where it's changing, is this fine to keep this way?
+    (update game-state :transactions (comp vec concat) prepped)))
+
 (defn tax-owed?
   "Given a game-state, when a tax is owed by the
   current player, return the amount. Returns nil
@@ -125,8 +140,7 @@
                           :cash 1500
                           :cell-residency 0 ;; All starting on "Go"
                           :cards []
-                          :properties {}
-                          :consecutive-doubles 0))
+                          :properties {}))
              vec)
         ;; Define initial game state
         initial-state
@@ -354,90 +368,80 @@
         new-state
         (cond-> game-state
           ;; Save current new roll
-          ;; TODO - what's the condition here?
+          ;; TODO - what's the condition here? (in-jail has it's own workflow for dice rolls)
           true
-          (update-in [:current-turn :dice-rolls] conj new-roll)
-          ;; If they're not going to jail,
+          (-> (update-in [:current-turn :dice-rolls] conj new-roll)
+              (append-tx {:type   :roll
+                          :player player-id
+                          :roll   new-roll}))
+          ;; If they're not going to jail from 3rd dice roll,
           ;; move player, looping back around if needed
           (not dice-jailed?)
-          (assoc-in [:players pidx :cell-residency] new-cell)
-          ;; Check if we've passed/landed on go, for allowance payout
-          ;; TODO - could probably refactor this
-          with-allowance
-          (assoc-in [:players pidx :cash] with-allowance))
-
-        ;; Check if any payments are needed
-        rent-owed (util/rent-owed? new-state)
-        tax-owed  (tax-owed? new-state)
-
-        ;; Next state update, needed payments or jail
-        ;; TODO - yikes, getting messy, impl dispatch by cell type
-        new-state
-        (cond-> new-state
-          ;; Tax
-          tax-owed
-          (update-in [:players pidx :cash] - tax-owed)
-          ;; Rent
-          rent-owed
-          (->
-            ;; Take from current player
-            (update-in [:players pidx :cash] - (second rent-owed))
-            ;; Give to owner
-            (update-in [:players
-                        ;; Get the player index of owed player
-                        ;; TODO - this could probably be refactored
-                        (->> players
-                             (map-indexed vector)
-                             (filter #(= (:id (second %))
-                                         (first rent-owed)))
-                             first first)
-                        :cash]
-                       + (second rent-owed)))
-
-          ;; "Go to Jail" cell landing
-          (= :go-to-jail
-             (get-in board [:cells new-cell :type]))
-          ;; TODO - This adds it's own transaction ... but the
-          ;;        below transactions will be out of order
-          (send-to-jail player-id [:cell :go-to-jail])
-
-          ;; "Go to Jail" dice roll, 3 consecutive doubles
-          ;; TODO - Still need to test if this is working...
-          dice-jailed?
-          (send-to-jail player-id [:roll :double 3]))
-
-        ;; Assemble transactions
-        txactions (keep identity
-                        [{:type   :roll
-                          :player player-id
-                          :roll   new-roll}
-                         {:type        :move
+          (-> (assoc-in [:players pidx :cell-residency] new-cell)
+              (append-tx {:type        :move
                           :driver      :roll
                           :player      player-id
                           :before-cell old-cell
-                          :after-cell  new-cell}
-                         (when with-allowance
-                           {:type   :payment
-                            :from   :bank
-                            :to     player-id
-                            :amount allowance
-                            :reason :allowance})
-                         (when tax-owed
-                           {:type   :payment
-                            :from   player-id
-                            :to     :bank
-                            :amount tax-owed
-                            :reason :tax})
-                         (when rent-owed
-                           {:type   :payment
-                            :from   player-id
-                            :to     (first rent-owed)
-                            :amount (second rent-owed)
-                            :reason :rent})])]
+                          :after-cell  new-cell}))
+          ;; Check if we've passed/landed on go, for allowance payout
+          ;; TODO - could probably refactor this
+          with-allowance
+          (-> (assoc-in [:players pidx :cash] with-allowance)
+              (append-tx {:type   :payment
+                          :from   :bank
+                          :to     player-id
+                          :amount allowance
+                          :reason :allowance})))
 
-    ;; Add transactions, before returning
-    ;; TODO - Had to comp with vec to keep it a vector ... can we make this look better?
-    (update new-state :transactions (comp vec concat) (vec txactions)))
+        ;; Check if any payments are needed based on new residency
+        ;; TODO - this might just be a regular cond below now
+        rent-owed (util/rent-owed? new-state)
+        tax-owed  (tax-owed? new-state)]
+
+    ;; Next state update, needed payments; jail; draw/apply card
+    ;; TODO - card draw
+    ;; TODO - yikes, getting messy, impl dispatch by cell type
+    (cond-> new-state
+      ;; Tax
+      tax-owed
+      (-> (update-in [:players pidx :cash] - tax-owed)
+          ;; Just take from player
+          (append-tx {:type   :payment
+                      :from   player-id
+                      :to     :bank
+                      :amount tax-owed
+                      :reason :tax}))
+      ;; Rent
+      rent-owed
+      (-> (update-in [:players pidx :cash] - (second rent-owed))
+          ;; Take from current player, give to owner
+          (update-in [:players
+                      ;; Get the player index of owed player
+                      ;; TODO - this could probably be refactored
+                      (->> players
+                           (map-indexed vector)
+                           (filter #(= (:id (second %))
+                                       (first rent-owed)))
+                           first first)
+                      :cash]
+                     + (second rent-owed))
+          (append-tx {:type   :payment
+                      :from   player-id
+                      :to     (first rent-owed)
+                      :amount (second rent-owed)
+                      :reason :rent}))
+
+      ;; "Go to Jail" cell landing
+      (= :go-to-jail
+         (get-in board [:cells new-cell :type]))
+      ;; TODO - This adds it's own transaction ... but the
+      ;;        below transactions will be out of order
+      (send-to-jail player-id [:cell :go-to-jail])
+
+      ;; "Go to Jail" dice roll, 3 consecutive doubles
+      ;; TODO - Still need to test if this is working...
+      dice-jailed?
+      (send-to-jail player-id [:roll :double 3])))
 
   ;; NOTE - The below can/should be categorized based on the cell "type",
   ;;        and then further categorized for "properties", based on their types
@@ -484,7 +488,7 @@
   ;;          should the caller do that?
 
   (let [player    (util/current-player game-state)
-        player-id (:player-id player)
+        player-id (:id player)
         pidx      (:player-index player)
         bail      (->> game-state :board :cells
                        (filter #(= :jail (:type %)))
@@ -503,6 +507,7 @@
               (dissoc-in [:players pidx :jail-spell])
               ;; TODO - There is also a :roll transaction type,
               ;;        how should it work here?
+              ;; TODO - Looks ^ like the roll transaction is happening after the bail, should be the other way
               (update :transactions conj
                       {:type   :bail
                        :player player-id
@@ -719,19 +724,19 @@
     [(:status state)
      (-> state :transactions count)])
 
-  
+
   (def sim (rand-game-state 4 700))
 
   sim
 
   (rand-game-end-state 4)
 
-  (->> (rand-game-state 4 200)
-        :transactions
-        (drop 100)
+  (->> (rand-game-state 4 1000)
+       ;; :transactions
+       ;; (drop 100)
        ;; (filter #(= :payment (:type %)))
        ;; (remove #(= :bank (:from %)))
-       ) 
+       )
 
 
 
