@@ -330,6 +330,44 @@
       ;; TODO - need also add another condition that it's unowned
       game-state)))
 
+(defn- draw-card
+  "Given a game state and deck name, return tuple of card drawn,
+  and post-drawn state. Re-shuffles deck if depleted."
+  [game-state deck]
+  (let [card        (-> game-state :card-queue deck peek)
+        ;; TODO - refill/re-shuffle
+        ;; card (when-not card ...)
+        drawn-state (update-in game-state [:card-queue deck] pop)]
+    [drawn-state card]))
+
+(defn- apply-card
+  "Given a game state and card, apply to current player"
+  [game-state card]
+  (println "Would have applied card: " card)
+  game-state)
+
+(defn apply-card-draw
+  "Given a game state, when current player is on a card type
+  cell, draw card from applicable deck, and apply it's actions
+  and effects to the current player. All further possible
+  effects, will be invoked and applied, including forced end
+  of player turn if required."
+  [{:keys [board]
+    :as   game-state}]
+  (let [{:keys [cell-residency]}
+        (util/current-player game-state)
+        ;; Get the definition of the current cell
+        {deck      :name
+         cell-type :type}
+        (get-in board [:cells cell-residency])]
+    (if-not (= :card cell-type)
+      ;; Only apply if we're on a card type
+      game-state
+      ;; Draw Card, and apply
+      (->> deck
+           (draw-card game-state)
+           (apply apply-card)))))
+
 (defn apply-dice-roll
   "Given a game state and dice roll, advance board as
   if current player rolled dice. This function could
@@ -399,7 +437,10 @@
         ;; Check if any payments are needed based on new residency
         ;; TODO - this might just be a regular cond below now
         rent-owed (util/rent-owed? new-state)
-        tax-owed  (tax-owed? new-state)]
+        tax-owed  (tax-owed? new-state)
+
+
+        ]
 
     ;;   - Landed on Type==card
     ;;     -> Pop card from corresponding deck
@@ -411,6 +452,19 @@
     ;; TODO - card draw
     ;; TODO - yikes, getting messy, impl dispatch by cell type
     (cond-> new-state
+
+      ;; Very first (because dice triggers it)
+      ;; "Go to Jail" dice roll, 3 consecutive doubles
+      dice-jailed?
+      (send-to-jail player-id [:roll :double 3])
+
+      ;; "Go to Jail" cell landing
+      (= :go-to-jail
+         (get-in board [:cells new-cell :type]))
+      (send-to-jail player-id [:cell :go-to-jail])
+
+      ;; TODO "Go to Jail" card
+
       ;; Tax
       tax-owed
       (-> (update-in [:players pidx :cash] - tax-owed)
@@ -440,16 +494,10 @@
                       :amount (second rent-owed)
                       :reason :rent}))
 
-      ;; "Go to Jail" cell landing
-      (= :go-to-jail
-         (get-in board [:cells new-cell :type]))
-      (send-to-jail player-id [:cell :go-to-jail])
-
-      ;; "Go to Jail" dice roll, 3 consecutive doubles
-      dice-jailed?
-      (send-to-jail player-id [:roll :double 3])
-
-      ;; TODO "Go to Jail" card
+      ;; Card Draw Spot
+      (let [cell-def (get-in board [:cells new-cell])]
+        (= :card (:type cell-def)))
+      apply-card-draw
 
       ;; None of the above, player option
       ;; or auction off property
