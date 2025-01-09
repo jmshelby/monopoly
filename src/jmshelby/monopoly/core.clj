@@ -231,7 +231,7 @@
                     :cause       cause
                     :player      player-id
                     :before-cell old-cell
-                    :after-cel   new-cell})
+                    :after-cell  new-cell})
         ;; All causes for going to jail result in forced end of turn
         ;; TODO - Verify this, the instructions seem clear, but
         ;;        I thought the player might have time to do
