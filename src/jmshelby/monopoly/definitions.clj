@@ -39,7 +39,8 @@
             :name :pennsylvania-railroad}
            {:type :property
             :name :st-james-place}
-           {:type :community-chest}
+           {:type :card
+            :name :community-chest}
            {:type :property
             :name :tennessee-ave}
            {:type :property
@@ -72,7 +73,8 @@
             :name :pacific-ave}
            {:type :property
             :name :north-carolina-ave}
-           {:type :community-chest}
+           {:type :card
+            :name :community-chest}
            {:type :property
             :name :pennsylvania-ave}
            {:type :property
