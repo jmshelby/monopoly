@@ -702,6 +702,17 @@
   (def sim
     (rand-game-end-state 4))
 
+  ;; Cell landings stats
+  (->> sim
+       :transactions
+       (filter #(= :move (:type %)))
+       (map (fn [tx]
+              (as-> tx *
+                (get-in sim [:board :cells (:after-cell *)])
+                (assoc * :cell (:after-cell tx)))))
+       frequencies
+       (sort-by second))
+
   (->> (rand-game-state 4 1000)
        ;; :transactions
        ;; (drop 100)
