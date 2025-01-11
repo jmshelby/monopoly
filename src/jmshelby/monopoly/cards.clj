@@ -41,8 +41,14 @@
   ;; (println "!WARN! apply-card-effect dispatch not implemented:" (card-effect-dispatch game-state card))
   game-state)
 
-;; (defmethod apply-card-effect :retain
-;;   [game-state card])
+(defmethod apply-card-effect :retain
+  [game-state card]
+  (let [player (util/current-player game-state)]
+    ;; Just add to the list of player's personal cards
+    ;; TODO - Do we need a transaction for this specificaly?
+    (update-in game-state
+               [:players (:player-index player) :cards]
+               conj card)))
 
 ;; (defmethod apply-card-effect :incarcerate
 ;;   [game-state card])
@@ -75,8 +81,9 @@
         with-effect (apply-card-effect with-tx card)]
 
     ;; TEMP - logging if an effect apply didn't do anything
-    (when (= with-tx with-effect)
-      (println "Would have applied card: " card))
+    (if (= with-tx with-effect)
+      (println "_Would_ have applied card: " card)
+      (println "Applied card: " card))
 
     with-effect))
 

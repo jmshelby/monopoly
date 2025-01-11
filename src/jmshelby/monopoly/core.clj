@@ -708,7 +708,7 @@
        frequencies
        (sort-by second))
 
-  (->> (rand-game-state 4 75)
+  (->> (rand-game-state 4 300)
        ;; :transactions
        ;; (drop 100)
        ;; (filter #(= :payment (:type %)))
