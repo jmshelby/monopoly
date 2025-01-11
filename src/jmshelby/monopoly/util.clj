@@ -56,6 +56,29 @@
        first
        :cell-index))
 
+
+;; ======= Transaction Management ==============
+
+(defn append-tx [game-state & txs]
+  ;; Allow transactions to come in as individual params or vectors of txs,
+  ;; or even as nil, which will be filtered out (handy use with merge/when)
+  (let [prepped
+        (->> txs
+             (mapcat (fn [tx]
+                       (cond
+                         (map? tx)        [tx]
+                         (sequential? tx) tx
+                         (nil? tx)        []
+                         :else
+                         (throw (ex-info
+                                  "Appending a tx requires a map or collection of maps"
+                                  {:type-given (type tx)})))))
+             vec)]
+    ;; For now we have to ensure we are concat'ing a vector with a vector...
+    ;; TODO - Not sure where it's changing, is this fine to keep this way?
+    (update game-state :transactions (comp vec concat) prepped)))
+
+
 ;; ======= Player Management ===================
 
 ;; TODO - for consistency, this should just return the player map

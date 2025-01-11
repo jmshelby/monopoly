@@ -1,7 +1,7 @@
 (ns jmshelby.monopoly.core
-  (:require [clojure.set :as set]
-            [jmshelby.monopoly.util :as util
-             :refer [roll-dice dissoc-in]]
+  (:require [jmshelby.monopoly.util :as util
+             :refer [roll-dice dissoc-in append-tx]]
+            [jmshelby.monopoly.cards :as cards]
             [jmshelby.monopoly.player :as player]
             [jmshelby.monopoly.definitions :as defs]))
 
@@ -93,21 +93,6 @@
   ;; Modulo after adding dice sum to current spot
   (mod (+ n idx)
        (-> game-state :board :cells count)))
-
-(defn append-tx [game-state & txs]
-  ;; Allow transactions to come in as individual params or vectors of txs,
-  ;; or even as nil, which will be filtered out (handy use with merge/when)
-  (let [prepped (->> txs
-                     (mapcat (fn [tx]
-                               (cond
-                                 (map? tx)        [tx]
-                                 (sequential? tx) tx
-                                 (nil? tx)        []
-                                 :else            (throw (ex-info "Appending a tx requires a map or collection of maps" {:type-given (type tx)})))))
-                     vec)]
-    ;; For now we have to ensure we are concat'ing a vector with a vector...
-    ;; TODO - Not sure where it's changing, is this fine to keep this way?
-    (update game-state :transactions (comp vec concat) prepped)))
 
 (defn tax-owed?
   "Given a game-state, when a tax is owed by the
@@ -330,44 +315,6 @@
       ;; TODO - need also add another condition that it's unowned
       game-state)))
 
-(defn- draw-card
-  "Given a game state and deck name, return tuple of card drawn,
-  and post-drawn state. Re-shuffles deck if depleted."
-  [game-state deck]
-  (let [card        (-> game-state :card-queue deck peek)
-        ;; TODO - refill/re-shuffle
-        ;; card (when-not card ...)
-        drawn-state (update-in game-state [:card-queue deck] pop)]
-    [drawn-state card]))
-
-(defn- apply-card
-  "Given a game state and card, apply to current player"
-  [game-state card]
-  (println "Would have applied card: " card)
-  game-state)
-
-(defn apply-card-draw
-  "Given a game state, when current player is on a card type
-  cell, draw card from applicable deck, and apply it's actions
-  and effects to the current player. All further possible
-  effects, will be invoked and applied, including forced end
-  of player turn if required."
-  [{:keys [board]
-    :as   game-state}]
-  (let [{:keys [cell-residency]}
-        (util/current-player game-state)
-        ;; Get the definition of the current cell
-        {deck      :name
-         cell-type :type}
-        (get-in board [:cells cell-residency])]
-    (if-not (= :card cell-type)
-      ;; Only apply if we're on a card type
-      game-state
-      ;; Draw Card, and apply
-      (->> deck
-           (draw-card game-state)
-           (apply apply-card)))))
-
 (defn apply-dice-roll
   "Given a game state and dice roll, advance board as
   if current player rolled dice. This function could
@@ -497,7 +444,7 @@
       ;; Card Draw Spot
       (let [cell-def (get-in board [:cells new-cell])]
         (= :card (:type cell-def)))
-      apply-card-draw
+      cards/apply-card-draw
 
       ;; None of the above, player option
       ;; or auction off property
@@ -761,13 +708,15 @@
        frequencies
        (sort-by second))
 
-  (->> (rand-game-state 4 1000)
+  (->> (rand-game-state 4 75)
        ;; :transactions
        ;; (drop 100)
        ;; (filter #(= :payment (:type %)))
        ;; (remove #(= :bank (:from %)))
        )
 
+
+  (println "--------------------------------------------------------")
 
 
   (as-> (rand-game-state 4 500) *
