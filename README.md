@@ -27,16 +27,15 @@ Monopoly Game Engine + Pluggable Player API
    - Pay $X to get out
  ---------------------------
 #### Remaining Logic
- - [Transactions for getting out of jail are out of order]
- - Go to Jail
-   - "go to jail" card
- - In Jail
-   - "Get out of jail free" card
  - Cards
    - Chance
    - Community Chest
    - Keepable cards
      - With current rules, it's only "get out of jail free cards"
+ - Go to Jail
+   - "go to jail" card
+ - In Jail
+   - "Get out of jail free" card
  - Proposals
    - On player turn action
      - offer workflow
