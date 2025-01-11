@@ -330,14 +330,13 @@
   ;; THOUGHT - implement as loop / trampoline?
   ;; THOUGHT - Can we produce an ordered transaction list, and the caller can apply it to game-state?
 
-  ;; TEMP - Basic/messy impl to start ...
   (let [;; Get current player info
         player         (util/current-player game-state)
         player-id      (:id player)
         pidx           (:player-index player)
         player-cash    (:cash player)
         old-cell       (:cell-residency player)
-        ;; Find next board position
+        ;; Find next board position, looping back around if needed
         new-cell       (next-cell game-state (apply + new-roll) old-cell)
         ;; Jail trigger based on dice roll,
         ;; 3rd consecutive dice roll, player goes to jail
@@ -356,14 +355,14 @@
         new-state
         (cond-> game-state
           ;; Save current new roll
-          ;; TODO - what's the condition here? (in-jail has it's own workflow for dice rolls)
+          ;; TODO - What's the condition here?
+          ;;        (in-jail has it's own workflow for dice rolls)
           true
           (-> (update-in [:current-turn :dice-rolls] conj new-roll)
               (append-tx {:type   :roll
                           :player player-id
                           :roll   new-roll}))
-          ;; If they're not going to jail from 3rd dice roll,
-          ;; move player, looping back around if needed
+          ;; If they're not going to jail from 3rd dice roll, move player
           (not dice-jailed?)
           (-> (assoc-in [:players pidx :cell-residency] new-cell)
               (append-tx {:type        :move
@@ -379,76 +378,66 @@
                           :from   :bank
                           :to     player-id
                           :amount allowance
-                          :reason :allowance})))
-
-        ;; Check if any payments are needed based on new residency
-        ;; TODO - this might just be a regular cond below now
-        rent-owed (util/rent-owed? new-state)
-        tax-owed  (tax-owed? new-state)
-
-
-        ]
-
-    ;;   - Landed on Type==card
-    ;;     -> Pop card from corresponding deck
-    ;;     -> [Apply card rules to state]
-    ;;       - (This can result in another cell move; cash transaction...)
-    ;;       * If insufficient funds, invoke forced negotiation workflow
+                          :reason :allowance})))]
 
     ;; Next state update, needed payments; jail; draw/apply card
     ;; TODO - card draw
     ;; TODO - yikes, getting messy, impl dispatch by cell type
-    (cond-> new-state
+    (cond
 
       ;; Very first (because dice triggers it)
       ;; "Go to Jail" dice roll, 3 consecutive doubles
       dice-jailed?
-      (send-to-jail player-id [:roll :double 3])
+      (send-to-jail new-state player-id [:roll :double 3])
 
       ;; "Go to Jail" cell landing
       (= :go-to-jail
          (get-in board [:cells new-cell :type]))
-      (send-to-jail player-id [:cell :go-to-jail])
+      (send-to-jail new-state player-id [:cell :go-to-jail])
 
       ;; TODO "Go to Jail" card
 
       ;; Tax
-      tax-owed
-      (-> (update-in [:players pidx :cash] - tax-owed)
-          ;; Just take from player
-          (append-tx {:type   :payment
-                      :from   player-id
-                      :to     :bank
-                      :amount tax-owed
-                      :reason :tax}))
+      (tax-owed? new-state)
+      (let [tax-owed (tax-owed? new-state)]
+        (-> new-state
+            (update-in [:players pidx :cash] - tax-owed)
+            ;; Just take from player
+            (append-tx {:type   :payment
+                        :from   player-id
+                        :to     :bank
+                        :amount tax-owed
+                        :reason :tax})))
       ;; Rent
-      rent-owed
-      (-> (update-in [:players pidx :cash] - (second rent-owed))
-          ;; Take from current player, give to owner
-          (update-in [:players
-                      ;; Get the player index of owed player
-                      ;; TODO - this could probably be refactored
-                      (->> players
-                           (map-indexed vector)
-                           (filter #(= (:id (second %))
-                                       (first rent-owed)))
-                           first first)
-                      :cash]
-                     + (second rent-owed))
-          (append-tx {:type   :payment
-                      :from   player-id
-                      :to     (first rent-owed)
-                      :amount (second rent-owed)
-                      :reason :rent}))
+      (util/rent-owed? new-state)
+      (let [rent-owed (util/rent-owed? new-state)]
+        (-> new-state
+            (update-in [:players pidx :cash] - (second rent-owed))
+            ;; Take from current player, give to owner
+            (update-in [:players
+                        ;; Get the player index of owed player
+                        ;; TODO - this could probably be refactored
+                        (->> players
+                             (map-indexed vector)
+                             (filter #(= (:id (second %))
+                                         (first rent-owed)))
+                             first first)
+                        :cash]
+                       + (second rent-owed))
+            (append-tx {:type   :payment
+                        :from   player-id
+                        :to     (first rent-owed)
+                        :amount (second rent-owed)
+                        :reason :rent})))
 
       ;; Card Draw Spot
       (let [cell-def (get-in board [:cells new-cell])]
         (= :card (:type cell-def)))
-      cards/apply-card-draw
+      (cards/apply-card-draw new-state)
 
       ;; None of the above, player option
       ;; or auction off property
-      :else apply-property-option)))
+      :else (apply-property-option new-state))))
 
 (defn apply-jail-spell
   "Given a game state and player jail specific action, apply
