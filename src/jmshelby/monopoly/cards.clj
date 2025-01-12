@@ -77,8 +77,23 @@
                          :reason :card
                          :card   card}))))
 
-;; (defmethod apply-card-effect :collect
-;;   [game-state player card])
+(defmethod apply-card-effect :collect
+  [game-state player card]
+  (let [{player-id :id
+         pidx      :player-index} player
+        ;; TODO - Need to check for :card.collect/multiplier, and apply
+        ;;        Could be: :player/count
+        amount                    (:card.collect/cash card)]
+    (-> game-state
+        ;; Add money
+        (update-in [:players pidx :cash] + amount)
+        ;; Track transaction
+        (util/append-tx {:type   :payment
+                         :from   :bank
+                         :to     player-id
+                         :amount amount
+                         :reason :card
+                         :card   card}))))
 
 ;; (defmethod apply-card-effect :move
 ;;   [game-state player card])

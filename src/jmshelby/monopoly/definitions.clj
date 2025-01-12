@@ -231,14 +231,14 @@
              :card/effect         :pay
              :card.pay/cash       50
              :card.pay/multiplier :player/count}
-            {:text                "It is your birthday. Collect $10 from every player"
-             :notes               ["This may be the official card, but the app version pays this money from the bank."
-                                   "TODO - figure out which one we should implement"]
-             :simplified          "Receive X money, multiplied by # of players"
-             :deck                :community-chest
-             :card/effect         :collect
-             :card.pay/cash       10
-             :card.pay/multiplier :player/count}
+            {:text                    "It is your birthday. Collect $10 from every player"
+             :notes                   ["This may be the official card, but the app version pays this money from the bank."
+                                       "TODO - figure out which one we should implement"]
+             :simplified              "Receive X money, multiplied by # of players"
+             :deck                    :community-chest
+             :card/effect             :collect
+             :card.collect/cash       10
+             :card.collect/multiplier :player/count}
 
             {:text        ["Make general repairs on all your property."
                            "For each house pay $25. For each hotel pay $100."]
