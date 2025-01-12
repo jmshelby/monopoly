@@ -54,12 +54,28 @@
 
 (defmethod apply-card-effect :incarcerate
   [game-state player _card]
+  ;; Invoke jail workflow, which will do all the work
   (util/send-to-jail game-state
                      (:id player)
                      [:card :go-to-jail]))
 
-;; (defmethod apply-card-effect :pay
-;;   [game-state player card])
+(defmethod apply-card-effect :pay
+  [game-state player card]
+  (let [{player-id :id
+         pidx      :player-index} player
+        ;; TODO - Need to check for :card.pay/multiplier, and apply
+        ;;        Could be: :player/count; :house/count; :hotel/count
+        amount                    (:card.pay/cash card)]
+    (-> game-state
+        ;; Subtract money
+        (update-in [:players pidx :cash] - amount)
+        ;; Track transaction
+        (util/append-tx {:type   :payment
+                         :from   player-id
+                         :to     :bank
+                         :amount amount
+                         :reason :card
+                         :card   card}))))
 
 ;; (defmethod apply-card-effect :collect
 ;;   [game-state player card])
