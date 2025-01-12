@@ -18,7 +18,7 @@
 ;;        maybe we can do this on an entry function?
 
 (defn card-effect-dispatch
-  [game-state card]
+  [_game-state _player card]
   ;; Simple: single abstract card effect type
   (:card/effect card)
   ;; Composite: multiple sub-card effects
@@ -39,35 +39,33 @@
 ;;           (:card/effect card)))
 
 (defmethod apply-card-effect :default
-  [game-state card]
+  [game-state _player _card]
   ;; TODO - bring in this line when it's time to test everything
   ;; (println "!WARN! apply-card-effect dispatch not implemented:" (card-effect-dispatch game-state card))
   game-state)
 
 (defmethod apply-card-effect :retain
-  [game-state card]
-  (let [player (util/current-player game-state)]
-    ;; Just add to the list of player's personal cards
-    ;; TODO - Do we need a transaction for this specificaly?
-    (update-in game-state
-               [:players (:player-index player) :cards]
-               conj card)))
+  [game-state player card]
+  ;; Just add to the list of player's personal cards
+  ;; TODO - Do we need a transaction for this specificaly?
+  (update-in game-state
+             [:players (:player-index player) :cards]
+             conj card))
 
 (defmethod apply-card-effect :incarcerate
-  [game-state _card]
-  (let [player (util/current-player game-state)]
-    (util/send-to-jail game-state
-                       (:id player)
-                       [:card :go-to-jail])))
+  [game-state player _card]
+  (util/send-to-jail game-state
+                     (:id player)
+                     [:card :go-to-jail]))
 
 ;; (defmethod apply-card-effect :pay
-;;   [game-state card])
+;;   [game-state player card])
 
 ;; (defmethod apply-card-effect :collect
-;;   [game-state card])
+;;   [game-state player card])
 
 ;; (defmethod apply-card-effect :move
-;;   [game-state card])
+;;   [game-state player card])
 
 
 ;; =====================================================
@@ -85,7 +83,7 @@
                                     {:type   :card-draw
                                      :player (:id player)
                                      :card   card})
-        with-effect (apply-card-effect with-tx card)]
+        with-effect (apply-card-effect with-tx player card)]
 
     ;; TEMP - logging if an effect apply didn't do anything
     (if (= with-tx with-effect)
