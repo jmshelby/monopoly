@@ -53,8 +53,12 @@
                [:players (:player-index player) :cards]
                conj card)))
 
-;; (defmethod apply-card-effect :incarcerate
-;;   [game-state card])
+(defmethod apply-card-effect :incarcerate
+  [game-state _card]
+  (let [player (util/current-player game-state)]
+    (util/send-to-jail game-state
+                       (:id player)
+                       [:card :go-to-jail])))
 
 ;; (defmethod apply-card-effect :pay
 ;;   [game-state card])

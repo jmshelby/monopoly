@@ -175,54 +175,6 @@
                     :properties (:properties player)
                     :acquistion [:basic :bank]}))))
 
-(defn apply-end-turn
-  "Given a game state, advance board, changing
-  turns to the next active player in line."
-  [game-state]
-  ;; TODO - add transaction for this?
-  (-> game-state
-      ;; Remove dice rolls
-      (assoc-in [:current-turn :dice-rolls] [])
-      ;; Get/Set next player ID
-      (assoc-in [:current-turn :player]
-                (-> game-state util/next-player :id))))
-
-(defn send-to-jail
-  "Given game state, move given player into an
-  incarcerated jail state. Also provide the cause
-  for why a player is being sent to jail."
-  [{:keys [board players]
-    :as   game-state}
-   player-id cause]
-  (let [{pidx     :player-index
-         old-cell :cell-residency}
-        (->> players
-             (map-indexed (fn [idx p] (assoc p :player-index idx)))
-             (filter #(= (:id %) player-id))
-             first)
-        new-cell (util/jail-cell-index board)]
-    (-> game-state
-        ;; Move player to jail spot
-        (assoc-in [:players pidx :cell-residency]
-                  new-cell)
-        ;; Set new jail key on player,
-        ;; to track jail workflow
-        (assoc-in [:players pidx :jail-spell]
-                  {:cause      cause
-                   :dice-rolls []})
-        ;; Transaction
-        (append-tx {:type        :move
-                    :driver      :incarceration
-                    :cause       cause
-                    :player      player-id
-                    :before-cell old-cell
-                    :after-cell  new-cell})
-        ;; All causes for going to jail result in forced end of turn
-        ;; TODO - Verify this, the instructions seem clear, but
-        ;;        I thought the player might have time to do
-        ;;        trades or purchases
-        apply-end-turn)))
-
 (defn apply-house-purchase
   "Given a game state and property, apply purchase of a single house
   for current player on given property. Validates and throws if house
@@ -400,13 +352,13 @@
       ;; "Go to Jail" dice roll, 3 consecutive doubles
       ;; NOTE - all dice specific
       dice-jailed?
-      (send-to-jail new-state player-id [:roll :double 3])
+      (util/send-to-jail new-state player-id [:roll :double 3])
 
       ;; "Go to Jail" cell landing
       ;; NOTE - *not* dice specific
       (= :go-to-jail
          (get-in board [:cells new-cell :type]))
-      (send-to-jail new-state player-id [:cell :go-to-jail])
+      (util/send-to-jail new-state player-id [:cell :go-to-jail])
 
       ;; TODO "Go to Jail" card
 
@@ -589,7 +541,7 @@
         (-> game-state
             ;; Move to next player FIRST
             ;; (we can get caught in a loop if we don't do this right)
-            apply-end-turn
+            util/apply-end-turn
             ;; Then process bankruptcy workflow
             (simple-bankupt-player player-id)))
 
@@ -641,7 +593,7 @@
 
         (case (:action decision)
           ;; Player done, end turn, advance to next player
-          :done      (apply-end-turn game-state)
+          :done      (util/apply-end-turn game-state)
           ;; Roll Dice
           :roll      (-> game-state
                          ;; Do the roll and move

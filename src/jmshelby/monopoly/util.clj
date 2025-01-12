@@ -108,6 +108,54 @@
        (filter #(= (:id %) (:player current-turn)))
        first))
 
+(defn apply-end-turn
+  "Given a game state, advance board, changing
+  turns to the next active player in line."
+  [game-state]
+  ;; TODO - add transaction for this?
+  (-> game-state
+      ;; Remove dice rolls
+      (assoc-in [:current-turn :dice-rolls] [])
+      ;; Get/Set next player ID
+      (assoc-in [:current-turn :player]
+                (-> game-state next-player :id))))
+
+
+;; ======= Jail Life Cycle =====================
+
+(defn send-to-jail
+  "Given game state, move given player into an
+  incarcerated jail state. Also provide the cause
+  for why a player is being sent to jail."
+  [{:keys [board players]
+    :as   game-state}
+   player-id cause]
+  (let [{pidx     :player-index
+         old-cell :cell-residency}
+        (->> players
+             (map-indexed (fn [idx p] (assoc p :player-index idx)))
+             (filter #(= (:id %) player-id))
+             first)
+        new-cell (jail-cell-index board)]
+    (-> game-state
+        ;; Move player to jail spot
+        (assoc-in [:players pidx :cell-residency]
+                  new-cell)
+        ;; Set new jail key on player,
+        ;; to track jail workflow
+        (assoc-in [:players pidx :jail-spell]
+                  {:cause      cause
+                   :dice-rolls []})
+        ;; Transaction
+        (append-tx {:type        :move
+                    :driver      :incarceration
+                    :cause       cause
+                    :player      player-id
+                    :before-cell old-cell
+                    :after-cell  new-cell})
+        ;; All causes for going to jail result in forced end of turn
+        apply-end-turn)))
+
 
 ;; ======= Property Management =================
 
