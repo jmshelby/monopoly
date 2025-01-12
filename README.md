@@ -21,21 +21,28 @@ Monopoly Game Engine + Pluggable Player API
  - Go to Jail
    - "go to jail" cell/spot
    - Roll 3 consecutive doubles, "got to jail"
+   - "go to jail" card
  - In Jail
    - Roll double dice to get out
    - [Force out, after being in jail a certain amount of time?]
    - Pay $X to get out
+ - Cards
+   - Draw logic/transaction
+   - Multiple decks
+   - Effects:
+     - Retain
+     - Incarcerate
  ---------------------------
 #### Remaining Logic
  - Cards
-   - Chance
-   - Community Chest
-   - Keepable cards
-     - With current rules, it's only "get out of jail free cards"
- - Go to Jail
-   - "go to jail" card
+   - Re-shuffle
+   - Effects:
+     - Move
+     - Pay (w/multipliers)
+     - Collect (w/multipliers)
+     - [Multiple effects]
  - In Jail
-   - "Get out of jail free" card
+   - "Get out of jail free" card bail
  - Proposals
    - On player turn action
      - offer workflow
