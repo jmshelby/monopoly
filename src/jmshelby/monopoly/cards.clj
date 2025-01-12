@@ -1,6 +1,9 @@
 (ns jmshelby.monopoly.cards
   (:require [jmshelby.monopoly.util :as util]))
 
+;; Invocations to be Required
+;;  -
+
 (defn- draw-card
   "Given a game state and deck name, return tuple of card drawn,
   and post-drawn state. Re-shuffles deck if depleted."

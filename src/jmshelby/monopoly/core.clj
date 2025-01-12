@@ -331,21 +331,25 @@
   ;; THOUGHT - Can we produce an ordered transaction list, and the caller can apply it to game-state?
 
   (let [;; Get current player info
-        player         (util/current-player game-state)
-        player-id      (:id player)
-        pidx           (:player-index player)
-        player-cash    (:cash player)
-        old-cell       (:cell-residency player)
+        player       (util/current-player game-state)
+        player-id    (:id player)
+        pidx         (:player-index player)
+        player-cash  (:cash player)
+        old-cell     (:cell-residency player)
         ;; Find next board position, looping back around if needed
-        new-cell       (next-cell game-state (apply + new-roll) old-cell)
+        ;; NOTE - Finding the next new cell is roll specific
+        new-cell     (next-cell game-state (apply + new-roll) old-cell)
         ;; Jail trigger based on dice roll,
         ;; 3rd consecutive dice roll, player goes to jail
-        dice-jailed?   (and (apply = new-roll)
-                            (<= 2 (-> game-state :current-turn :dice-rolls count)))
+        ;; NOTE - Checking the players current rolls is roll specific
+        dice-jailed? (and (apply = new-roll)
+                          (<= 2 (-> game-state :current-turn :dice-rolls count)))
+
         ;; Check for allowance
         ;; If the old cell index is GT the new,
         ;; then we've looped around, easy
         ;; ! - this assumes GO is on cell 0, possibly okay...
+        ;; NOTE - Checking for pass go is *not* roll specific (could be any advance/move)
         allowance      (get-in board [:cells 0 :allowance])
         with-allowance (when (and (not dice-jailed?)
                                   (> old-cell new-cell))
@@ -357,6 +361,7 @@
           ;; Save current new roll
           ;; TODO - What's the condition here?
           ;;        (in-jail has it's own workflow for dice rolls)
+          ;; NOTE - Only for dice rolls
           true
           (-> (update-in [:current-turn :dice-rolls] conj new-roll)
               (append-tx {:type   :roll
@@ -364,14 +369,20 @@
                           :roll   new-roll}))
           ;; If they're not going to jail from 3rd dice roll, move player
           (not dice-jailed?)
+          ;; NOTE - while it first checks the dice roll, this is *not* dice specific
           (-> (assoc-in [:players pidx :cell-residency] new-cell)
+              ;; NOTE - however ^ the transaction driver is dice specific
               (append-tx {:type        :move
                           :driver      :roll
                           :player      player-id
                           :before-cell old-cell
                           :after-cell  new-cell}))
+
+          ;; NOTE - most of the below is *NOT* dice specific
+
           ;; Check if we've passed/landed on go, for allowance payout
           ;; TODO - could probably refactor this
+          ;; NOTE - not dice specific, should be applied to any advance/move
           with-allowance
           (-> (assoc-in [:players pidx :cash] with-allowance)
               (append-tx {:type   :payment
@@ -387,10 +398,12 @@
 
       ;; Very first (because dice triggers it)
       ;; "Go to Jail" dice roll, 3 consecutive doubles
+      ;; NOTE - all dice specific
       dice-jailed?
       (send-to-jail new-state player-id [:roll :double 3])
 
       ;; "Go to Jail" cell landing
+      ;; NOTE - *not* dice specific
       (= :go-to-jail
          (get-in board [:cells new-cell :type]))
       (send-to-jail new-state player-id [:cell :go-to-jail])
@@ -398,6 +411,7 @@
       ;; TODO "Go to Jail" card
 
       ;; Tax
+      ;; NOTE - *not* dice specific
       (tax-owed? new-state)
       (let [tax-owed (tax-owed? new-state)]
         (-> new-state
@@ -409,6 +423,8 @@
                         :amount tax-owed
                         :reason :tax})))
       ;; Rent
+      ;; NOTE - *not* dice specific
+      ;;        (except possibly downstream utility dice roll stuff...)
       (util/rent-owed? new-state)
       (let [rent-owed (util/rent-owed? new-state)]
         (-> new-state
@@ -431,12 +447,14 @@
                         :reason :rent})))
 
       ;; Card Draw Spot
+      ;; NOTE - *not* dice specific
       (let [cell-def (get-in board [:cells new-cell])]
         (= :card (:type cell-def)))
       (cards/apply-card-draw new-state)
 
       ;; None of the above, player option
       ;; or auction off property
+      ;; NOTE - *not* dice specific
       :else (apply-property-option new-state))))
 
 (defn apply-jail-spell
