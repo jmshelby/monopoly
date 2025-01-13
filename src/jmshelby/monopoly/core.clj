@@ -267,6 +267,49 @@
       ;; TODO - need also add another condition that it's unowned
       game-state)))
 
+
+(defn- JUST-APPLY-DICE-ROLL
+  ;; ?? Could/should we pass the "move" function to this?
+  [game-state new-roll]
+  ;; ||=============================================================
+  ;; || Check for dice-jailed? and also invoke incareration state???
+  ;; || update the dice roll record on current-turn
+  ;; || transaction for dice roll
+  ;; ||=============================================================
+  (let [;; Get current player info
+        player       (util/current-player game-state)
+        player-id    (:id player)
+        ;; Save new roll + transaction
+        new-state
+        (-> game-state
+            (update-in [:current-turn :dice-rolls] conj new-roll)
+            (append-tx {:type   :roll
+                        :player player-id
+                        :roll   new-roll}))
+        ;; Jail trigger based on dice roll,
+        ;; 3rd consecutive dice roll, player goes to jail
+        dice-jailed? (and (apply = new-roll)
+                          (<= 2 (-> game-state :current-turn :dice-rolls count)))]
+    ;; Check for "double dice" roll incarceration
+    (if-not dice-jailed?
+      new-state
+      (util/send-to-jail new-state player-id [:roll :double 3]))))
+
+(defn- MOVE-TO-CELL
+  [game-state cell]
+  ;; ||=============================================================
+  ;; || Allowance logic - calculate
+  ;; || Allowance logic - inc cash + transaction
+  ;; || [Invoke cell effect(s)]
+  ;; ||  - "Go to Jail" spot
+  ;; ||  - Tax
+  ;; ||  - Rent
+  ;; ||  - Card Draw
+  ;; ||  - Property Purchase Option
+  ;; ||=============================================================
+  )
+
+
 (defn apply-dice-roll
   "Given a game state and dice roll, advance board as
   if current player rolled dice. This function could
@@ -359,8 +402,6 @@
       (= :go-to-jail
          (get-in board [:cells new-cell :type]))
       (util/send-to-jail new-state player-id [:cell :go-to-jail])
-
-      ;; TODO "Go to Jail" card
 
       ;; Tax
       ;; NOTE - *not* dice specific
