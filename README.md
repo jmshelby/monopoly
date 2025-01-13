@@ -27,15 +27,15 @@ Monopoly Game Engine + Pluggable Player API
    - [Force out, after being in jail a certain amount of time?]
    - Pay $X to get out
  - Cards
-   - Draw logic/transaction
    - Multiple decks
+   - Draw logic/transaction
+   - Re-shuffle
    - Effects:
      - Retain
      - Incarcerate
  ---------------------------
 #### Remaining Logic
  - Cards
-   - Re-shuffle
    - Effects:
      - Move
      - Pay (w/multipliers)
