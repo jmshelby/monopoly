@@ -155,6 +155,90 @@
         ;; All causes for going to jail result in forced end of turn
         apply-end-turn)))
 
+(defn apply-jail-spell
+  "Given a game state and player jail specific action, apply
+  decision and all affects. This can be as little as a
+  double dice roll attempt and staying in jail, to getting
+  out, moving spaces and landing on another which can cause
+  other side affects."
+  [{{apply-dice-roll :apply-dice-roll}
+    :functions
+    :as game-state}
+   action]
+
+  ;; ?TODO? - Should this validate that certain things can happen?
+  ;;          like affording bail or having the bail card? or
+  ;;          should the caller do that?
+
+  (let [player    (current-player game-state)
+        player-id (:id player)
+        pidx      (:player-index player)
+        bail      (->> game-state :board :cells
+                       (filter #(= :jail (:type %)))
+                       first :bail)]
+    (case action
+      ;; Attempt roll for doubles
+      :jail/roll
+      (let [new-roll (roll-dice 2)
+            ;; Which attempt num to roll out of jail
+            attempt  (-> player :jail-spell :dice-rolls count inc)]
+        (cond
+          ;; It's a double! Take out of jail,
+          ;; and apply as a regular dice roll
+          (apply = new-roll)
+          (-> game-state
+              (dissoc-in [:players pidx :jail-spell])
+              ;; TODO - The "roll" transaction should happen here,
+              ;;        but the apply-dice-roll is doing that for us ...
+              (append-tx {:type   :bail
+                          :player player-id
+                          :means  [:roll :double new-roll]})
+              ;; TODO - Somehow need to signal that they don't get another
+              ;;        roll, because a double thrown while in jail doesn't
+              ;;        grant that priviledge
+              (apply-dice-roll new-roll))
+
+          ;; Not a double, third attempt.
+          ;; Force bail payment, and move
+          (<= 3 attempt)
+          (-> game-state
+              (dissoc-in [:players pidx :jail-spell])
+              (update-in [:players pidx :cash] - bail)
+              ;; TODO - The "roll" transaction should happen here,
+              ;;        but the apply-dice-roll is doing that for us ...
+              (append-tx {:type   :bail
+                          :player player-id
+                          :means  [:cash bail]})
+              (apply-dice-roll new-roll))
+
+          ;; Not a double, register roll
+          :else
+          (-> game-state
+              ;; To both current, and jail spell records
+              (update-in [:current-turn :dice-rolls] conj new-roll)
+              (update-in [:players pidx :jail-spell :dice-rolls] conj new-roll)
+              (append-tx {:type   :roll
+                          :player player-id
+                          :roll   new-roll}))))
+
+      ;; If you can afford it, pay to get out of jail,
+      ;; staying on the same cell
+      :jail/bail
+      ;; TODO - this is quite duplicated code..
+      (-> game-state
+          (dissoc-in [:players pidx :jail-spell])
+          (update-in [:players pidx :cash] - bail)
+          (append-tx {:type   :bail
+                      :player player-id
+                      :means  [:cash bail]}))
+
+      ;; If you have the card, use it to get out of jail,
+      ;; staying on the same cell
+      ;; TODO
+      :jail/bail-card game-state
+      ;; :means [:card :chance-or-community-chest]
+      )))
+
 
 ;; ======= Property Management =================
 
