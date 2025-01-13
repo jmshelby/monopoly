@@ -268,6 +268,11 @@
       game-state)))
 
 
+;; ==============
+
+
+;; TODO - Either: need a way to tell the caller if they should move next,
+;;        or include the move function in params somewhere to call based on need
 (defn- JUST-APPLY-DICE-ROLL
   ;; ?? Could/should we pass the "move" function to this?
   [game-state new-roll]
@@ -296,10 +301,12 @@
       (util/send-to-jail new-state player-id [:roll :double 3]))))
 
 (defn- MOVE-TO-CELL
-  [game-state cell]
+  [{:keys [board players]
+    :as   game-state} new-cell]
   ;; ||=============================================================
   ;; || Allowance logic - calculate
   ;; || Allowance logic - inc cash + transaction
+  ;; || Update cell residency
   ;; || [Invoke cell effect(s)]
   ;; ||  - "Go to Jail" spot
   ;; ||  - Tax
@@ -307,8 +314,100 @@
   ;; ||  - Card Draw
   ;; ||  - Property Purchase Option
   ;; ||=============================================================
-  )
 
+  (let [;; Get current player info
+        player      (util/current-player game-state)
+        player-id   (:id player)
+        pidx        (:player-index player)
+        player-cash (:cash player)
+        old-cell    (:cell-residency player)
+
+        ;; Check for allowance
+        ;; If the old cell index is GT the new,
+        ;; then we've looped around, easy
+        ;; ! - this assumes GO is on cell 0, possibly okay...
+        allowance      (get-in board [:cells 0 :allowance])
+        with-allowance (when (> old-cell new-cell)
+                         (+ player-cash allowance))
+
+        ;; Initial state update, things that have to happen
+        new-state
+        (cond-> game-state
+          ;; Move player
+          ;; TODO - what is the condition here?
+          true
+          (-> (assoc-in [:players pidx :cell-residency] new-cell)
+              ;; NOTE - however ^ the transaction driver is dice specific
+              (append-tx {:type        :move
+                          :driver      :roll
+                          :player      player-id
+                          :before-cell old-cell
+                          :after-cell  new-cell}))
+
+          ;; Check if we've passed/landed on go, for allowance payout
+          with-allowance
+          (-> (assoc-in [:players pidx :cash] with-allowance)
+              (append-tx {:type   :payment
+                          :from   :bank
+                          :to     player-id
+                          :amount allowance
+                          :reason :allowance})))
+
+        ]
+
+    ;; Next state update, needed payments; jail; draw/apply card
+    ;; TODO - card draw
+    ;; TODO - yikes, getting messy, impl dispatch by cell type
+    (cond
+
+      ;; "Go to Jail" cell landing
+      (= :go-to-jail
+         (get-in board [:cells new-cell :type]))
+      (util/send-to-jail new-state player-id [:cell :go-to-jail])
+
+      ;; Tax
+      (tax-owed? new-state)
+      (let [tax-owed (tax-owed? new-state)]
+        (-> new-state
+            (update-in [:players pidx :cash] - tax-owed)
+            ;; Just take from player
+            (append-tx {:type   :payment
+                        :from   player-id
+                        :to     :bank
+                        :amount tax-owed
+                        :reason :tax})))
+      ;; Rent
+      (util/rent-owed? new-state)
+      (let [rent-owed (util/rent-owed? new-state)]
+        (-> new-state
+            (update-in [:players pidx :cash] - (second rent-owed))
+            ;; Take from current player, give to owner
+            (update-in [:players
+                        ;; Get the player index of owed player
+                        ;; TODO - this could probably be refactored
+                        (->> players
+                             (map-indexed vector)
+                             (filter #(= (:id (second %))
+                                         (first rent-owed)))
+                             first first)
+                        :cash]
+                       + (second rent-owed))
+            (append-tx {:type   :payment
+                        :from   player-id
+                        :to     (first rent-owed)
+                        :amount (second rent-owed)
+                        :reason :rent})))
+
+      ;; Card Draw Spot
+      (let [cell-def (get-in board [:cells new-cell])]
+        (= :card (:type cell-def)))
+      (cards/apply-card-draw new-state)
+
+      ;; None of the above, player option
+      ;; or auction off property
+      :else (apply-property-option new-state))))
+
+;; ==============
 
 (defn apply-dice-roll
   "Given a game state and dice roll, advance board as
