@@ -198,22 +198,12 @@
       ;; TODO - need also add another condition that it's unowned
       game-state)))
 
-
-;; ==============
-
 ;; Special function to core
 (defn- move-to-cell
-  ;; ||=============================================================
-  ;; || Allowance logic - calculate
-  ;; || Allowance logic - inc cash + transaction
-  ;; || Update cell residency
-  ;; || [Invoke cell effect(s)]
-  ;; ||  - "Go to Jail" spot
-  ;; ||  - Tax
-  ;; ||  - Rent
-  ;; ||  - Card Draw
-  ;; ||  - Property Purchase Option
-  ;; ||=============================================================
+  "Given a game state, destination cell index, and reason/driver
+  for moving... apply effects to move current player from their
+  cell to the destination cell. Applies GO allowance if applicable,
+  resulting transactions, and destination cell effects/options."
   [{:keys [board players]
     :as   game-state}
    new-cell driver]
@@ -226,7 +216,7 @@
         ;; Check for allowance
         ;; If the old cell index is GT the new,
         ;; then we've looped around, easy
-        ;; ! - this assumes GO is on cell 0, possibly okay...
+        ;; TODO - this assumes GO is on cell 0, possibly okay...
         allowance      (get-in board [:cells 0 :allowance])
         ;; TODO - There's a bug where this is incorrect if a
         ;;        card has the person going back 3 spots.
@@ -301,11 +291,9 @@
       :else (apply-property-option new-state))))
 
 (defn- apply-dice-roll
-  ;; ||=============================================================
-  ;; || Check for dice-jailed? and also invoke incareration state???
-  ;; || update the dice roll record on current-turn
-  ;; || transaction for dice roll
-  ;; ||=============================================================
+  "Given a game state and new dice roll, advance game according to
+  roll. 3rd consecutive roll goes to jail, otherwise, register dice
+  roll + transaction, and invoke actual player move."
   [game-state new-roll]
   (let [;; Get current player info
         player       (util/current-player game-state)
