@@ -50,8 +50,7 @@
                   ;; Some sort of state around the comm status with the player
                   ;; TODO - need to figure out what this looks like
                   ;; TODO - it could be a :phase thing, but maybe this tracks forced negotiation state/status
-                  :status     :?
-                  }
+                  :status     :?}
 
    ;; The current *ordered* care queue to pull from.
    ;; At the beginning of the game these will be loaded at random,
@@ -62,30 +61,10 @@
 
    ;; A list of all game move history, and it's details.
    ;; This is probably more of an enhanced feature...
-   :transactions [
-                  ;; Types:
-                  ;; - Player rolls
-                  ;;   - Player Current State? (or just ID?)
-                  ;;   - Die numbers
-                  ;;   - From spot -> to spot -> to redirected spot (like going to jail)
-                  ;; - Player Draws Card
-                  ;;   - Card type
-                  ;;   - Card id
-                  ;;   - Kept Card?
-                  ;;   - Action? (or can/should that always be another transaction)
-                  ;; - [Player Card Action?]
-                  ;; - Player makes offer
-                  ;;   - Player from/to
-                  ;;   - Is counter offer?
-                  ;;   - Status: accepted/rejected/countered
-                  ;; - Player goes bankrupt
-                  ;; etc ...
-
-                  ;; Thoughts:
-                  ;;  - This is a lot like datomic...
-                  ;;  - Each item in this list could be every unique game state
-                  ]
-   })
+   ;; Thoughts:
+   ;;  - This is a lot like datomic...
+   ;;  - Each item in this list could be every unique game state
+   :transactions []})
 
 (defn- next-cell
   "Given a game-state, dice sum, and current cell idx, return
