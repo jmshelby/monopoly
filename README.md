@@ -31,13 +31,15 @@ Monopoly Game Engine + Pluggable Player API
    - Draw logic/transaction
    - Re-shuffle
    - Effects:
+     - Move
      - Retain
      - Incarcerate
+     - Pay (simple)
+     - Collect (simple)
  ---------------------------
 #### Remaining Logic
  - Cards
    - Effects:
-     - Move
      - Pay (w/multipliers)
      - Collect (w/multipliers)
      - [Multiple effects]

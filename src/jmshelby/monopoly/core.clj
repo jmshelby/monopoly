@@ -66,14 +66,6 @@
    ;;  - Each item in this list could be every unique game state
    :transactions []})
 
-(defn- next-cell
-  "Given a game-state, dice sum, and current cell idx, return
-  the next cell idx after moving that number of cells"
-  [game-state n idx]
-  ;; Modulo after adding dice sum to current spot
-  (mod (+ n idx)
-       (-> game-state :board :cells count)))
-
 (defn tax-owed?
   "Given a game-state, when a tax is owed by the
   current player, return the amount. Returns nil
@@ -236,6 +228,8 @@
         ;; then we've looped around, easy
         ;; ! - this assumes GO is on cell 0, possibly okay...
         allowance      (get-in board [:cells 0 :allowance])
+        ;; TODO - There's a bug where this is incorrect if a
+        ;;        card has the person going back 3 spots.
         with-allowance (when (> old-cell new-cell)
                          (+ player-cash allowance))
         ;; Initial state update, things that have
@@ -334,7 +328,7 @@
       ;; Invoke actual cell move
       (let [;; Find next board position, looping back around if needed
             old-cell (:cell-residency player)
-            new-cell (next-cell game-state (apply + new-roll) old-cell)]
+            new-cell (util/next-cell (:board game-state) (apply + new-roll) old-cell)]
         ;; TODO - Once we start putting this "move to cell" logic in the game state,
         ;;        we should probably invoke that one
         (move-to-cell new-state new-cell :dice)))))
@@ -542,6 +536,7 @@
   (def sim
     (rand-game-end-state 4))
 
+
   ;; Cell landings stats
   (->> sim
        :transactions
@@ -562,8 +557,6 @@
 
 
   (println "--------------------------------------------------------")
-
-  sim
 
 
   (as-> (rand-game-state 4 500) *

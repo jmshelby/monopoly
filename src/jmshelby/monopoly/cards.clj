@@ -1,5 +1,6 @@
 (ns jmshelby.monopoly.cards
   (:require [clojure.set :as set]
+            [jmshelby.monopoly.definitions :as defs]
             [jmshelby.monopoly.util :as util]))
 
 (defn cards->deck-queues
@@ -35,7 +36,7 @@
   and post-drawn state. Re-shuffles deck if depleted."
   [game-state deck]
   (let [;; First, attempt to get a card
-        card (-> game-state :card-queue deck peek)
+        card        (-> game-state :card-queue deck peek)
         ;; Potential to need to shuffle
         [game-state card]
         (if card
@@ -131,9 +132,74 @@
                          :reason :card
                          :card   card}))))
 
-;; (defmethod apply-card-effect :move
-;;   [game-state player card])
+;; TODO - I coded these 3 fns quickly, could be refactored
+(defn- get-cell-by-type
+  [board type-val]
+  (->> board
+       :cells
+       (map-indexed vector)
+       (some (fn [[idx cell]]
+               (when (= type-val (:type cell))
+                 idx)))))
 
+(defn- get-cell-property
+  [board name]
+  (->> board
+       :cells
+       (map-indexed vector)
+       (some (fn [[idx cell]]
+               (when
+                   (and (= name (:name cell))
+                        (= :property (:type cell)))
+                 idx)))))
+
+(defn- get-next-property-type
+  ;; TODO - lots of refactoring needed here ...
+  [board pos prop-type]
+  (let [;; Generate name indexed properties map (easier lookup)
+        name->prop
+        (->> board
+             :properties
+             (reduce (fn [acc prop]
+                       (assoc acc (:name prop) prop))
+                     {}))
+        ;; Generate cells w/property details maps attached
+        enh-cells
+        (->> board
+             :cells
+             (map-indexed vector)
+             (map (fn [[idx cell]]
+                    [idx (if (= :property (:type cell))
+                           (assoc cell :details (name->prop (:name cell)))
+                           cell)])))]
+    ;; Cycle through cells...
+    (->> enh-cells
+         cycle
+         ;; Starting at a certain cell position
+         (drop pos)
+         ;; Find the next cell with the right property type
+         (some (fn [[idx cell]]
+                 (when (and (= :property (:type cell))
+                            (= prop-type
+                               (get-in cell [:details :type])))
+                   idx))))))
+
+(defmethod apply-card-effect :move
+  [{:keys [board]
+    :as   game-state}
+   player card]
+  (let [move           (-> game-state :functions :move-to-cell)
+        old-cell       (:cell-residency player)
+        [style target] (:card.move/cell card)
+        new-cell
+        (case style
+          :back             (util/next-cell board (* -1 target) old-cell)
+          :type             (get-cell-by-type board target)
+          :property         (get-cell-property board target)
+          ;; TODO - Cheating a bit for now ...
+          ;;        Make this smarter so it looks better
+          [:type :property] (get-next-property-type board old-cell (second target)))]
+    (move game-state new-cell :card)))
 
 ;; =====================================================
 

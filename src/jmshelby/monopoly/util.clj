@@ -56,6 +56,18 @@
        first
        :cell-index))
 
+
+;; ======= Board Logistics =====================
+
+(defn next-cell
+  "Given a board, dice sum, and current cell idx, return
+  the next cell idx after moving that number of cells"
+  [board n idx]
+  ;; Modulo after adding dice sum to current spot
+  (mod (+ n idx)
+       (-> board :cells count)))
+
+
 ;; ======= Transaction Management ==============
 
 (defn append-tx [game-state & txs]

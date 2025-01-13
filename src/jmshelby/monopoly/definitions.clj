@@ -122,12 +122,11 @@
              :card/effect    :move
              :card.move/cell [:property :reading-railroad]}
 
-            {:text                "Go Back 3 Spaces"
-             :simplified          "Move back x cells"
-             :deck                :chance
-             :card/effect         :move
-             :card.move/direction [:back 3]
-             }
+            {:text           "Go Back 3 Spaces"
+             :simplified     "Move back x cells"
+             :deck           :chance
+             :card/effect    :move
+             :card.move/cell [:back 3]}
 
             ;; Jail actions
             {:text            "Get Out of Jail Free"
