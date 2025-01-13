@@ -1,17 +1,53 @@
 (ns jmshelby.monopoly.cards
-  (:require [jmshelby.monopoly.util :as util]))
+  (:require [clojure.set :as set]
+            [jmshelby.monopoly.util :as util]))
 
-;; Invocations to be Required
-;;  -
+(defn cards->deck-queues
+  [cards]
+  (->> cards
+       ;; Multiple decks, separate queues
+       (group-by :deck)
+       ;; Multiply certain cards
+       (map (fn [[deck cards]]
+              [deck (mapcat #(repeat (:count % 1) %) cards)]))
+       ;; Do actual shuffle, per deck
+       (map (fn [[deck cards]]
+              [deck (shuffle cards)]))
+       (into {})))
+
+(defn- shuffle-deck
+  "Given a game state, and a deck name, replinish the deck with a full shuffled one, in the card queue, minus the retained cards of the other players."
+  [game-state deck]
+  ;; TODO - We may need to consider the retained cards of inactive players?
+  (let [cards    (-> game-state :board :cards)
+        retained (->> game-state
+                      :players
+                      (mapcat :cards)
+                      set)
+        new-deck (->> retained
+                      (set/difference cards)
+                      (filter #(= deck (:deck %)))
+                      shuffle)]
+    (assoc-in game-state [:card-queue deck] new-deck)))
 
 (defn- draw-card
   "Given a game state and deck name, return tuple of card drawn,
   and post-drawn state. Re-shuffles deck if depleted."
   [game-state deck]
-  (let [card        (-> game-state :card-queue deck peek)
-        ;; TODO - refill/re-shuffle
-        ;; card (when-not card ...)
+  (let [;; First, attempt to get a card
+        card (-> game-state :card-queue deck peek)
+        ;; Potential to need to shuffle
+        [game-state card]
+        (if card
+          ;; All good
+          [game-state card]
+          ;; Replinish/shuffle deck
+          (let [new-state (shuffle-deck game-state deck)
+                real-card (-> new-state :card-queue deck peek)]
+            [new-state real-card]))
+        ;; Now that we have a card, remove from deck queue
         drawn-state (update-in game-state [:card-queue deck] pop)]
+    ;; Return as pair
     [drawn-state card]))
 
 ;; TODO - Need to always look for :card.retain/effect to add to players retained effects

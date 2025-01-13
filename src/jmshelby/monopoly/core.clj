@@ -1,5 +1,6 @@
 (ns jmshelby.monopoly.core
-  (:require [jmshelby.monopoly.util :as util
+  (:require [clojure.set :as set]
+            [jmshelby.monopoly.util :as util
              :refer [roll-dice dissoc-in append-tx]]
             [jmshelby.monopoly.cards :as cards]
             [jmshelby.monopoly.player :as player]
@@ -596,15 +597,7 @@
          ;; Grab and preserve the default board/layout
          :board        defs/board
          ;; Shuffle all cards by deck
-         :card-queue   (->> defs/board
-                            :cards
-                            (group-by :deck)
-                            (map (fn [[deck cards]]
-                                   ;; Multiply certain cards
-                                   [deck (mapcat #(repeat (:count % 1) %) cards)]))
-                            (map (fn [[deck cards]]
-                                   [deck (shuffle cards)]))
-                            (into {}))
+         :card-queue   (cards/cards->deck-queues (:cards defs/board))
          :transactions []}]
     ;; Just return this state
     initial-state))
@@ -669,6 +662,8 @@
 
 
   (println "--------------------------------------------------------")
+
+  sim
 
 
   (as-> (rand-game-state 4 500) *

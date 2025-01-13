@@ -56,7 +56,6 @@
        first
        :cell-index))
 
-
 ;; ======= Transaction Management ==============
 
 (defn append-tx [game-state & txs]
