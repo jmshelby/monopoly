@@ -108,47 +108,6 @@
     (when (= :tax (:type current-cell))
       (:cost current-cell))))
 
-(defn init-game-state
-  ;; Very early version of this function,
-  ;; just creates n # of simple players
-  [player-count]
-  (let [;; Define initial player state
-        players
-        (->> (range 65 (+ player-count 65))
-             (map char)
-             (map str)
-             (map (partial hash-map :id))
-             ;; Add starting state values
-             (map #(assoc %
-                          :function player/dumb-player-decision
-                          :status :playing
-                          :cash 1500
-                          :cell-residency 0 ;; All starting on "Go"
-                          :cards []
-                          :properties {}))
-             vec)
-        ;; Define initial game state
-        initial-state
-        {:status       :playing
-         :players      players
-         :current-turn {:player     (-> players first :id)
-                        :dice-rolls []}
-         ;; Grab and preserve the default board/layout
-         :board        defs/board
-         ;; Shuffle all cards by deck
-         :card-queue   (->> defs/board
-                            :cards
-                            (group-by :deck)
-                            (map (fn [[deck cards]]
-                                   ;; Multiply certain cards
-                                   [deck (mapcat #(repeat (:count % 1) %) cards)]))
-                            (map (fn [[deck cards]]
-                                   [deck (shuffle cards)]))
-                            (into {}))
-         :transactions []}]
-    ;; Just return this state
-    initial-state))
-
 (defn- simple-bankupt-player
   "Apply simple bankruptcy logic to player in game state.
   Remove houses from properties, remove properties, making
@@ -400,8 +359,6 @@
         ;;        we should probably invoke that one
         (move-to-cell new-state new-cell :dice)))))
 
-;; ==============
-
 (defn apply-jail-spell
   "Given a game state and player jail specific action, apply
   decision and all affects. This can be as little as a
@@ -608,6 +565,49 @@
           ;; TODO - detect if player is stuck in loop?
           ;; TODO - player is taking too long?
           )))))
+
+;; ===============================
+
+(defn init-game-state
+  ;; Very early version of this function,
+  ;; just creates n # of simple players
+  [player-count]
+  (let [;; Define initial player state
+        players
+        (->> (range 65 (+ player-count 65))
+             (map char)
+             (map str)
+             (map (partial hash-map :id))
+             ;; Add starting state values
+             (map #(assoc %
+                          :function player/dumb-player-decision
+                          :status :playing
+                          :cash 1500
+                          :cell-residency 0 ;; All starting on "Go"
+                          :cards []
+                          :properties {}))
+             vec)
+        ;; Define initial game state
+        initial-state
+        {:status       :playing
+         :players      players
+         :current-turn {:player     (-> players first :id)
+                        :dice-rolls []}
+         ;; Grab and preserve the default board/layout
+         :board        defs/board
+         ;; Shuffle all cards by deck
+         :card-queue   (->> defs/board
+                            :cards
+                            (group-by :deck)
+                            (map (fn [[deck cards]]
+                                   ;; Multiply certain cards
+                                   [deck (mapcat #(repeat (:count % 1) %) cards)]))
+                            (map (fn [[deck cards]]
+                                   [deck (shuffle cards)]))
+                            (into {}))
+         :transactions []}]
+    ;; Just return this state
+    initial-state))
 
 (defn rand-game-state
   "Return a game state, with # of given players, as of the given, nth iteration"
