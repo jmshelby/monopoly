@@ -88,136 +88,109 @@
            {:type :property
             :name :boardwalk}]
 
-   ;; TODO - logic
-   ;; TODO - some cards are keepable/tradable
    :cards #{;; *Move* actions
             {:text           "Advance to Go (Collect $200)"
-             :simplified     "Move to X cell"
              :deck           :chance
              :card/effect    :move
              :card.move/cell [:type :go]}
             {:text           "Advance to Go (Collect $200)"
-             :simplified     "Move to X cell"
              :deck           :community-chest
              :card/effect    :move
              :card.move/cell [:type :go]}
             {:text           "Advance to Boardwalk"
-             :simplified     "Move to X cell"
              :deck           :chance
              :card/effect    :move
              :card.move/cell [:property :boardwalk]}
             {:text           "Advance to Illinois Avenue. If you pass Go, collect $200"
-             :simplified     "Move to X cell"
              :deck           :chance
              :card/effect    :move
              :card.move/cell [:property :illinois-ave]}
             {:text           "Advance to St. Charles Place. If you pass Go, collect $200"
-             :simplified     "Move to X cell"
              :deck           :chance
              :card/effect    :move
              :card.move/cell [:property :st-charles-place]}
             {:text           "Take a trip to Reading Railroad. If you pass Go, collect $200"
-             :simplified     "Move to X cell"
              :deck           :chance
              :card/effect    :move
              :card.move/cell [:property :reading-railroad]}
 
             {:text           "Go Back 3 Spaces"
-             :simplified     "Move back x cells"
              :deck           :chance
              :card/effect    :move
              :card.move/cell [:back 3]}
 
             ;; Jail actions
             {:text            "Get Out of Jail Free"
-             :simplified      "Collect card, later use, get out of jail"
              :deck            :chance
              :card/effect     :retain
              :card.retain/use :bail}
             {:text            "Get Out of Jail Free"
-             :simplified      "Collect card, later use, get out of jail"
              :deck            :community-chest
              :card/effect     :retain
              :card.retain/use :bail}
 
             {:text        "Go to Jail. Go directly to Jail, do not pass Go, do not collect $200"
-             :simplified  "Go to Jail"
              :deck        :chance
              :card/effect :incarcerate}
             {:text        "Go to Jail. Go directly to jail, do not pass Go, do not collect $200"
-             :simplified  "Go to Jail"
              :deck        :community-chest
              :card/effect :incarcerate}
 
             ;; Pay/receive actions
             {:text              "Bank pays you dividend of $50"
-             :simplified        "Receive X money"
              :deck              :chance
              :card/effect       :collect
              :card.collect/cash 50}
             {:text              "Your building loan matures. Collect $150"
-             :simplified        "Receive X money"
              :deck              :chance
              :card/effect       :collect
              :card.collect/cash 150}
             {:text              "You inherit $100"
-             :simplified        "Receive X money"
              :deck              :community-chest
              :card/effect       :collect
              :card.collect/cash 100}
             {:text              "Receive $25 consultancy fee"
-             :simplified        "Receive X money"
              :deck              :community-chest
              :card/effect       :collect
              :card.collect/cash 25}
             {:text              "Income tax refund. Collect $20"
-             :simplified        "Receive X money"
              :deck              :community-chest
              :card/effect       :collect
              :card.collect/cash 20}
             {:text              "From sale of stock you get $50"
-             :simplified        "Receive X money"
              :deck              :community-chest
              :card/effect       :collect
              :card.collect/cash 50}
             {:text              "Holiday fund matures. Receive $100"
-             :simplified        "Receive X money"
              :deck              :community-chest
              :card/effect       :collect
              :card.collect/cash 100}
             {:text              "Life insurance matures. Collect $100"
-             :simplified        "Receive X money"
              :deck              :community-chest
              :card/effect       :collect
              :card.collect/cash 100}
             {:text              "Bank error in your favor. Collect $200"
-             :simplified        "Receive X money"
              :deck              :community-chest
              :card/effect       :collect
              :card.collect/cash 200}
             {:text              "You have won second prize in a beauty contest. Collect $10"
-             :simplified        "Receive X money"
              :deck              :community-chest
              :card/effect       :collect
              :card.collect/cash 10}
 
             {:text          "Speeding fine $15"
-             :simplified    "Pay X money"
              :deck          :chance
              :card/effect   :pay
              :card.pay/cash 15}
             {:text          "Doctor’s fee. Pay $50"
-             :simplified    "Pay X money"
              :deck          :community-chest
              :card/effect   :pay
              :card.pay/cash 50}
             {:text          "Pay school fees of $50"
-             :simplified    "Pay X money"
              :deck          :community-chest
              :card/effect   :pay
              :card.pay/cash 50}
             {:text          "Pay hospital fees of $100"
-             :simplified    "Pay X money"
              :deck          :community-chest
              :card/effect   :pay
              :card.pay/cash 100}
@@ -225,7 +198,6 @@
             {:text                 "You have been elected Chairman of the Board. Pay each player $50"
              :notes                ["This may be the official card, but the app version pays this money to the bank."
                                     "TODO - figure out which one we should implement"]
-             :simplified           "Pay X money, multiplied by # of players"
              :deck                 :chance
              :card/effect          :pay
              :card.pay/cash        50
@@ -233,7 +205,6 @@
             {:text                 "It is your birthday. Collect $10 from every player"
              :notes                ["This may be the official card, but the app version pays this money from the bank."
                                     "TODO - figure out which one we should implement"]
-             :simplified           "Receive X money, multiplied by # of players"
              :deck                 :community-chest
              :card/effect          :collect
              :card.collect/cash    10
@@ -241,8 +212,6 @@
 
             {:text        ["Make general repairs on all your property."
                            "For each house pay $25. For each hotel pay $100."]
-             :simplified  ["Pay X money, multiplied by # owned houses."
-                           "Pay Y money, multiplied by # owned hotels."]
              :deck        :chance
              :card/effect [{:card/effect          :pay
                             :card.pay/cash        25
@@ -251,8 +220,6 @@
                             :card.pay/cash        100
                             :card.cash/multiplier :hotel/count}]}
             {:text        "You are assessed for street repair. $40 per house. $115 per hotel"
-             :simplified  ["Pay X money, multiplied by # owned houses."
-                           "Pay Y money, multiplied by # owned hotels."]
              :deck        :community-chest
              :card/effect [{:card/effect          :pay
                             :card.pay/cash        40
@@ -265,7 +232,6 @@
             {:text                           ["Advance token to nearest Utility."
                                               "If unowned, you may buy it from the Bank."
                                               "If owned, throw dice and pay owner a total ten times amount thrown."]
-             :simplified                     "Move to next utility, roll dice, pay w/multiplier X"
              :deck                           :chance
              :card/effect                    :move
              :card.move/cell                 [[:type :property]
@@ -275,7 +241,6 @@
             {:text                      ["Advance to the nearest Railroad."
                                          "If unowned, you may buy it from the Bank."
                                          "If owned, pay twice the rental to which they are otherwise entitled."]
-             :simplified                "Move to next type==X property; pay multiplied by Y"
              :count                     2
              :deck                      :chance
              :card/effect               :move
