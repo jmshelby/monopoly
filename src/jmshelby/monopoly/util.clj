@@ -134,6 +134,13 @@
 
 ;; ======= Jail Life Cycle =====================
 
+(defn has-bail-card?
+  [player]
+  (->> player
+       :cards
+       (filter #(= :bail (:card.retain/use %)))
+       seq))
+
 (defn send-to-jail
   "Given game state, move given player into an
   incarcerated jail state. Also provide the cause
@@ -246,10 +253,19 @@
 
       ;; If you have the card, use it to get out of jail,
       ;; staying on the same cell
-      ;; TODO
-      :jail/bail-card game-state
-      ;; :means [:card :chance-or-community-chest]
-      )))
+      :jail/bail-card
+      ;; TODO - this is quite duplicated code..
+      (let [cards (has-bail-card? player)
+            ;; TODO - we could ensure that bail cards are available here
+            ;; Just take the first bail card
+            card  (first cards)]
+        (-> game-state
+            (dissoc-in [:players pidx :jail-spell])
+            (update-in [:players pidx :cards] set/difference #{card})
+            (append-tx {:type   :bail
+                        :player player-id
+                        :means  [:card (:deck card)]
+                        :card   card}))))))
 
 
 ;; ======= Property Management =================

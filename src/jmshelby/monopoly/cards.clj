@@ -84,7 +84,7 @@
 (defmethod apply-card-effect :retain
   [game-state player card]
   ;; Just add to the list of player's personal cards
-  ;; TODO - Do we need a transaction for this specificaly?
+  ;; TODO - Do we need a transaction for this specifically?
   (update-in game-state
              [:players (:player-index player) :cards]
              conj card))
@@ -110,10 +110,12 @@
     :hotel/count  (->> player :properties vals
                        (filter #(= 5 (:house-count %)))
                        count)
-    ;; Count of total active players
+    ;; Count of total active players,
+    ;; other than current player
     :player/count (->> game-state :players
                        (filter #(= :playing (:status %)))
-                       count)
+                       count
+                       dec)
     ;; Default to 1, no multiplier
     1))
 

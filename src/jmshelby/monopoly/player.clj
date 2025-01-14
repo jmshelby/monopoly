@@ -41,6 +41,11 @@
         (-> params :actions-available :roll)
         {:action :roll}
 
+        ;; OR, if we are in jail and have a free out card
+        ;; THEN use it
+        (-> params :actions-available :jail/bail-card)
+        {:action :jail/bail-card}
+
         ;; OR, if we are in jail and can pay bail,
         ;; AND there's more than 25% of prop for sell,
         ;; THEN post bail

@@ -26,7 +26,7 @@
               ;; Current amount of money on hand
               :cash           1
               ;; Special card collection, current set
-              :cards          [:get-out-of-jail-free]
+              :cards          #{:get-out-of-jail-free}
               ;; Which cell on the board are they currently in
               :cell-residency 0
               ;; If on jail cell (haha), and incarcerated,
@@ -404,10 +404,9 @@
                                    ;; TODO - Need to restrict this if they just landed in jail
                                    (when (>= cash bail)
                                      :jail/bail))
-                                 ;; TODO - Get out of jail card
-                                 ;; (when (has-jail-card? player)
-                                 ;;   :jail/bail-card)
-                                 ]
+                                 ;; Bail with "get out of jail free" card
+                                 (when (util/has-bail-card? player)
+                                   :jail/bail-card)]
 
                                 ;; Regular dice rolls
                                 (when can-roll? :roll))
@@ -465,7 +464,7 @@
                           :status :playing
                           :cash 1500
                           :cell-residency 0 ;; All starting on "Go"
-                          :cards []
+                          :cards #{}
                           :properties {}))
              vec)
         ;; Define initial game state
@@ -523,7 +522,6 @@
 
   (def sim
     (rand-game-end-state 4))
-
 
   ;; Cell landings stats
   (->> sim

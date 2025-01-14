@@ -24,8 +24,9 @@ Monopoly Game Engine + Pluggable Player API
    - "go to jail" card
  - In Jail
    - Roll double dice to get out
-   - [Force out, after being in jail a certain amount of time?]
+   - [Force out, after being in jail a certain amount of time]
    - Pay $X to get out
+   - "Get out of jail free" card bail
  - Cards
    - Multiple decks
    - Draw logic/transaction
@@ -41,8 +42,6 @@ Monopoly Game Engine + Pluggable Player API
 #### Remaining Logic
  - Cards
    - Deferred effects (go to nearest utility, pay 10x dice roll)
- - In Jail
-   - "Get out of jail free" card bail
  - Proposals
    - On player turn action
      - offer workflow
