@@ -66,20 +66,7 @@
    ;;  - Each item in this list could be every unique game state
    :transactions []})
 
-(defn tax-owed?
-  "Given a game-state, when a tax is owed by the
-  current player, return the amount. Returns nil
-  if no tax is due."
-  [{:keys [board]
-    :as   game-state}]
-  (let [{:keys [cell-residency]}
-        (util/current-player game-state)
-        ;; Get the definition of the current cell *if* it's a property
-        current-cell (get-in board [:cells cell-residency])]
-    ;; Only return if tax is actually owed
-    (when (= :tax (:type current-cell))
-      (:cost current-cell))))
-
+;; TODO - This will most likely turn into the "bankrupt by the bank" flow..
 (defn- simple-bankupt-player
   "Apply simple bankruptcy logic to player in game state.
   Remove houses from properties, remove properties, making
@@ -105,98 +92,6 @@
                     :player     player-id
                     :properties (:properties player)
                     :acquistion [:basic :bank]}))))
-
-(defn apply-house-purchase
-  "Given a game state and property, apply purchase of a single house
-  for current player on given property. Validates and throws if house
-  purchase is not allowed by game rules."
-  [game-state property-name]
-  (let [{player-id :id
-         pidx      :player-index}
-        (util/current-player game-state)
-        ;; Get property definition
-        property (->> game-state :board :properties
-                      (filter #(= :street (:type %)))
-                      (filter #(= property-name (:name %)))
-                      first)]
-
-    ;; Validation
-    ;; TODO - Should this be done by the caller?
-    (when-not (util/can-buy-house? game-state property-name)
-      (throw (ex-info "Player decision not allowed"
-                      {:action   :buy-house
-                       :player   player-id
-                       :property property-name
-                       ;; TODO - could be: prop not purchased; no
-                       ;;        monopoly; house even distribution
-                       ;;        violation; cash; etc ...
-                       :reason   :unspecified})))
-
-    ;; Apply the purchase
-    (-> game-state
-        ;; Inc house count in player's owned collection
-        (update-in [:players pidx :properties
-                    property-name :house-count]
-                   inc)
-        ;; Subtract money
-        (update-in [:players pidx :cash]
-                   - (:house-price property))
-        ;; Track transaction
-        (append-tx {:type     :purchase-house
-                    :player   player-id
-                    :property property-name
-                    :price    (:house-price property)}))))
-
-(defn apply-property-option
-  "Given a game state, check if current player is able to buy the property
-  they are currently on, if so, invoke player decision logic to determine
-  if they want to buy the property. Apply game state changes for either a
-  property purchase, or the result of an invoked auction workflow."
-  [{:keys [board]
-    :as   game-state}]
-  (let [;; Get player details
-        {:keys [cash function
-                player-index
-                cell-residency]
-         :as   player} (util/current-player game-state)
-        current-cell   (get-in board [:cells cell-residency])
-        ;; Get the definition of the current cell *if* it's a property
-        property       (and (-> current-cell :type (= :property))
-                            (->> board :properties
-                                 (filter #(= (:name %) (:name current-cell)))
-                                 first))
-        taken          (util/owned-properties game-state)]
-    ;; Either process initial property purchase, or auction off
-    (if (and
-          ;; We're on an actual property
-          property
-          ;; It's unowned
-          (not (taken (:name property)))
-          ;; Player has enough money
-          (> cash (:price property))
-          ;; Player wants to buy it...
-          ;; [invoke player for option decision]
-          (= :buy (:action (function game-state :property-option {:property property}))))
-
-      ;; Apply the purchase
-      (-> game-state
-          ;; Add to player's owned collection
-          (update-in [:players player-index :properties]
-                     assoc (:name property) {:status      :paid
-                                             :house-count 0})
-          ;; Subtract money
-          (update-in [:players player-index :cash]
-                     - (:price property))
-          ;; Track transaction
-          (append-tx {:type     :purchase
-                      :player   (:id player)
-                      :property (:name property)
-                      :price    (:price property)}))
-
-      ;; Apply auction workflow
-      ;; TODO - need to implement this
-      ;; TODO - need also add another condition that it's unowned
-      game-state)))
 
 ;; Special function to core
 (defn- move-to-cell
@@ -251,8 +146,8 @@
          (get-in board [:cells new-cell :type]))
       (util/send-to-jail new-state player-id [:cell :go-to-jail])
       ;; Tax
-      (tax-owed? new-state)
-      (let [tax-owed (tax-owed? new-state)]
+      (util/tax-owed? new-state)
+      (let [tax-owed (util/tax-owed? new-state)]
         (-> new-state
             (update-in [:players pidx :cash] - tax-owed)
             ;; Just take from player
@@ -288,7 +183,7 @@
       (cards/apply-card-draw new-state)
       ;; None of the above, player option
       ;; or auction off property
-      :else (apply-property-option new-state))))
+      :else (util/apply-property-option new-state))))
 
 (defn- apply-dice-roll
   "Given a game state and new dice roll, advance game according to
@@ -429,7 +324,7 @@
                          ;; Do the roll and move
                          (apply-dice-roll (roll-dice 2)))
           ;; Buy house(s)
-          :buy-house (apply-house-purchase
+          :buy-house (util/apply-house-purchase
                        game-state
                        (:property-name decision))
           ;; TODO - Sell house(s)

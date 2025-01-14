@@ -268,6 +268,23 @@
                         :card   card}))))))
 
 
+;; ======= Taxes ===============================
+
+(defn tax-owed?
+  "Given a game-state, when a tax is owed by the
+  current player, return the amount. Returns nil
+  if no tax is due."
+  [{:keys [board]
+    :as   game-state}]
+  (let [{:keys [cell-residency]}
+        (current-player game-state)
+        ;; Get the definition of the current cell *if* it's a property
+        current-cell (get-in board [:cells cell-residency])]
+    ;; Only return if tax is actually owed
+    (when (= :tax (:type current-cell))
+      (:cost current-cell))))
+
+
 ;; ======= Property Management =================
 
 (defn owned-properties
@@ -322,6 +339,58 @@
                              ;; TODO - this assumes that only one type of prop has a group name
                              (street-group->count (-> deets :def :group-name))))])))
          (into {}))))
+
+(defn apply-property-option
+  "Given a game state, check if current player is able to buy the property
+  they are currently on, if so, invoke player decision logic to determine
+  if they want to buy the property. Apply game state changes for either a
+  property purchase, or the result of an invoked auction workflow."
+  [{:keys [board]
+    :as   game-state}]
+  (let [;; Get player details
+        {:keys [cash function
+                player-index
+                cell-residency]
+         :as   player} (current-player game-state)
+        current-cell   (get-in board [:cells cell-residency])
+        ;; Get the definition of the current cell *if* it's a property
+        property       (and (-> current-cell :type (= :property))
+                            (->> board :properties
+                                 (filter #(= (:name %) (:name current-cell)))
+                                 first))
+        taken          (owned-properties game-state)]
+    ;; Either process initial property purchase, or auction off
+    (if (and
+          ;; We're on an actual property
+          property
+          ;; It's unowned
+          (not (taken (:name property)))
+          ;; Player has enough money
+          (> cash (:price property))
+          ;; Player wants to buy it...
+          ;; [invoke player for option decision]
+          (= :buy (:action (function game-state :property-option {:property property}))))
+
+      ;; Apply the purchase
+      (-> game-state
+          ;; Add to player's owned collection
+          (update-in [:players player-index :properties]
+                     assoc (:name property) {:status      :paid
+                                             :house-count 0})
+          ;; Subtract money
+          (update-in [:players player-index :cash]
+                     - (:price property))
+          ;; Track transaction
+          (append-tx {:type     :purchase
+                      :player   (:id player)
+                      :property (:name property)
+                      :price    (:price property)}))
+
+      ;; Apply auction workflow
+      ;; TODO - need to implement this
+      ;; TODO - need also add another condition that it's unowned
+      game-state)))
+
 
 ;; ----- Rent ------------------------
 
@@ -501,3 +570,44 @@
      ;; and can they afford it?
      (and single-prop
           (>= cash (nth single-prop 2))))))
+
+(defn apply-house-purchase
+  "Given a game state and property, apply purchase of a single house
+  for current player on given property. Validates and throws if house
+  purchase is not allowed by game rules."
+  [game-state property-name]
+  (let [{player-id :id
+         pidx      :player-index}
+        (current-player game-state)
+        ;; Get property definition
+        property (->> game-state :board :properties
+                      (filter #(= :street (:type %)))
+                      (filter #(= property-name (:name %)))
+                      first)]
+
+    ;; Validation
+    ;; TODO - Should this be done by the caller?
+    (when-not (can-buy-house? game-state property-name)
+      (throw (ex-info "Player decision not allowed"
+                      {:action   :buy-house
+                       :player   player-id
+                       :property property-name
+                       ;; TODO - could be: prop not purchased; no
+                       ;;        monopoly; house even distribution
+                       ;;        violation; cash; etc ...
+                       :reason   :unspecified})))
+
+    ;; Apply the purchase
+    (-> game-state
+        ;; Inc house count in player's owned collection
+        (update-in [:players pidx :properties
+                    property-name :house-count]
+                   inc)
+        ;; Subtract money
+        (update-in [:players pidx :cash]
+                   - (:house-price property))
+        ;; Track transaction
+        (append-tx {:type     :purchase-house
+                    :player   player-id
+                    :property property-name
+                    :price    (:house-price property)}))))
