@@ -25,4 +25,4 @@ jobs:
         key: cljdeps-${{ hashFiles('deps.edn') }}
         restore-keys: cljdeps-
     - name: Unit Tests
-      run: bin/kaocha
+      run: bin/test
