@@ -397,7 +397,7 @@
          (fn [{:keys [status transactions]}]
            (and (= :playing status)
                 ;; Some arbitrary limit
-                (> 2000 (count transactions)))))
+                (> 1100 (count transactions)))))
        first))
 
 (comment
