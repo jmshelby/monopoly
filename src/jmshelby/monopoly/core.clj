@@ -103,18 +103,32 @@
     :as   game-state}
    new-cell driver]
   (let [;; Get current player info
-        player         (util/current-player game-state)
-        player-id      (:id player)
-        pidx           (:player-index player)
-        player-cash    (:cash player)
-        old-cell       (:cell-residency player)
+        player      (util/current-player game-state)
+        player-id   (:id player)
+        pidx        (:player-index player)
+        player-cash (:cash player)
+        old-cell    (:cell-residency player)
         ;; Check for allowance
         ;; If the old cell index is GT the new,
         ;; then we've looped around, easy
         ;; TODO - this assumes GO is on cell 0, possibly okay...
-        allowance      (get-in board [:cells 0 :allowance])
+        allowance   (get-in board [:cells 0 :allowance])
         ;; TODO - There's a bug where this is incorrect if a
         ;;        card has the person going back 3 spots.
+        ;; Example:
+        ;; {:type :roll, :player "D", :roll [3 3]}
+        ;; {:type :move, :driver :dice, :player "D", :before-cell 16, :after-cell 22}
+        ;; {:type   :card-draw,
+        ;;  :player "D",
+        ;;  :card
+        ;;  {:text           "Go Back 3 Spaces",
+        ;;   :deck           :chance,
+        ;;   :card/effect    :move,
+        ;;   :card.move/cell [:back 3]}}
+        ;; {:type :move, :driver :card, :player "D", :before-cell 22, :after-cell 19}
+        ;; {:type :payment, :from :bank, :to "D", :amount 200, :reason :allowance}
+        ;; {:type :payment, :from "D", :to "A", :amount 16, :reason :rent}
+
         with-allowance (when (> old-cell new-cell)
                          (+ player-cash allowance))
         ;; Initial state update, things that have
