@@ -222,44 +222,44 @@
              :card/effect   :pay
              :card.pay/cash 100}
 
-            {:text                "You have been elected Chairman of the Board. Pay each player $50"
-             :notes               ["This may be the official card, but the app version pays this money to the bank."
-                                   "TODO - figure out which one we should implement"]
-             :simplified          "Pay X money, multiplied by # of players"
-             :deck                :chance
-             :card/effect         :pay
-             :card.pay/cash       50
-             :card.pay/multiplier :player/count}
-            {:text                    "It is your birthday. Collect $10 from every player"
-             :notes                   ["This may be the official card, but the app version pays this money from the bank."
-                                       "TODO - figure out which one we should implement"]
-             :simplified              "Receive X money, multiplied by # of players"
-             :deck                    :community-chest
-             :card/effect             :collect
-             :card.collect/cash       10
-             :card.collect/multiplier :player/count}
+            {:text                 "You have been elected Chairman of the Board. Pay each player $50"
+             :notes                ["This may be the official card, but the app version pays this money to the bank."
+                                    "TODO - figure out which one we should implement"]
+             :simplified           "Pay X money, multiplied by # of players"
+             :deck                 :chance
+             :card/effect          :pay
+             :card.pay/cash        50
+             :card.cash/multiplier :player/count}
+            {:text                 "It is your birthday. Collect $10 from every player"
+             :notes                ["This may be the official card, but the app version pays this money from the bank."
+                                    "TODO - figure out which one we should implement"]
+             :simplified           "Receive X money, multiplied by # of players"
+             :deck                 :community-chest
+             :card/effect          :collect
+             :card.collect/cash    10
+             :card.cash/multiplier :player/count}
 
             {:text        ["Make general repairs on all your property."
                            "For each house pay $25. For each hotel pay $100."]
              :simplified  ["Pay X money, multiplied by # owned houses."
                            "Pay Y money, multiplied by # owned hotels."]
              :deck        :chance
-             :card/effect [{:card/effect         :pay
-                            :card.pay/cash       25
-                            :card.pay/multiplier :house/count}
-                           {:card/effect         :pay
-                            :card.pay/cash       100
-                            :card.pay/multiplier :hotel/count}]}
+             :card/effect [{:card/effect          :pay
+                            :card.pay/cash        25
+                            :card.cash/multiplier :house/count}
+                           {:card/effect          :pay
+                            :card.pay/cash        100
+                            :card.cash/multiplier :hotel/count}]}
             {:text        "You are assessed for street repair. $40 per house. $115 per hotel"
              :simplified  ["Pay X money, multiplied by # owned houses."
                            "Pay Y money, multiplied by # owned hotels."]
              :deck        :community-chest
-             :card/effect [{:card/effect         :pay
-                            :card.pay/cash       40
-                            :card.pay/multiplier :house/count}
-                           {:card/effect         :pay
-                            :card.pay/cash       115
-                            :card.pay/multiplier :hotel/count}]}
+             :card/effect [{:card/effect          :pay
+                            :card.pay/cash        40
+                            :card.cash/multiplier :house/count}
+                           {:card/effect          :pay
+                            :card.pay/cash        115
+                            :card.cash/multiplier :hotel/count}]}
 
             ;; Move + Pay actions
             {:text                           ["Advance token to nearest Utility."

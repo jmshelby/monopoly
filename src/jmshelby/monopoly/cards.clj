@@ -57,28 +57,28 @@
 (defn card-effect-dispatch
   [_game-state _player card]
   ;; Simple: single abstract card effect type
-  (:card/effect card)
-  ;; Composite: multiple sub-card effects
-  ;; TODO - If vector, dispatch to a "multi-effect" impl to invoke multiple times?
-  )
+  (let [effect (:card/effect card)]
+    (if (vector? effect)
+      ;; Composite of multiple effects, dispatch as special case
+      :card.effect/multi
+      ;; Single effect on it's own
+      effect)))
 
 (defmulti apply-card-effect
   "TODO doc"
   #'card-effect-dispatch)
 
-;; TODO - test this later
-;; (defmethod apply-card-effect :card.effect/multi
-;;   [game-state card]
-;;   ;; Multiple effects, just apply one after the other
-;;   (reduce (fn [state sub-card]
-;;             (apply-card-effect state sub-card))
-;;           game-state
-;;           (:card/effect card)))
+(defmethod apply-card-effect :card.effect/multi
+  [game-state player card]
+  ;; Multiple effects, just apply one after the other
+  (reduce (fn [state sub-card]
+            (apply-card-effect state player sub-card))
+          game-state
+          (:card/effect card)))
 
 (defmethod apply-card-effect :default
-  [game-state _player _card]
-  ;; TODO - bring in this line when it's time to test everything
-  ;; (println "!WARN! apply-card-effect dispatch not implemented:" (card-effect-dispatch game-state card))
+  [game-state player card]
+  (println "!WARN! apply-card-effect dispatch not implemented:" (card-effect-dispatch game-state player card))
   game-state)
 
 (defmethod apply-card-effect :retain
@@ -96,13 +96,34 @@
                      (:id player)
                      [:card :go-to-jail]))
 
+(defn get-payment-multiplier
+  [game-state player card]
+  (case (:card.cash/multiplier card)
+    ;; Count of houses this player
+    ;; owns, minus properties with >4
+    :house/count  (->> player :properties vals
+                       (filter #(> 5 (:house-count %) 0))
+                       (map :house-count)
+                       (apply +))
+    ;; Count of player's properties with
+    ;; 5 houses on them
+    :hotel/count  (->> player :properties vals
+                       (filter #(= 5 (:house-count %)))
+                       count)
+    ;; Count of total active players
+    :player/count (->> game-state :players
+                       (filter #(= :playing (:status %)))
+                       count)
+    ;; Default to 1, no multiplier
+    1))
+
 (defmethod apply-card-effect :pay
   [game-state player card]
   (let [{player-id :id
-         pidx      :player-index} player
-        ;; TODO - Need to check for :card.pay/multiplier, and apply
-        ;;        Could be: :player/count; :house/count; :hotel/count
-        amount                    (:card.pay/cash card)]
+         pidx      :player-index}
+        player
+        mult   (get-payment-multiplier game-state player card)
+        amount (* mult (:card.pay/cash card))]
     (-> game-state
         ;; Subtract money
         (update-in [:players pidx :cash] - amount)
@@ -219,9 +240,8 @@
         with-effect (apply-card-effect with-tx player card)]
 
     ;; TEMP - logging if an effect apply didn't do anything
-    (if (= with-tx with-effect)
-      (println "_Would_ have applied card: " card)
-      (println "Applied card: " card))
+    (when (= with-tx with-effect)
+      (println "_Would_ have applied card: " card))
 
     with-effect))
 

@@ -34,15 +34,13 @@ Monopoly Game Engine + Pluggable Player API
      - Move
      - Retain
      - Incarcerate
-     - Pay (simple)
-     - Collect (simple)
+     - Pay
+     - Collect
+     - [Multiple effects] (pay per house; pay per hotel)
  ---------------------------
 #### Remaining Logic
  - Cards
-   - Effects:
-     - Pay (w/multipliers)
-     - Collect (w/multipliers)
-     - [Multiple effects]
+   - Deferred effects (go to nearest utility, pay 10x dice roll)
  - In Jail
    - "Get out of jail free" card bail
  - Proposals
