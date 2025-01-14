@@ -1,0 +1,28 @@
+name: Pull Request Checks
+on: pull_request
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Prepare java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21.0.2'
+    - name: Install clojure tools
+      uses: DeLaGuardo/setup-clojure@12.5
+      with:
+        cli: latest
+    - name: Cache clojure dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.m2/repository
+          ~/.gitlibs
+          ~/.deps.clj
+        key: cljdeps-${{ hashFiles('deps.edn') }}
+        restore-keys: cljdeps-
+    - name: Unit Tests
+      run: bin/kaocha
