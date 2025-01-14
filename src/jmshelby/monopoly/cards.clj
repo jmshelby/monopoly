@@ -128,7 +128,7 @@
         amount (* mult (:card.pay/cash card))]
     (-> game-state
         ;; Subtract money
-        (update-in [:players pidx :cash] - amount)
+        (update-in [:players pidx :cash] thing amount)
         ;; Track transaction
         (util/append-tx {:type   :payment
                          :from   player-id
