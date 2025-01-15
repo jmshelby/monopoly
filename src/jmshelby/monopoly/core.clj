@@ -101,35 +101,18 @@
   resulting transactions, and destination cell effects/options."
   [{:keys [board players]
     :as   game-state}
-   new-cell driver]
+   new-cell driver
+   & {:keys [allowance?] :or {allowance? true}}]
   (let [;; Get current player info
-        player      (util/current-player game-state)
-        player-id   (:id player)
-        pidx        (:player-index player)
-        player-cash (:cash player)
-        old-cell    (:cell-residency player)
-        ;; Check for allowance
-        ;; If the old cell index is GT the new,
-        ;; then we've looped around, easy
-        ;; TODO - this assumes GO is on cell 0, possibly okay...
-        allowance   (get-in board [:cells 0 :allowance])
-        ;; TODO - There's a bug where this is incorrect if a
-        ;;        card has the person going back 3 spots.
-        ;; Example:
-        ;; {:type :roll, :player "D", :roll [3 3]}
-        ;; {:type :move, :driver :dice, :player "D", :before-cell 16, :after-cell 22}
-        ;; {:type   :card-draw,
-        ;;  :player "D",
-        ;;  :card
-        ;;  {:text           "Go Back 3 Spaces",
-        ;;   :deck           :chance,
-        ;;   :card/effect    :move,
-        ;;   :card.move/cell [:back 3]}}
-        ;; {:type :move, :driver :card, :player "D", :before-cell 22, :after-cell 19}
-        ;; {:type :payment, :from :bank, :to "D", :amount 200, :reason :allowance}
-        ;; {:type :payment, :from "D", :to "A", :amount 16, :reason :rent}
-
-        with-allowance (when (> old-cell new-cell)
+        player         (util/current-player game-state)
+        player-id      (:id player)
+        pidx           (:player-index player)
+        player-cash    (:cash player)
+        old-cell       (:cell-residency player)
+        ;; Check for allowance (from > to)
+        allowance      (get-in board [:cells 0 :allowance])
+        with-allowance (when (and allowance?
+                                  (> old-cell new-cell))
                          (+ player-cash allowance))
         ;; Initial state update, things that have
         ;; to happen before the move effects
@@ -245,6 +228,7 @@
     (cond
 
       ;; Check if game is already complete
+      ;; TODO - will this ever happen? (should it?)
       (= :complete (:status game-state))
       (do (println "Game complete, can't advance further")
           game-state)
@@ -256,13 +240,13 @@
            (filter #(= :playing (:status %)))
            count
            (= 1))
-      (do (println "Only one active player left, marking game as complete")
-          (assoc game-state :status :complete))
+      (assoc game-state :status :complete)
 
       ;; !!! Just in case !!! (TEMP)
       ;; Check if it's time to end the game,
       ;; no active player left?
       ;; This shouldn't happen, but let's log if it does
+      ;; TODO - will this ever happen? (should it?)
       (->> players
            (filter #(= :playing (:status %)))
            count

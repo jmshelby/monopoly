@@ -41,7 +41,7 @@
       ;; after buying landing on tax AND did
       ;; _not_ collect allowance
       (is (= 1300 (get-in after [:players 0 :cash]))
-          "Paid $200, cash balance"))))
+          "Paid $200 tax, cash balance"))))
 
 (comment
 
