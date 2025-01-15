@@ -269,6 +269,7 @@
 
       ;; If they have cash, and it's not time to end the train
       ;; proceed with regular player turn
+      ;; TODO - yikes, this is getting huge too ...
       :else
       (let [;; Basic/jumbled for now, long lets nested ifs...
             ;; TODO - need to add other actions soon, and this logic
@@ -283,7 +284,6 @@
                               ;; TODO - Need to force certain number of rolls before :done can be available
                               :done
                               (if jail-spell
-
                                 ;; Jail actions
                                 [;; Attempt double roll
                                  (when (nil? last-roll)
@@ -303,7 +303,18 @@
                                 (when can-roll? :roll))
 
                               ;; House building
-                              (when can-build? :buy-house))
+                              (when can-build? :buy-house)
+
+                              ;; Trade Proposals
+                              ;; TODO - Later we'll need to determine if this is an option for the user ...
+                              ;;        For now we'll just denied trades that are not possible
+                              ;; - If you own some property, with no houses
+                              ;; - If someone else owns some property, with no houses
+                              ;; OR
+                              ;; - If you have a card
+                              ;; OR
+                              ;; ??
+                              :trade-proposal)
                             flatten
                             (filter identity)
                             set)
@@ -323,9 +334,19 @@
           :buy-house (util/apply-house-purchase
                        game-state
                        (:property-name decision))
+
           ;; TODO - Sell house(s)
-          ;; TODO - Make offer
           ;; TODO - Mortgage/un-mortgage
+
+          ;; Proposing a trade
+          ;; :trade-proposal
+          ;; ;; Keys
+          ;; [:trade-proposal/to-player
+          ;;  :trade-proposal/asking
+          ;;  :trade-proposal/offering]
+          ;; ;; Asking/offering keys
+          ;; [:cash int :cards set :properties set]
+
 
           ;; JAIL
           ;; TODO - looks like any jail action can be routed to this one fn

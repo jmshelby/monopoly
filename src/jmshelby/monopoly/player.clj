@@ -25,9 +25,12 @@
     (case method
 
       ;; Dumb, always decline these actions
-      :acquisition    {:action :decline}
-      :auction-bid    {:action :decline}
-      :offer-proposal {:action :decline}
+      :acquisition {:action :decline}
+      :auction-bid {:action :decline}
+
+      ;; TODO
+      ;; A trade proposal sent to you
+      :trade-proposal {:action :decline}
 
       ;; Dumb, always buy a property if we can
       ;; TODO - maybe keep _some_ money minimum?
@@ -40,6 +43,26 @@
         ;; First, check if we can roll, and do it
         (-> params :actions-available :roll)
         {:action :roll}
+
+        ;; TODO - Check to see if we can AND should make an offer
+        ;; (and (-> params :actions-available :trade-proposal)
+        ;;      (some-trade-proposal game-state))
+        ;; {:action                   :trade-proposal
+        ;;  :trade-proposal/to-player "A"
+        ;;  ;; Note - You'd never have :cash in both asking+offering
+        ;;  ;;        I guess you _could_, but there'd be no point, so we should restrict it
+        ;;  ;; Note - You'd never have :cards in both asking+offering (in standard rules board)
+        ;;  ;; Note - You can (and often will) have properties in both asking+offering
+        ;;  ;; Note - A single player _could_ have 2 get out of jail free cards and offer them
+        ;;  :trade-proposal/asking    {;; Cash dollar amount > 0
+        ;;                             :cash       123
+        ;;                             ;; Full card definitions
+        ;;                             :cards      #{}
+        ;;                             ;; Just names of properties
+        ;;                             :properties #{}}
+        ;;  :trade-proposal/offering  {:cash       123
+        ;;                             :cards      #{}
+        ;;                             :properties #{}}}
 
         ;; OR, if we are in jail and have a free out card
         ;; THEN use it
