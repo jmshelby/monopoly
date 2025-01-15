@@ -276,14 +276,12 @@
       ;; and move on to next player
       (or (= :bankrupt status) ;; probably don't need to check this?
           (> 0 cash))
-      (do
-        (println "Need to bankrupt player:" player-id)
-        (-> game-state
-            ;; Move to next player FIRST
-            ;; (we can get caught in a loop if we don't do this right)
-            util/apply-end-turn
-            ;; Then process bankruptcy workflow
-            (simple-bankupt-player player-id)))
+      (-> game-state
+          ;; Move to next player FIRST
+          ;; (we can get caught in a loop if we don't do this right)
+          util/apply-end-turn
+          ;; Then process bankruptcy workflow
+          (simple-bankupt-player player-id))
 
       ;; If they have cash, and it's not time to end the train
       ;; proceed with regular player turn
@@ -402,17 +400,18 @@
 
 (defn rand-game-end-state
   "Return a new, random, completed game state, with # of given players"
-  [players]
-  (->> (init-game-state players)
-       (iterate advance-board)
-       ;; Skip past all iterations until game is done, and there is a winner
-       ;; OR, failsafe, the transactions have gone beyond X, most likely endless game
-       (drop-while
-         (fn [{:keys [status transactions]}]
-           (and (= :playing status)
-                ;; Some arbitrary limit
-                (> 1100 (count transactions)))))
-       first))
+  ([players] (rand-game-end-state players 2000))
+  ([players failsafe-thresh]
+   (->> (init-game-state players)
+        (iterate advance-board)
+        ;; Skip past all iterations until game is done, and there is a winner
+        ;; OR, failsafe, the transactions have gone beyond X, most likely endless game
+        (drop-while
+          (fn [{:keys [status transactions]}]
+            (and (= :playing status)
+                 ;; Some arbitrary limit
+                 (> failsafe-thresh (count transactions)))))
+        first)))
 
 (comment
 
