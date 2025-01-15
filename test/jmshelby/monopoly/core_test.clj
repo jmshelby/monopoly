@@ -6,6 +6,6 @@
 (deftest exercise-game
   ;; TODO - this can be parallelized easily
   (doseq [n (range 40)]
-    (println "Running sim " n)
-    (let [end-state (c/rand-game-end-state 4)]
+    (print "Running sim " n)
+    (let [end-state (c/rand-game-end-state 4 1000)]
       (println "  -> Status: " (:status end-state) " (" (-> end-state :transactions count) ")"))))

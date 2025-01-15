@@ -212,8 +212,10 @@
     :as   game-state}
    player card]
   (let [move           (-> game-state :functions :move-to-cell)
-        old-cell       (:cell-residency player)
         [style target] (:card.move/cell card)
+        ;; Determine if allowance should be paid, any move except back
+        allowance?     (not= :back style)
+        old-cell       (:cell-residency player)
         new-cell
         (case style
           :back             (util/next-cell board (* -1 target) old-cell)
@@ -222,7 +224,8 @@
           ;; TODO - Cheating a bit for now ...
           ;;        Make this smarter so it looks better
           [:type :property] (get-next-property-type board old-cell (second target)))]
-    (move game-state new-cell :card)))
+    ;; Make the move
+    (move game-state new-cell :card :allowance? allowance?)))
 
 ;; =====================================================
 

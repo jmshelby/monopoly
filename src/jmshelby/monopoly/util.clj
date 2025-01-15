@@ -30,8 +30,7 @@
 
 ;; ======= Definition Derivations ==============
 
-;; TODO - could easily memoize this
-(defn street-group-counts
+(defn *street-group-counts
   "Given a board definition, return a map of
   'street' property groups -> count.
   Useful for determining how many of each
@@ -44,6 +43,9 @@
        (group-by :group-name)
        (map (fn [[k coll]] [k (count coll)]))
        (into {})))
+
+(def street-group-counts
+  (memoize *street-group-counts))
 
 (defn jail-cell-index
   "Given a board definition, return the ordinal
@@ -296,7 +298,8 @@
        (map key) set))
 
 ;; TODO - Is a better name owned-properties-details?
-(defn owned-property-details
+;; TODO - this seems to be the most called, and most time spent of the functions ...
+(defn- *owned-property-details
   "Given a game-state, return the set of owned property
   details as a map of prop ID -> owned state with attached:
     - owner ID
@@ -313,6 +316,7 @@
                                [prop-name
                                 (assoc owner-state
                                        :owner (:id player)
+                                       ;; TODO - Performance: cache key by property names for this
                                        :def (->> board :properties
                                                  (filter #(= prop-name (:name %)))
                                                  first))])
@@ -339,6 +343,10 @@
                              ;; TODO - this assumes that only one type of prop has a group name
                              (street-group->count (-> deets :def :group-name))))])))
          (into {}))))
+
+(def owned-property-details
+  ;; *owned-property-details
+  (memoize *owned-property-details))
 
 (defn apply-property-option
   "Given a game state, check if current player is able to buy the property
