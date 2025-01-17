@@ -1,5 +1,6 @@
 (ns jmshelby.monopoly.core
-  (:require [clojure.set :as set]
+  (:require [clojure.set :as set
+             :refer [subset?]]
             [jmshelby.monopoly.util :as util
              :refer [roll-dice dissoc-in append-tx]]
             [jmshelby.monopoly.cards :as cards]
@@ -92,6 +93,93 @@
                     :player     player-id
                     :properties (:properties player)
                     :acquistion [:basic :bank]}))))
+
+(defn- validate-proposal-side
+  "Given a player state, and resources for one
+  side of a proposal, validate that the player
+  has the required resources, and is able to
+  perform a trade with them."
+  [player resources]
+  (->> resources
+       (map (fn [[type val]]
+              (case type
+                ;; Make sure the player has enough cash
+                :cash  (<= val (player :cash))
+                ;; Make sure the cards are owned
+                :cards (subset? val (player :cards))
+                ;; Make sure the property names are in
+                ;; the player's non-built on props
+                :properties
+                (->> player :properties
+                     (filter (fn [[_ state]]
+                               (= 0 (:house-count state))))
+                     keys set
+                     (subset? val)))))
+       ;; TODO - this can probably just find some false?
+       (every? true?)))
+
+(comment
+
+  (validate-proposal-side
+    ;; Player
+    {:cash 99}
+    ;; Resources
+    {:cash 100}
+    )
+
+
+  (validate-proposal-side
+    ;; Player
+    {:cash  99
+     :cards #{{:deck            :chance
+               :card/effect     :retain
+               :card.retain/use :bail}}}
+    ;; Resources
+    {:cards #{{:deck            :chance
+               :card/effect     :retain
+               :card.retain/use :bail}}
+     }
+    )
+
+
+  (validate-proposal-side
+    ;; Player
+    {:cash       99
+     :properties {:lacey-lane   {:status      :mortgaged
+                                 :house-count 0}
+                  :cool-place   {:status      :paid
+                                 :house-count 0}
+                  :sweet-street {:status      :paid
+                                 :house-count 0}
+
+                  }
+     }
+    ;; Resources
+    {:properties #{:cool-place :sweet-street}}
+    )
+
+
+  )
+
+
+(defn- apply-trade-proposal
+  [game-state proposal]
+  ;; Validation:
+  ;; - if from-player's turn is current??
+  ;; - If to-player has the resources being asked
+  ;; - If from-player has the resources being offerred
+
+  ;; Dispatch trade-proposal to to-player's decision logic
+  ;; Response:
+  ;;  - Decline: register as one or more txs, done
+  ;;    - might be good to notify a stateful type player of the event, eventhough we as the engine wouldn't do anything about it
+  ;;  - Accept: perform transfer of resources
+  ;;    - what sort of txs would we have here?
+  ;;    - might be good to notify a stateful type player of the event, eventhough we as the engine wouldn't do anything about it
+  ;; TODO - implement "counter proposal" logic later?
+
+  ;; TODO - somehow need to prevent endless proposal loops from happening
+  )
 
 ;; Special function to core
 (defn- move-to-cell
@@ -346,6 +434,9 @@
           ;;  :trade-proposal/offering]
           ;; ;; Asking/offering keys
           ;; [:cash int :cards set :properties set]
+          ;; TODO - add :from-player to proposal map
+
+          ;; dispatch -> apply-trade-proposal
 
 
           ;; JAIL
