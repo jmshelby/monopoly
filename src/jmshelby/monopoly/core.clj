@@ -157,28 +157,47 @@
     ;; Resources
     {:properties #{:cool-place :sweet-street}}
     )
-
-
   )
-
 
 (defn- apply-trade-proposal
   [game-state proposal]
-  ;; Validation:
-  ;; - if from-player's turn is current??
-  ;; - If to-player has the resources being asked
-  ;; - If from-player has the resources being offerred
 
-  ;; Dispatch trade-proposal to to-player's decision logic
-  ;; Response:
-  ;;  - Decline: register as one or more txs, done
-  ;;    - might be good to notify a stateful type player of the event, eventhough we as the engine wouldn't do anything about it
-  ;;  - Accept: perform transfer of resources
-  ;;    - what sort of txs would we have here?
-  ;;    - might be good to notify a stateful type player of the event, eventhough we as the engine wouldn't do anything about it
-  ;; TODO - implement "counter proposal" logic later?
+  (let [asking         (:trade-proposal/asking proposal)
+        offering       (:trade-proposal/offering proposal)
+        other-player   (->> game-state
+                            :players
+                            (filter #(= (:id %)
+                                        (:trade-proposal/to-player proposal)))
+                            first)
+        current-player (util/current-player game-state)]
 
-  ;; TODO - somehow need to prevent endless proposal loops from happening
+    ;; Validation
+    (when-not
+        (and
+          ;; The current player is offering
+          (= (:id current-player)
+             (:trade-proposal/from-player proposal))
+          ;; Offerred player has resources
+          (validate-proposal-side other-player asking)
+          ;; Offering player has resources
+          (validate-proposal-side current-player offering))
+      ;; TODO - If this is invalid, we might want to return such instead of an exception
+      (throw (ex-info "Invalid trade proposal" {})))
+
+
+    ;; Dispatch trade-proposal to to-player's decision logic
+    ;; Response:
+    ;;  - Decline: register as one or more txs, done
+    ;;    - might be good to notify a stateful type player of the event, eventhough we as the engine wouldn't do anything about it
+    ;;  - Accept: perform transfer of resources
+    ;;    - what sort of txs would we have here?
+    ;;    - might be good to notify a stateful type player of the event, eventhough we as the engine wouldn't do anything about it
+    ;; TODO - implement "counter proposal" logic later?
+
+    ;; TODO - somehow need to prevent endless proposal loops from happening
+
+    )
+
   )
 
 ;; Special function to core
