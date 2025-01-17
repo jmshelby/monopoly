@@ -159,42 +159,65 @@
     )
   )
 
+(defn- append-tx-proposal
+  [game-state proposal]
+  (append-tx game-state
+             {:type     :trade-proposal
+              :to       (:trade-proposal/to-player proposal)
+              :from     (:trade-proposal/from-player proposal)
+              :asking   (:trade-proposal/asking proposal)
+              :offering (:trade-proposal/offering proposal)}))
+
 (defn- apply-trade-proposal
   [game-state proposal]
 
-  (let [asking         (:trade-proposal/asking proposal)
-        offering       (:trade-proposal/offering proposal)
-        other-player   (->> game-state
-                            :players
-                            (filter #(= (:id %)
-                                        (:trade-proposal/to-player proposal)))
-                            first)
-        current-player (util/current-player game-state)]
+  (let [asking      (:trade-proposal/asking proposal)
+        offering    (:trade-proposal/offering proposal)
+        to-player   (->> game-state
+                         :players
+                         (filter #(= (:id %)
+                                     (:trade-proposal/to-player proposal)))
+                         first)
+        from-player (util/current-player game-state)]
 
     ;; Validation
     (when-not
         (and
           ;; The current player is offering
-          (= (:id current-player)
+          (= (:id from-player)
              (:trade-proposal/from-player proposal))
           ;; Offerred player has resources
-          (validate-proposal-side other-player asking)
+          (validate-proposal-side to-player asking)
           ;; Offering player has resources
-          (validate-proposal-side current-player offering))
+          (validate-proposal-side from-player offering))
       ;; TODO - If this is invalid, we might want to return such instead of an exception
       (throw (ex-info "Invalid trade proposal" {})))
 
+    (let [;; Dispatch trade-proposal to other player's decision logic
+          to-player-fn (:function to-player)
+          decision     (to-player-fn game-state :trade-proposal proposal)]
 
-    ;; Dispatch trade-proposal to to-player's decision logic
-    ;; Response:
-    ;;  - Decline: register as one or more txs, done
-    ;;    - might be good to notify a stateful type player of the event, eventhough we as the engine wouldn't do anything about it
-    ;;  - Accept: perform transfer of resources
-    ;;    - what sort of txs would we have here?
-    ;;    - might be good to notify a stateful type player of the event, eventhough we as the engine wouldn't do anything about it
-    ;; TODO - implement "counter proposal" logic later?
+      (case (:action decision)
+        :decline
+        (->> game-state
+             ;; append-tx-proposal
+             )
+        :accept
+        )
 
-    ;; TODO - somehow need to prevent endless proposal loops from happening
+      ;;  - Decline: register as one or more txs, done
+      ;;    - Might be good to notify a stateful type player of the event,
+      ;;      eventhough we as the engine wouldn't do anything about it
+      ;;  - Accept: perform transfer of resources
+      ;;    - What sort of txs would we have here?
+      ;;    - Might be good to notify a stateful type player of the event,
+      ;;      eventhough we as the engine wouldn't do anything about it
+      ;; TODO - implement "counter proposal" logic later?
+
+      ;; TODO - somehow need to prevent endless proposal loops from happening
+
+      )
+
 
     )
 
