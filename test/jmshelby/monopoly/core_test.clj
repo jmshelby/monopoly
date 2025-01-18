@@ -4,8 +4,14 @@
 
 ;; Run several random end game simulations
 (deftest exercise-game
-  ;; TODO - this can be parallelized easily
-  (doseq [n (range 40)]
-    (print "Running sim " n)
-    (let [end-state (c/rand-game-end-state 4 1000)]
-      (println "  -> Status: " (:status end-state) " (" (-> end-state :transactions count) ")"))))
+  (let [sim-count 100
+        _         (println "Running" sim-count "game simulations")
+        sims      (time
+                    (doall
+                      (pmap (fn [n]
+                              [n (c/rand-game-end-state 4 2000)])
+                            (range 1 (inc sim-count)))))]
+    (println "Running" sim-count "game simulations...DONE")
+    (println "Sims:")
+    (doseq [[n sim] sims]
+      (println "  -> Status: " (:status sim) " (" (-> sim :transactions count) ")"))))

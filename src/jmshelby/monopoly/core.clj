@@ -1,8 +1,10 @@
 (ns jmshelby.monopoly.core
-  (:require [clojure.set :as set]
+  (:require [clojure.set :as set
+             :refer [union subset? difference]]
             [jmshelby.monopoly.util :as util
              :refer [roll-dice dissoc-in append-tx]]
             [jmshelby.monopoly.cards :as cards]
+            [jmshelby.monopoly.trade :as trade]
             [jmshelby.monopoly.player :as player]
             [jmshelby.monopoly.definitions :as defs]))
 
@@ -102,7 +104,8 @@
   [{:keys [board players]
     :as   game-state}
    new-cell driver
-   & {:keys [allowance?] :or {allowance? true}}]
+   & {:keys [allowance?]
+      :or   {allowance? true}}]
   (let [;; Get current player info
         player         (util/current-player game-state)
         player-id      (:id player)
@@ -218,7 +221,6 @@
   invoking player logic and applying decisions."
   [{:keys [players current-turn]
     :as   game-state}]
-
   (let [;; Get current player function
         {player-id :id
          :keys     [cash status function]
@@ -226,7 +228,6 @@
         (util/current-player game-state)]
 
     (cond
-
       ;; Check if game is already complete
       ;; TODO - will this ever happen? (should it?)
       (= :complete (:status game-state))
@@ -269,6 +270,7 @@
 
       ;; If they have cash, and it's not time to end the train
       ;; proceed with regular player turn
+      ;; TODO - yikes, this is getting huge too ...
       :else
       (let [;; Basic/jumbled for now, long lets nested ifs...
             ;; TODO - need to add other actions soon, and this logic
@@ -283,7 +285,6 @@
                               ;; TODO - Need to force certain number of rolls before :done can be available
                               :done
                               (if jail-spell
-
                                 ;; Jail actions
                                 [;; Attempt double roll
                                  (when (nil? last-roll)
@@ -303,7 +304,14 @@
                                 (when can-roll? :roll))
 
                               ;; House building
-                              (when can-build? :buy-house))
+                              (when can-build? :buy-house)
+
+                              ;; Trade Proposals
+                              ;; TODO - the function here can-propose? doesn't do anything yet,
+                              ;;        so we just need to validate after the fact
+                              (when (trade/can-propose? game-state player-id)
+                                :trade-proposal))
+
                             flatten
                             (filter identity)
                             set)
@@ -312,30 +320,36 @@
             ;; method, to get next response/decision
             decision (function game-state :take-turn {:actions-available actions})]
 
+        ;; TODO - Detect if player is stuck in loop?
+        ;; TODO - Player is taking too long?
+
         (case (:action decision)
           ;; Player done, end turn, advance to next player
-          :done      (util/apply-end-turn game-state)
+          :done           (util/apply-end-turn game-state)
           ;; Roll Dice
-          :roll      (-> game-state
-                         ;; Do the roll and move
-                         (apply-dice-roll (roll-dice 2)))
+          :roll           (-> game-state
+                              ;; Do the roll and move
+                              (apply-dice-roll (roll-dice 2)))
           ;; Buy house(s)
-          :buy-house (util/apply-house-purchase
-                       game-state
-                       (:property-name decision))
+          :buy-house      (util/apply-house-purchase
+                            game-state
+                            (:property-name decision))
+          ;; Proposing a trade
+          ;; TODO - Call trade/validate-proposal from here first
+          ;;        (but then what to do if invalid?)
+          :trade-proposal (trade/apply-proposal
+                            game-state
+                            ;; Convenience, attach :from-player for them
+                            (assoc decision :trade/from-player player))
+
           ;; TODO - Sell house(s)
-          ;; TODO - Make offer
           ;; TODO - Mortgage/un-mortgage
 
           ;; JAIL
           ;; TODO - looks like any jail action can be routed to this one fn
           :jail/roll      (util/apply-jail-spell game-state (:action decision))
           :jail/bail      (util/apply-jail-spell game-state (:action decision))
-          :jail/bail-card (util/apply-jail-spell game-state (:action decision))
-
-          ;; TODO - detect if player is stuck in loop?
-          ;; TODO - player is taking too long?
-          )))))
+          :jail/bail-card (util/apply-jail-spell game-state (:action decision)))))))
 
 ;; ===============================
 
@@ -408,9 +422,16 @@
      (-> state :transactions count)])
 
 
-  (def sim (rand-game-state 4 700))
+  (def sim (rand-game-state 3 150))
 
   sim
+
+  (-> sim
+      (dissoc :board
+              :card-queue
+              :functions
+              :transactions)
+      )
 
   (def sim
     (rand-game-end-state 4))
@@ -450,7 +471,6 @@
     (map #(select-keys % [:id :cash]) *)
 
     )
-
 
   )
 

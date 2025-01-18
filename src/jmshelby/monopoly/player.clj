@@ -3,10 +3,8 @@
 
 ;; Right now, just the fn/methods that act as a player logic "function"
 
-
 ;; For now we just have some dumb logic, to help
 ;; develop and test the engine until it's done
-
 
 (defn- percent-props-owned
   [game-state]
@@ -17,6 +15,39 @@
                    count)]
     (/ owned total)))
 
+(defn- proposal?
+  "Given a game-state, return the best current proposal
+  available, _if_ it's a smart time to propose one."
+  [game-state]
+  ;; Street Properties:
+  ;; - If we own 2/3 or more of a street,
+  ;;   AND someone else owns a property of the same street,
+  ;;       -> offer "something" for it...
+  ;;       TODO - Need to figure out how to tell what to trade for it..
+
+  nil
+
+  ;; When we're ready to send a proposal
+  ;; {:action                   :trade-proposal
+  ;;  :trade/to-player "A"
+  ;;  ;; Note - You'd never have :cash in both asking+offering
+  ;;  ;;        I guess you _could_, but there'd be no point, so we should restrict it
+  ;;  ;; Note - You'd never have :cards in both asking+offering (in standard rules board)
+  ;;  ;; Note - You can (and often will) have properties in both asking+offering
+  ;;  ;; Note - A single player _could_ have 2 get out of jail free cards and offer them
+  ;;  :trade/asking    {;; Cash dollar amount > 0
+  ;;                    :cash       123
+  ;;                    ;; Full card definitions
+  ;;                    :cards      #{}
+  ;;                    ;; Just names of properties
+  ;;                    :properties #{}}
+  ;;  :trade/offering  {:cash       123
+  ;;                    :cards      #{}
+  ;;                    :properties #{}}}
+
+
+  )
+
 ;; TODO - multimethods..
 (defn dumb-player-decision
   [game-state method params]
@@ -25,9 +56,12 @@
     (case method
 
       ;; Dumb, always decline these actions
-      :acquisition    {:action :decline}
-      :auction-bid    {:action :decline}
-      :offer-proposal {:action :decline}
+      :acquisition {:action :decline}
+      :auction-bid {:action :decline}
+
+      ;; TODO
+      ;; A trade proposal sent to you
+      :trade-proposal {:action :decline}
 
       ;; Dumb, always buy a property if we can
       ;; TODO - maybe keep _some_ money minimum?
@@ -40,6 +74,11 @@
         ;; First, check if we can roll, and do it
         (-> params :actions-available :roll)
         {:action :roll}
+
+        ;; Check to see if we can AND should make an offer
+        (and (-> params :actions-available :trade-proposal)
+             (proposal? game-state))
+        (proposal? game-state)
 
         ;; OR, if we are in jail and have a free out card
         ;; THEN use it

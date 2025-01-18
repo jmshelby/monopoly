@@ -15,9 +15,9 @@ Monopoly Game Engine + Pluggable Player API
      - utility: monopoly; dice roll w/multiplier
      - railroad: rent based on # owned
  - House Buying
+   - Require "even" and distributed house building
  - [Simple] Player "lose" logic
    - When player is out of money, take them out of the game
- - Require "even" and distributed house building
  - Go to Jail
    - "go to jail" cell/spot
    - Roll 3 consecutive doubles, "got to jail"
@@ -32,12 +32,8 @@ Monopoly Game Engine + Pluggable Player API
    - Draw logic/transaction
    - Re-shuffle
    - Effects:
-     - Move
-     - Retain
-     - Incarcerate
-     - Pay
-     - Collect
-     - [Multiple effects] (pay per house; pay per hotel)
+     - Move / Retain / Incarcerate / Pay / Collect
+     - [Multiple effects] (pay per house AND pay per hotel)
  ---------------------------
 #### Remaining Logic
  - Cards
@@ -56,5 +52,5 @@ Monopoly Game Engine + Pluggable Player API
  - Sell House
    - On player turn action
    - On "raise funds" workflow
- - Auction of property (when purchased denied/unable)
+ - Auction off property (when purchased denied/unable)
    - [still need to figure out a good way to do this]
