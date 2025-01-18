@@ -97,6 +97,12 @@
        (every? true?)))
 
 (defn apply-proposal
+  "Given a game-state, and a player's trade proposal, invoke's
+  proposal to other player targeted, and applies the result to
+  the game state. A decline resulting in transactions of the
+  events, and an accept resulting in both an interchange of the
+  involved resources between the two players.
+  TODO - counter-proposal logic"
   [game-state proposal]
   (let [asking      (:trade/asking proposal)
         offering    (:trade/offering proposal)
@@ -105,6 +111,7 @@
         from-player (util/player-by-id game-state
                                        (:trade/from-player proposal))]
     ;; Validation
+    ;; TODO - maybe we just assume it's valid and the caller can validate first...
     (when-not
         (and
           ;; The current player is offering
@@ -115,7 +122,6 @@
           (validate-side to-player asking)
           ;; Offering player has resources
           (validate-side from-player offering))
-      ;; TODO - If this is invalid, we might want to return such instead of an exception
       (throw (ex-info "Invalid trade proposal" {})))
 
     (let [;; Log initial proposal

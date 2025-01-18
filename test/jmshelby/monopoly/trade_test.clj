@@ -96,22 +96,16 @@
                                                              :card.retain/use :bail}}
                                               :properties #{:boardwalk :baltic-avenue}}))))))
 
+;; TODO
+;; apply-proposal
+;;  - decline
+;;    -> just txs
+;;  - accept
+;;    -> txs; movement of resources
+;;      - make sure mortgaged property state transfers
 
 (comment
 
 
-  ;; Setup game
-  (-> (core/init-game-state 4)
-      ;; with current player landing on chance
-      (update-in [:current-turn :dice-rolls] conj [3 4])
-      (assoc-in [:players 0 :cell-residency] 7)
-      ;; and just a move back card available
-      (assoc-in [:card-queue :chance]
-                [{:text           "Go Back 3 Spaces",
-                  :deck           :chance
-                  :card/effect    :move,
-                  :card.move/cell [:back 3]}])
-      (cards/apply-card-draw)
-      )
 
   )

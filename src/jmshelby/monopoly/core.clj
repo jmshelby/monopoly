@@ -339,6 +339,7 @@
                             game-state
                             (:property-name decision))
           ;; Proposing a trade
+          ;; TODO - call trade/validate-proposal from here first
           :trade-proposal (trade/apply-proposal
                             game-state
                             ;; Convenience, attach :from-player for them
@@ -424,9 +425,16 @@
      (-> state :transactions count)])
 
 
-  (def sim (rand-game-state 4 700))
+  (def sim (rand-game-state 3 150))
 
   sim
+
+  (-> sim
+      (dissoc :board
+              :card-queue
+              :functions
+              :transactions)
+      )
 
   (def sim
     (rand-game-end-state 4))
