@@ -72,7 +72,7 @@
                    :asking   (:trade/asking proposal)
                    :offering (:trade/offering proposal)}))
 
-(defn validate-proposal-side
+(defn validate-side
   "Given a player state, and resources for one
   side of a proposal, validate that the player
   has the required resources, and is able to
@@ -112,9 +112,9 @@
           (= (:id from-player)
              (:trade/from-player proposal))
           ;; Offerred player has resources
-          (validate-proposal-side to-player asking)
+          (validate-side to-player asking)
           ;; Offering player has resources
-          (validate-proposal-side from-player offering))
+          (validate-side from-player offering))
       ;; TODO - If this is invalid, we might want to return such instead of an exception
       (throw (ex-info "Invalid trade proposal" {})))
 

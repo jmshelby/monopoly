@@ -2,65 +2,99 @@
   (:require [clojure.test :refer :all]
             [jmshelby.monopoly.trade :as trade]))
 
+(deftest validation
+  (let [player {:cash       100
+                :cards      #{{:deck            :chance
+                               :card/effect     :retain
+                               :card.retain/use :bail}
+                              {:deck            :community-chest
+                               :card/effect     :retain
+                               :card.retain/use :bail}
+                              {:deck            :some-cool-deck
+                               :card/effect     :retain
+                               :card.retain/use :some-future-thing}}
+                :properties {:boardwalk     {:house-count 0 :status :paid}
+                             :park-place    {:house-count 1 :status :paid}
+                             :baltic-avenue {:house-count 0 :status :mortgaged}}}]
 
-;; (deftest draw
-;;   (testing "a 'Move Back' type card"
-;;     (let [;; Setup game
-;;           before (-> (core/init-game-state 4)
-;;                      ;; with current player landing on community chest
-;;                      (update-in [:current-turn :dice-rolls] conj [3 4])
-;;                      (assoc-in [:players 0 :cell-residency] 7)
-;;                      ;; A certain amount of money
-;;                      (assoc-in [:players 0 :cash] 1500)
-;;                      ;; and just a "move back" card available
-;;                      (assoc-in [:card-queue :chance]
-;;                                [{:text           "Go Back 3 Spaces",
-;;                                  :deck           :chance,
-;;                                  :card/effect    :move,
-;;                                  :card.move/cell [:back 3]}]))
-;;           ;; Run function in test
-;;           after  (cards/apply-card-draw before)]
-;;       ;; Assert, moved back 3 and looped around
-;;       (is (= 4 (get-in after [:players 0 :cell-residency]))
-;;           "Player moved back 3")
-;;       ;; Assert, has a certain amount of cash
-;;       ;; after buying landing on tax AND did
-;;       ;; _not_ collect allowance
-;;       (is (= 1300 (get-in after [:players 0 :cash]))
-;;           "Paid $200 tax, cash balance"))))
+    ;; Cash tests
+    (testing "Cash"
+      (is (false? (trade/validate-side player {:cash 200})) "not enough -> false")
+      (is (true? (trade/validate-side player {:cash 100})) "exact amount -> true")
+      (is (true? (trade/validate-side player {:cash 50})) "more than enough -> true"))
 
+    ;; Cards tests
+    (testing "Cards"
+      ;; One card
+      (is (true? (trade/validate-side player {:cards #{{:deck            :chance
+                                                        :card/effect     :retain
+                                                        :card.retain/use :bail}}}))
+          "has 1")
+      ;; Two Cards
+      (is (true? (trade/validate-side player {:cards #{{:deck            :chance
+                                                        :card/effect     :retain
+                                                        :card.retain/use :bail}
+                                                       {:deck            :community-chest
+                                                        :card/effect     :retain
+                                                        :card.retain/use :bail}}}))
+          "has 2")
+      ;; Incorrect card
+      (is (false? (trade/validate-side player {:cards #{{:deck            :chance
+                                                         :card/effect     :retain
+                                                         :card.retain/use :bail}
+                                                        {:deck            :invalid
+                                                         :card/effect     :retain
+                                                         :card.retain/use :bail}}}))
+          "has 1, but not the other"))
 
-(comment
+    ;; Properties tests
+    (testing "Properties"
+      ;; Nope, doesn't own
+      (is (false? (trade/validate-side player {:properties #{:mediterranean-avenue}}))
+          "doesn't own -> false")
+      ;; Nope, has house
+      (is (false? (trade/validate-side player {:properties #{:park-place}}))
+          "owns, but built on -> false")
+      ;; All good, mortgaged
+      (is (true? (trade/validate-side player {:properties #{:baltic-avenue}}))
+          "owns, and mortgaged -> true")
+      ;; All good, paid
+      (is (true? (trade/validate-side player {:properties #{:boardwalk}}))
+          "owns, and paid -> true")
+      ;; All good, two properties
+      (is (true? (trade/validate-side player {:properties #{:boardwalk :baltic-avenue}}))
+          "2 properties, both owned -> true"))
 
-  (validate-proposal-side
-    ;; Player
-    {:cash 99}
-    ;; Resources
-    {:cash 100})
-
-  (validate-proposal-side
-    ;; Player
-    {:cash  99
-     :cards #{{:deck            :chance
-               :card/effect     :retain
-               :card.retain/use :bail}}}
-    ;; Resources
-    {:cards #{{:deck            :chance
-               :card/effect     :retain
-               :card.retain/use :bail}}})
-
-  (validate-proposal-side
-    ;; Player
-    {:cash       99
-     :properties {:lacey-lane   {:status      :mortgaged
-                                 :house-count 0}
-                  :cool-place   {:status      :paid
-                                 :house-count 0}
-                  :sweet-street {:status      :paid
-                                 :house-count 0}}}
-    ;; Resources
-    {:properties #{:cool-place :sweet-street}})
-  )
+    ;; Combined tests
+    (testing "Combined resource"
+      (is (false? (trade/validate-side player {:cash       200
+                                               :cards      #{{:deck            :chance
+                                                              :card/effect     :retain
+                                                              :card.retain/use :bail}}
+                                               :properties #{:boardwalk}})))
+      (is (false? (trade/validate-side player {:cash       50
+                                               :cards      #{{:deck            :invalid
+                                                              :card/effect     :retain
+                                                              :card.retain/use :bail}}
+                                               :properties #{:boardwalk}})))
+      (is (false? (trade/validate-side player {:cash       50
+                                               :cards      #{{:deck            :chance
+                                                              :card/effect     :retain
+                                                              :card.retain/use :bail}}
+                                               :properties #{:park-place}})))
+      (is (true? (trade/validate-side player {:cash       50
+                                              :cards      #{{:deck            :chance
+                                                             :card/effect     :retain
+                                                             :card.retain/use :bail}}
+                                              :properties #{:boardwalk}})))
+      (is (true? (trade/validate-side player {:cash       100
+                                              :cards      #{{:deck            :chance
+                                                             :card/effect     :retain
+                                                             :card.retain/use :bail}
+                                                            {:deck            :community-chest
+                                                             :card/effect     :retain
+                                                             :card.retain/use :bail}}
+                                              :properties #{:boardwalk :baltic-avenue}}))))))
 
 
 (comment
