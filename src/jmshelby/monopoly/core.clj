@@ -4,6 +4,7 @@
             [jmshelby.monopoly.util :as util
              :refer [roll-dice dissoc-in append-tx]]
             [jmshelby.monopoly.cards :as cards]
+            [jmshelby.monopoly.trade :as trade]
             [jmshelby.monopoly.player :as player]
             [jmshelby.monopoly.definitions :as defs]))
 
@@ -94,175 +95,6 @@
                     :properties (:properties player)
                     :acquistion [:basic :bank]}))))
 
-(defn- validate-proposal-side
-  "Given a player state, and resources for one
-  side of a proposal, validate that the player
-  has the required resources, and is able to
-  perform a trade with them."
-  [player resources]
-  (->> resources
-       (map (fn [[type val]]
-              (case type
-                ;; Make sure the player has enough cash
-                :cash  (<= val (player :cash))
-                ;; Make sure the cards are owned
-                :cards (subset? val (player :cards))
-                ;; Make sure the property names are in
-                ;; the player's non-built on props
-                :properties
-                (->> player :properties
-                     (filter (fn [[_ state]]
-                               (= 0 (:house-count state))))
-                     keys set
-                     (subset? val)))))
-       ;; TODO - this can probably just find some false?
-       (every? true?)))
-
-(comment
-
-  (validate-proposal-side
-    ;; Player
-    {:cash 99}
-    ;; Resources
-    {:cash 100})
-
-  (validate-proposal-side
-    ;; Player
-    {:cash  99
-     :cards #{{:deck            :chance
-               :card/effect     :retain
-               :card.retain/use :bail}}}
-    ;; Resources
-    {:cards #{{:deck            :chance
-               :card/effect     :retain
-               :card.retain/use :bail}}})
-
-  (validate-proposal-side
-    ;; Player
-    {:cash       99
-     :properties {:lacey-lane   {:status      :mortgaged
-                                 :house-count 0}
-                  :cool-place   {:status      :paid
-                                 :house-count 0}
-                  :sweet-street {:status      :paid
-                                 :house-count 0}}}
-    ;; Resources
-    {:properties #{:cool-place :sweet-street}})
-  )
-
-(defn exchange-properties
-  [game-state from-pidx to-pidx prop-names]
-  (let [;; Get player maps
-        to-player   (get-in game-state [:players to-pidx])
-        from-player (get-in game-state [:players from-pidx])
-        ;; Get 'from' player property states, only
-        ;; needed to preserve mortgaged status
-        prop-states (select-keys (:properties from-player) prop-names)]
-    (-> game-state
-        ;; Remove props from the 'from' player
-        (update-in [:players from-pidx :properties]
-                   ;; Just a dissoc that takes a set
-                   (partial apply dissoc) prop-names)
-        ;; Add props + existing state to the 'to' player
-        (update-in [:players to-player :properties]
-                   ;; Just a conj of existing prop states
-                   ;; into player's own property state map
-                   conj prop-states))))
-
-(defn- apply-trade
-  "Given a game state and a proposal, exchange the resources
-  in the accepted proposal, between the parties respectively."
-  [game-state proposal]
-  (let [{pidx-proposer
-         :player-index} (util/player-by-id game-state (:trade/from-player proposal))
-        {pidx-acceptor
-         :player-index} (util/player-by-id game-state (:trade/to-player proposal))
-        ;; Pull out both sides of the proposal and ensure
-        ;; all resource keys are available with empty values
-        stub-defaults   (fn [p] (merge p {:cash 0 :cards #{} :properties #{}}))
-        asking          (stub-defaults (:trade/asking proposal))
-        offering        (stub-defaults (:trade/offering proposal))]
-
-    ;; With both sides of the proposal having empty defaults,
-    ;; we can blindly apply each resource in every direction
-    ;; (without checking which direction each resource is
-    ;; actually going in this particular trade)
-    (-> game-state
-        ;; Cash: acceptor -> proposer
-        (update-in [:players pidx-proposer :cash] + (:cash asking))
-        (update-in [:players pidx-acceptor :cash] - (:cash asking))
-        ;; Cash: proposer -> acceptor
-        (update-in [:players pidx-acceptor :cash] + (:cash offering))
-        (update-in [:players pidx-proposer :cash] - (:cash offering))
-        ;; Cards: acceptor -> proposer
-        (update-in [:players pidx-proposer :cards] union (:cards asking))
-        (update-in [:players pidx-acceptor :cards] difference (:cards asking))
-        ;; Cards: proposer -> acceptor
-        (update-in [:players pidx-acceptor :cards] union (:cards offering))
-        (update-in [:players pidx-proposer :cards] difference (:cards offering))
-        ;; Properties: acceptor -> proposer
-        (exchange-properties pidx-acceptor pidx-proposer (:properties asking))
-        ;; Properties: proposer -> acceptor
-        (exchange-properties pidx-proposer pidx-acceptor (:properties offering)))))
-
-(defn- append-tx-trade
-  [game-state status proposal]
-  (append-tx game-state
-             {:type     :trade
-              ;; TODO - or :trade/status?
-              ;; TODO - or "stage"??
-              :status   status
-              :to       (:trade/to-player proposal)
-              :from     (:trade/from-player proposal)
-              :asking   (:trade/asking proposal)
-              :offering (:trade/offering proposal)}))
-
-(defn- apply-trade-proposal
-  [game-state proposal]
-
-  (let [asking      (:trade/asking proposal)
-        offering    (:trade/offering proposal)
-        to-player   (->> game-state
-                         :players
-                         (filter #(= (:id %)
-                                     (:trade/to-player proposal)))
-                         first)
-        from-player (util/current-player game-state)]
-
-    ;; Validation
-    (when-not
-        (and
-          ;; The current player is offering
-          (= (:id from-player)
-             (:trade/from-player proposal))
-          ;; Offerred player has resources
-          (validate-proposal-side to-player asking)
-          ;; Offering player has resources
-          (validate-proposal-side from-player offering))
-      ;; TODO - If this is invalid, we might want to return such instead of an exception
-      (throw (ex-info "Invalid trade proposal" {})))
-
-    (let [;; Log initial proposal
-          game-state   (append-tx-trade game-state :proposal proposal)
-          ;; Dispatch trade-proposal to other player's decision logic
-          to-player-fn (:function to-player)
-          decision     (to-player-fn game-state :trade-proposal proposal)]
-
-      ;; TODO - implement "counter proposal" logic
-      ;; TODO - somehow need to prevent endless proposal loops from happening
-
-      (case (:action decision)
-        ;; Turned down, log last status/stage
-        :decline
-        (append-tx-trade game-state :decline proposal)
-        ;; Accepted
-        :accept
-        (-> game-state
-            ;; Perform transaction of resources
-            (apply-trade proposal)
-            ;; Log last status/stage
-            (append-tx-trade :accept proposal))))))
-
 ;; Special function to core
 (defn- move-to-cell
   "Given a game state, destination cell index, and reason/driver
@@ -272,7 +104,8 @@
   [{:keys [board players]
     :as   game-state}
    new-cell driver
-   & {:keys [allowance?] :or {allowance? true}}]
+   & {:keys [allowance?]
+      :or   {allowance? true}}]
   (let [;; Get current player info
         player         (util/current-player game-state)
         player-id      (:id player)
@@ -388,7 +221,6 @@
   invoking player logic and applying decisions."
   [{:keys [players current-turn]
     :as   game-state}]
-
   (let [;; Get current player function
         {player-id :id
          :keys     [cash status function]
@@ -396,7 +228,6 @@
         (util/current-player game-state)]
 
     (cond
-
       ;; Check if game is already complete
       ;; TODO - will this ever happen? (should it?)
       (= :complete (:status game-state))
@@ -493,6 +324,9 @@
             ;; method, to get next response/decision
             decision (function game-state :take-turn {:actions-available actions})]
 
+        ;; TODO - detect if player is stuck in loop?
+        ;; TODO - player is taking too long?
+
         (case (:action decision)
           ;; Player done, end turn, advance to next player
           :done      (util/apply-end-turn game-state)
@@ -505,31 +339,20 @@
                        game-state
                        (:property-name decision))
 
+          ;; Proposing a trade
+          :trade-proposal (trade/apply-proposal
+                            game-state
+                            ;; Convenience, attach :from-player for them
+                            (assoc decision :trade/from-player player))
+
           ;; TODO - Sell house(s)
           ;; TODO - Mortgage/un-mortgage
-
-          ;; Proposing a trade
-          ;; :trade-proposal
-          ;; ;; Keys
-          ;; [:trade/to-player
-          ;;  :trade/asking
-          ;;  :trade/offering]
-          ;; ;; Asking/offering keys
-          ;; [:cash int :cards set :properties set]
-          ;; TODO - add :from-player to proposal map
-
-          ;; dispatch -> apply-trade-proposal
-
 
           ;; JAIL
           ;; TODO - looks like any jail action can be routed to this one fn
           :jail/roll      (util/apply-jail-spell game-state (:action decision))
           :jail/bail      (util/apply-jail-spell game-state (:action decision))
-          :jail/bail-card (util/apply-jail-spell game-state (:action decision))
-
-          ;; TODO - detect if player is stuck in loop?
-          ;; TODO - player is taking too long?
-          )))))
+          :jail/bail-card (util/apply-jail-spell game-state (:action decision)))))))
 
 ;; ===============================
 
@@ -644,17 +467,6 @@
     (map #(select-keys % [:id :cash]) *)
 
     )
-
-  (difference #{'a 'b 'c 'd} #{'c 'z})
-
-  (union #{'a 'b 'c 'd} #{'z 'y})
-
-  (conj {:one 1 :three 3} {:five 5 :nine 9})
-  ;; =>
-
-  (select-keys {:one 1, :three 3, :five 5, :nine 9}
-               #{:three :nine})
-
 
   )
 
