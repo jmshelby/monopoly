@@ -144,3 +144,31 @@
             (apply-trade proposal)
             ;; Log last status/stage
             (append-tx :accept proposal))))))
+
+;; TODO - This is actually pretty kind-of a hard part of logic to write ... lots of different cases...
+;;        Perhaps a rules engine would be better, because it could be many and/or/and combinations
+;;        For now, this just returns true if the game is being played
+(defn can-propose?
+  "Given a game-state and a player-id, determine if the
+  player is in a position to offer a trade proposal to
+  any other active player in the game."
+  [game-state player-id]
+
+  (let [player (util/player-by-id game-state player-id)
+        others (util/other-players game-state player-id)]
+    (and
+      ;; Game is still active
+      (= (:playing (:status game-state)))
+      ;; ...
+      )
+
+    ;; OR
+    ;; - If you own some property, with no houses
+    ;; - If someone else owns some property, with no houses
+    ;; OR
+    ;; - If you have a card
+    ;; OR
+    ;; ??
+    )
+  true
+  )

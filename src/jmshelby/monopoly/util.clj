@@ -121,6 +121,16 @@
        (filter #(= id (:id %)))
        first))
 
+(defn other-players
+  "Given a game-state and a player ID, return a collection
+  of the other players, not including the given player ID.
+  Includes the index of each player, :player-index."
+  [{:keys [players]} id]
+  (->> players
+       ;; Attach ordinal
+       (map-indexed (fn [idx p] (assoc p :player-index idx)))
+       (remove #(= id (:id %)))))
+
 (defn current-player
   "Given a game-state, return the current player.
   Includes the index of the player"

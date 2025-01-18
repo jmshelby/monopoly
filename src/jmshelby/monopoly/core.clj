@@ -307,15 +307,11 @@
                               (when can-build? :buy-house)
 
                               ;; Trade Proposals
-                              ;; TODO - Later we'll need to determine if this is an option for the user ...
-                              ;;        For now we'll just denied trades that are not possible
-                              ;; - If you own some property, with no houses
-                              ;; - If someone else owns some property, with no houses
-                              ;; OR
-                              ;; - If you have a card
-                              ;; OR
-                              ;; ??
-                              :trade-proposal)
+                              ;; TODO - the function here can-propose? doesn't do anything yet,
+                              ;;        so we just need to validate after the fact
+                              (when (trade/can-propose? game-state player-id)
+                                :trade-proposal))
+
                             flatten
                             (filter identity)
                             set)
@@ -339,7 +335,8 @@
                             game-state
                             (:property-name decision))
           ;; Proposing a trade
-          ;; TODO - call trade/validate-proposal from here first
+          ;; TODO - Call trade/validate-proposal from here first
+          ;;        (but then what to do if invalid?)
           :trade-proposal (trade/apply-proposal
                             game-state
                             ;; Convenience, attach :from-player for them
