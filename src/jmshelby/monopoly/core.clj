@@ -324,21 +324,20 @@
             ;; method, to get next response/decision
             decision (function game-state :take-turn {:actions-available actions})]
 
-        ;; TODO - detect if player is stuck in loop?
-        ;; TODO - player is taking too long?
+        ;; TODO - Detect if player is stuck in loop?
+        ;; TODO - Player is taking too long?
 
         (case (:action decision)
           ;; Player done, end turn, advance to next player
-          :done      (util/apply-end-turn game-state)
+          :done           (util/apply-end-turn game-state)
           ;; Roll Dice
-          :roll      (-> game-state
-                         ;; Do the roll and move
-                         (apply-dice-roll (roll-dice 2)))
+          :roll           (-> game-state
+                              ;; Do the roll and move
+                              (apply-dice-roll (roll-dice 2)))
           ;; Buy house(s)
-          :buy-house (util/apply-house-purchase
-                       game-state
-                       (:property-name decision))
-
+          :buy-house      (util/apply-house-purchase
+                            game-state
+                            (:property-name decision))
           ;; Proposing a trade
           :trade-proposal (trade/apply-proposal
                             game-state
