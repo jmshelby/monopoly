@@ -124,9 +124,7 @@
     ;; Player
     {:cash 99}
     ;; Resources
-    {:cash 100}
-    )
-
+    {:cash 100})
 
   (validate-proposal-side
     ;; Player
@@ -137,10 +135,7 @@
     ;; Resources
     {:cards #{{:deck            :chance
                :card/effect     :retain
-               :card.retain/use :bail}}
-     }
-    )
-
+               :card.retain/use :bail}}})
 
   (validate-proposal-side
     ;; Player
@@ -150,22 +145,10 @@
                   :cool-place   {:status      :paid
                                  :house-count 0}
                   :sweet-street {:status      :paid
-                                 :house-count 0}
-
-                  }
-     }
+                                 :house-count 0}}}
     ;; Resources
-    {:properties #{:cool-place :sweet-street}}
-    )
+    {:properties #{:cool-place :sweet-street}})
   )
-
-;; (defn- abate-player-resources
-;;   [player resources])
-
-;; (defn- augment-player-resources
-;;   [player resources]
-
-;;   )
 
 (defn exchange-properties
   [game-state from-pidx to-pidx prop-names]
@@ -187,7 +170,8 @@
                    conj prop-states))))
 
 (defn- apply-trade
-  "Given a game state and a proposal, exchange the resources in the accepted proposal."
+  "Given a game state and a proposal, exchange the resources
+  in the accepted proposal, between the parties respectively."
   [game-state proposal]
   (let [{pidx-proposer
          :player-index} (util/player-by-id game-state (:trade/from-player proposal))
