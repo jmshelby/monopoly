@@ -1,6 +1,6 @@
 (ns jmshelby.monopoly.core
   (:require [clojure.set :as set
-             :refer [subset?]]
+             :refer [union subset? difference]]
             [jmshelby.monopoly.util :as util
              :refer [roll-dice dissoc-in append-tx]]
             [jmshelby.monopoly.cards :as cards]
@@ -159,24 +159,89 @@
     )
   )
 
-(defn- append-tx-proposal
+;; (defn- abate-player-resources
+;;   [player resources])
+
+;; (defn- augment-player-resources
+;;   [player resources]
+
+;;   )
+
+(defn exchange-properties
+  [game-state from-pidx to-pidx prop-names]
+  (let [;; Get player maps
+        to-player   (get-in game-state [:players to-pidx])
+        from-player (get-in game-state [:players from-pidx])
+        ;; Get 'from' player property states, only
+        ;; needed to preserve mortgaged status
+        prop-states (select-keys (:properties from-player) prop-names)]
+    (-> game-state
+        ;; Remove props from the 'from' player
+        (update-in [:players from-pidx :properties]
+                   ;; Just a dissoc that takes a set
+                   (partial apply dissoc) prop-names)
+        ;; Add props + existing state to the 'to' player
+        (update-in [:players to-player :properties]
+                   ;; Just a conj of existing prop states
+                   ;; into player's own property state map
+                   conj prop-states))))
+
+(defn- apply-trade
+  "Given a game state and a proposal, exchange the resources in the accepted proposal."
   [game-state proposal]
+  (let [{pidx-proposer
+         :player-index} (util/player-by-id game-state (:trade/from-player proposal))
+        {pidx-acceptor
+         :player-index} (util/player-by-id game-state (:trade/to-player proposal))
+        ;; Pull out both sides of the proposal and ensure
+        ;; all resource keys are available with empty values
+        stub-defaults   (fn [p] (merge p {:cash 0 :cards #{} :properties #{}}))
+        asking          (stub-defaults (:trade/asking proposal))
+        offering        (stub-defaults (:trade/offering proposal))]
+
+    ;; With both sides of the proposal having empty defaults,
+    ;; we can blindly apply each resource in every direction
+    ;; (without checking which direction each resource is
+    ;; actually going in this particular trade)
+    (-> game-state
+        ;; Cash: acceptor -> proposer
+        (update-in [:players pidx-proposer :cash] + (:cash asking))
+        (update-in [:players pidx-acceptor :cash] - (:cash asking))
+        ;; Cash: proposer -> acceptor
+        (update-in [:players pidx-acceptor :cash] + (:cash offering))
+        (update-in [:players pidx-proposer :cash] - (:cash offering))
+        ;; Cards: acceptor -> proposer
+        (update-in [:players pidx-proposer :cards] union (:cards asking))
+        (update-in [:players pidx-acceptor :cards] difference (:cards asking))
+        ;; Cards: proposer -> acceptor
+        (update-in [:players pidx-acceptor :cards] union (:cards offering))
+        (update-in [:players pidx-proposer :cards] difference (:cards offering))
+        ;; Properties: acceptor -> proposer
+        (exchange-properties pidx-acceptor pidx-proposer (:properties asking))
+        ;; Properties: proposer -> acceptor
+        (exchange-properties pidx-proposer pidx-acceptor (:properties offering)))))
+
+(defn- append-tx-trade
+  [game-state status proposal]
   (append-tx game-state
-             {:type     :trade-proposal
-              :to       (:trade-proposal/to-player proposal)
-              :from     (:trade-proposal/from-player proposal)
-              :asking   (:trade-proposal/asking proposal)
-              :offering (:trade-proposal/offering proposal)}))
+             {:type     :trade
+              ;; TODO - or :trade/status?
+              ;; TODO - or "stage"??
+              :status   status
+              :to       (:trade/to-player proposal)
+              :from     (:trade/from-player proposal)
+              :asking   (:trade/asking proposal)
+              :offering (:trade/offering proposal)}))
 
 (defn- apply-trade-proposal
   [game-state proposal]
 
-  (let [asking      (:trade-proposal/asking proposal)
-        offering    (:trade-proposal/offering proposal)
+  (let [asking      (:trade/asking proposal)
+        offering    (:trade/offering proposal)
         to-player   (->> game-state
                          :players
                          (filter #(= (:id %)
-                                     (:trade-proposal/to-player proposal)))
+                                     (:trade/to-player proposal)))
                          first)
         from-player (util/current-player game-state)]
 
@@ -185,7 +250,7 @@
         (and
           ;; The current player is offering
           (= (:id from-player)
-             (:trade-proposal/from-player proposal))
+             (:trade/from-player proposal))
           ;; Offerred player has resources
           (validate-proposal-side to-player asking)
           ;; Offering player has resources
@@ -193,35 +258,26 @@
       ;; TODO - If this is invalid, we might want to return such instead of an exception
       (throw (ex-info "Invalid trade proposal" {})))
 
-    (let [;; Dispatch trade-proposal to other player's decision logic
+    (let [;; Log initial proposal
+          game-state   (append-tx-trade game-state :proposal proposal)
+          ;; Dispatch trade-proposal to other player's decision logic
           to-player-fn (:function to-player)
           decision     (to-player-fn game-state :trade-proposal proposal)]
 
-      (case (:action decision)
-        :decline
-        (->> game-state
-             ;; append-tx-proposal
-             )
-        :accept
-        )
-
-      ;;  - Decline: register as one or more txs, done
-      ;;    - Might be good to notify a stateful type player of the event,
-      ;;      eventhough we as the engine wouldn't do anything about it
-      ;;  - Accept: perform transfer of resources
-      ;;    - What sort of txs would we have here?
-      ;;    - Might be good to notify a stateful type player of the event,
-      ;;      eventhough we as the engine wouldn't do anything about it
-      ;; TODO - implement "counter proposal" logic later?
-
+      ;; TODO - implement "counter proposal" logic
       ;; TODO - somehow need to prevent endless proposal loops from happening
 
-      )
-
-
-    )
-
-  )
+      (case (:action decision)
+        ;; Turned down, log last status/stage
+        :decline
+        (append-tx-trade game-state :decline proposal)
+        ;; Accepted
+        :accept
+        (-> game-state
+            ;; Perform transaction of resources
+            (apply-trade proposal)
+            ;; Log last status/stage
+            (append-tx-trade :accept proposal))))))
 
 ;; Special function to core
 (defn- move-to-cell
@@ -471,9 +527,9 @@
           ;; Proposing a trade
           ;; :trade-proposal
           ;; ;; Keys
-          ;; [:trade-proposal/to-player
-          ;;  :trade-proposal/asking
-          ;;  :trade-proposal/offering]
+          ;; [:trade/to-player
+          ;;  :trade/asking
+          ;;  :trade/offering]
           ;; ;; Asking/offering keys
           ;; [:cash int :cards set :properties set]
           ;; TODO - add :from-player to proposal map
@@ -604,6 +660,16 @@
     (map #(select-keys % [:id :cash]) *)
 
     )
+
+  (difference #{'a 'b 'c 'd} #{'c 'z})
+
+  (union #{'a 'b 'c 'd} #{'z 'y})
+
+  (conj {:one 1 :three 3} {:five 5 :nine 9})
+  ;; =>
+
+  (select-keys {:one 1, :three 3, :five 5, :nine 9}
+               #{:three :nine})
 
 
   )

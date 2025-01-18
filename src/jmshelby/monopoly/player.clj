@@ -48,21 +48,21 @@
         ;; (and (-> params :actions-available :trade-proposal)
         ;;      (some-trade-proposal game-state))
         ;; {:action                   :trade-proposal
-        ;;  :trade-proposal/to-player "A"
+        ;;  :trade/to-player "A"
         ;;  ;; Note - You'd never have :cash in both asking+offering
         ;;  ;;        I guess you _could_, but there'd be no point, so we should restrict it
         ;;  ;; Note - You'd never have :cards in both asking+offering (in standard rules board)
         ;;  ;; Note - You can (and often will) have properties in both asking+offering
         ;;  ;; Note - A single player _could_ have 2 get out of jail free cards and offer them
-        ;;  :trade-proposal/asking    {;; Cash dollar amount > 0
-        ;;                             :cash       123
-        ;;                             ;; Full card definitions
-        ;;                             :cards      #{}
-        ;;                             ;; Just names of properties
-        ;;                             :properties #{}}
-        ;;  :trade-proposal/offering  {:cash       123
-        ;;                             :cards      #{}
-        ;;                             :properties #{}}}
+        ;;  :trade/asking    {;; Cash dollar amount > 0
+        ;;                    :cash       123
+        ;;                    ;; Full card definitions
+        ;;                    :cards      #{}
+        ;;                    ;; Just names of properties
+        ;;                    :properties #{}}
+        ;;  :trade/offering  {:cash       123
+        ;;                    :cards      #{}
+        ;;                    :properties #{}}}
 
         ;; OR, if we are in jail and have a free out card
         ;; THEN use it

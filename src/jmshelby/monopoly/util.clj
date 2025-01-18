@@ -111,15 +111,22 @@
        ;; Return next player ID
        fnext))
 
-(defn current-player
-  "Given a game-state, return the current player. Includes the index of the player"
-  [{:keys [players
-           current-turn]}]
+(defn player-by-id
+  "Given a game-state, return player with given ID.
+  Includes the index of the player"
+  [{:keys [players]} id]
   (->> players
        ;; Attach ordinal
        (map-indexed (fn [idx p] (assoc p :player-index idx)))
-       (filter #(= (:id %) (:player current-turn)))
+       (filter #(= id (:id %)))
        first))
+
+(defn current-player
+  "Given a game-state, return the current player.
+  Includes the index of the player"
+  [{:keys [current-turn]
+    :as   game-state}]
+  (player-by-id game-state (:player current-turn)))
 
 (defn apply-end-turn
   "Given a game state, advance board, changing
