@@ -15,15 +15,36 @@
                    count)]
     (/ owned total)))
 
+
+(defn- accept-proposal?
+  "Given a game-state and proposal map, return wether we should accept/decline the trade proposal."
+  [game-state proposal]
+  ;; Real simple, only accept if offerred resources value
+  ;; (taking mortgaged into account) add up to 1.5 times
+  ;; the amount of the asking resources
+  )
+
 (defn- proposal?
   "Given a game-state, return the best current proposal
   available, _if_ it's a smart time to propose one."
   [game-state]
+  ;; Very dumb initial logic
+  ;;  - NOTE: no cash or jail free cards involved yet
   ;; Street Properties:
-  ;; - If we own 2/3 or more of a street,
-  ;;   AND someone else owns a property of the same street,
-  ;;       -> offer "something" for it...
-  ;;       TODO - Need to figure out how to tell what to trade for it..
+  ;; - If we own 50% or more of a street group,
+  ;;   AND someone else owns a property of the same street...
+  ;;       -> Attempt to build offer for that "target" property
+  ;;           - From list of our "undesirable" properties, ordered
+  ;;             by current value (taking mortgaged into account),
+  ;;             take enough props to reach a value that is more
+  ;;             than the face value of the "target" property.
+  ;;             - "undesirable" properties:
+  ;;               - utils
+  ;;               - railroads
+  ;;               - we own less than 50% of the street group
+  ;;       -> Make sure attempt offer has never been made before,
+  ;;          from transaction history
+
 
   nil
 
