@@ -86,7 +86,7 @@
     ;;       -> Make sure attempt offer has never been made before,
     ;;          from transaction history
 
-    ;; Get desired property
+    ;; Get a single desired property
     (->>
       ;; Of all owned props
       owned-props
@@ -97,6 +97,8 @@
       ;; - filter (group-owned / group-total) >= 1/2
       ;; - mapcat -> missing prop from group, if owned by another player
       ;; - sorted by something?
+      ;;   (if we randomize this, it can auto
+      ;;    rotate through multiple possibilities)
       ;; - take first
       )
 
@@ -105,15 +107,19 @@
       ;; Of all owned props
       owned-props
       ;; - owned by us
-      ;; - not desired/target prop
+      ;; - not the desired/target prop
       ;; - filter (group-owned / group-total) < 1/2
       ;;    OR utils OR railroads
       ;; - sorted by value
       ;;   TODO - using mortgage value if applicable
       ;; - [take until sum value is more than desired/target prop]
-
       )
 
+    ;; Assemble a proposal map, from/to player ids, asking/offering maps
+
+    ;; Make sure we haven't offered this before
+    ;;  - should just be a set intersection, between transactions and assembled proposal
+    ;;    (maybe _some_ xformation of map)
 
     )
 
