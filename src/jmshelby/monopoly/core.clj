@@ -422,10 +422,10 @@
   sim
 
   (-> sim
-      (dissoc :board
-              :card-queue
+      (dissoc :board :card-queue
               :functions
-              :transactions)
+              ;; :transactions
+              )
       )
 
   (def sim
