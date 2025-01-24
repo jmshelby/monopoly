@@ -48,16 +48,11 @@
    :current-turn {:player     "player uuid"
                   ;; All the dice rolls from the current turn player,
                   ;; multiple because doubles get another roll
-                  :dice-rolls []
-                  ;; Some sort of state around the comm status with the player
-                  ;; TODO - need to figure out what this looks like
-                  ;; TODO - it could be a :phase thing, but maybe this tracks forced negotiation state/status
-                  :status     :?}
+                  :dice-rolls []}
 
    ;; The current *ordered* care queue to pull from.
    ;; At the beginning of the game these will be loaded at random,
    ;; when one queue is exhausted, it is randomly filled again.
-   ;; TODO - Just the keyword name? Or is a map needed?
    :card-queue {:chance          []
                 :community-chest []}
 
@@ -212,8 +207,10 @@
       (let [;; Find next board position, looping back around if needed
             old-cell (:cell-residency player)
             new-cell (util/next-cell (:board game-state) (apply + new-roll) old-cell)]
-        ;; TODO - Once we start putting this "move to cell" logic in the game state,
-        ;;        we should probably invoke that one
+        ;; TODO - This "move to cell" fn/logic is now a property
+        ;;        in the game state, we should probably invoke
+        ;;        that one? (or is this tricky because this
+        ;;        function is defined in there beside it?)
         (move-to-cell new-state new-cell :dice)))))
 
 (defn advance-board
@@ -272,17 +269,17 @@
       ;; proceed with regular player turn
       ;; TODO - yikes, this is getting huge too ...
       :else
-      (let [;; Basic/jumbled for now, long lets nested ifs...
-            ;; TODO - need to add other actions soon, and this logic
-            ;;        _could_ blow up, need another fn
-            jail-spell (:jail-spell player)
+      (let [jail-spell (:jail-spell player)
             last-roll  (->> current-turn :dice-rolls last)
             can-roll?  (or (nil? last-roll)
                            (and (vector? last-roll)
                                 (apply = last-roll)))
             can-build? (util/can-buy-house? game-state)
             actions    (->> (vector
-                              ;; TODO - Need to force certain number of rolls before :done can be available
+                              ;; TODO - "Done" should not always be an available action,
+                              ;;         - if they haven't rolled yet
+                              ;;         - if they rolled a double last
+                              ;;         - [others?]
                               :done
                               (if jail-spell
                                 ;; Jail actions
