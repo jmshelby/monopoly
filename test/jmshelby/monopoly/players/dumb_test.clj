@@ -140,3 +140,21 @@
                       :properties #{:virginia-ave
                                     :boardwalk}}))
             "cash + cards + props -> sum")))))
+
+
+;; TODO - Could probably add a couple of cases from above
+(deftest proposal-benefit
+  (let [state   (core/init-game-state 4)
+        test-it (partial dumb-player/proposal-benefit state)]
+    (testing "fn proposal-benefit"
+
+      (is (= 7/4 (test-it
+                   {:trade/to-player   "A"
+                    :trade/from-player "C"
+                    :trade/asking      {:cash 180}
+                    :trade/offering    {:cash 315}})))
+      (is (= 11/50 (test-it
+                     {:trade/to-player   "A"
+                      :trade/from-player "C"
+                      :trade/asking      {:cards #{{:deck :chance}}}
+                      :trade/offering    {:cash 11}}))))))

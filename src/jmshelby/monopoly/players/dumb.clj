@@ -51,31 +51,71 @@
   properties are worth half (although we should probably
   subtract 10% for real value)."
   [game-state proposal]
-
-
-  )
+  (let [board       (:board game-state)
+        asking      (:trade/asking proposal)
+        offering    (:trade/offering proposal)
+        to-player   (util/player-by-id game-state
+                                       (:trade/to-player proposal))
+        from-player (util/player-by-id game-state
+                                       (:trade/from-player proposal))
+        ask-value   (trade-side-value board to-player asking)
+        offer-value (trade-side-value board from-player offering)]
+    ;; Just offerring over asking
+    (/ offer-value ask-value)))
 
 (defn proposal?
-  "Given a game-state, return the best current proposal
-  available, _if_ it's a smart time to propose one."
-  [game-state]
+  "Given a game-state and player, return the best current
+  proposal available, _if_ it's a smart time to propose one."
+  [game-state player]
   ;; Very dumb initial logic
-  ;;  - NOTE: no cash or jail free cards involved yet
-  ;; Street Properties:
-  ;; - If we own 50% or more of a street group,
-  ;;   AND someone else owns a property of the same street...
-  ;;       -> Attempt to build offer for that "target" property
-  ;;           - From list of our "undesirable" properties, ordered
-  ;;             by current value (taking mortgaged into account),
-  ;;             take enough props to reach a value that is more
-  ;;             than the face value of the "target" property.
-  ;;             - "undesirable" properties:
-  ;;               - utils
-  ;;               - railroads
-  ;;               - we own less than 50% of the street group
-  ;;       -> Make sure attempt offer has never been made before,
-  ;;          from transaction history
+  ;;  NOTE: no cash or jail free cards involved yet
+  (let [owned-props (utils/owned-property-details game-state)]
 
+    ;; Street Properties:
+    ;; - If we own 50% or more of a street group (but not all),
+    ;;   AND someone else owns a property of the same street...
+    ;;       -> Attempt to build offer for that "target" property
+    ;;           - From list of our "undesirable" properties, ordered
+    ;;             by current value (taking mortgaged into account),
+    ;;             take enough props to reach a value that is more
+    ;;             than the face value of the "target" property.
+    ;;             - "undesirable" properties:
+    ;;               - utils
+    ;;               - railroads
+    ;;               - we own less than 50% of the street group
+    ;;       -> Make sure attempt offer has never been made before,
+    ;;          from transaction history
+
+    ;; Get desired property
+    (->>
+      ;; Of all owned props
+      owned-props
+      ;; - owned by us
+      ;; - just streets
+      ;; - grouped by group name
+      ;; - not monopolized
+      ;; - filter (group-owned / group-total) >= 1/2
+      ;; - mapcat -> missing prop from group, if owned by another player
+      ;; - sorted by something?
+      ;; - take first
+      )
+
+    ;; Get props we can offer
+    (->>
+      ;; Of all owned props
+      owned-props
+      ;; - owned by us
+      ;; - not desired/target prop
+      ;; - filter (group-owned / group-total) < 1/2
+      ;;    OR utils OR railroads
+      ;; - sorted by value
+      ;;   TODO - using mortgage value if applicable
+      ;; - [take until sum value is more than desired/target prop]
+
+      )
+
+
+    )
 
   nil
 
@@ -104,7 +144,9 @@
 (defn decide
   [game-state method params]
   (let [{my-id :id
-         cash  :cash} (util/current-player game-state)]
+         cash  :cash
+         :as   player}
+        (util/current-player game-state)]
     (case method
 
       ;; Dumb, always decline these actions
@@ -137,8 +179,8 @@
 
         ;; Check to see if we can AND should make an offer
         (and (-> params :actions-available :trade-proposal)
-             (proposal? game-state))
-        (proposal? game-state)
+             (proposal? game-state player))
+        (proposal? game-state player)
 
         ;; OR, if we are in jail and have a free out card
         ;; THEN use it
