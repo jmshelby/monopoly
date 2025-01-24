@@ -15,16 +15,47 @@
                    count)]
     (/ owned total)))
 
+(defn trade-side-value
+  "Given a game board, player, and resources from one
+  side of a trade proposal, return the total \"real\"
+  value of all resources."
+  [board player resources]
+  (letfn [(prop-def [id]
+            (->> board :properties
+                 (filter #(= id (:name %)))
+                 first))]
+    (->> resources
+         ;; Expand each sub-resource into it's value
+         (mapcat (fn [[type resource]]
+                   (case type
+                     ;; Simply the cash value
+                     :cash  [resource]
+                     ;; Each card is $50
+                     ;; TODO - Need to lookup value based on card.retain/use
+                     :cards (repeat (count resource) 50)
+                     ;; Each property current "real" value
+                     :properties
+                     (map (fn [prop-name]
+                            (let [prop       (prop-def prop-name)
+                                  prop-state (get-in player [:properties prop-name])]
+                              (case (:status prop-state)
+                                :paid      (:price prop)
+                                :mortgaged (:mortgage prop))))
+                          resource))))
+         ;; Just sum from here
+         (apply +))))
 
-(defn- accept-proposal?
-  "Given a game-state and proposal map, return wether we should accept/decline the trade proposal."
+(defn proposal-benefit
+  "Given a game-state and proposal map, return the ratio
+  benefit/gain based on value of resources. Mortgaged
+  properties are worth half (although we should probably
+  subtract 10% for real value)."
   [game-state proposal]
-  ;; Real simple, only accept if offerred resources value
-  ;; (taking mortgaged into account) add up to 1.5 times
-  ;; the amount of the asking resources
+
+
   )
 
-(defn- proposal?
+(defn proposal?
   "Given a game-state, return the best current proposal
   available, _if_ it's a smart time to propose one."
   [game-state]
@@ -80,9 +111,17 @@
       :acquisition {:action :decline}
       :auction-bid {:action :decline}
 
-      ;; TODO
-      ;; A trade proposal sent to you
-      :trade-proposal {:action :decline}
+      ;; A trade proposal offered to us
+      :trade-proposal
+      ;; Real simple, no worry about our state or the other player's state.
+      ;;   - Accept if offerred resources value (taking mortgaged into account)
+      ;;     add up to at least X times the amount of the asking resources
+      {:action
+       (let [gain (proposal-benefit game-state params)]
+         (cond
+           ;; For now we'll go with a *1.5* times minimum gain
+           (<= 1.5 gain) :accept
+           :else         :decline))}
 
       ;; Dumb, always buy a property if we can
       ;; TODO - maybe keep _some_ money minimum?
