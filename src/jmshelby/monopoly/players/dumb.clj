@@ -69,7 +69,7 @@
   [game-state player]
   ;; Very dumb initial logic
   ;;  NOTE: no cash or jail free cards involved yet
-  (let [owned-props (utils/owned-property-details game-state)]
+  (let [owned-props (util/owned-property-details game-state)]
 
     ;; Street Properties:
     ;; - If we own 50% or more of a street group (but not all),
