@@ -2,13 +2,11 @@
   (:require [clojure.set :as set
              :refer [union subset? difference]]
             [jmshelby.monopoly.util :as util
-             :refer [roll-dice dissoc-in append-tx]]
+             :refer [roll-dice append-tx]]
             [jmshelby.monopoly.cards :as cards]
             [jmshelby.monopoly.trade :as trade]
-            [jmshelby.monopoly.player :as player]
-            [jmshelby.monopoly.definitions :as defs]))
-
-;; TODO - need to determine where and how many "seeds" to store
+            [jmshelby.monopoly.definitions :as defs]
+            [jmshelby.monopoly.players.dumb :as dumb-player]))
 
 ;; Game state, schema
 (def example-state
@@ -362,7 +360,7 @@
              (map (partial hash-map :id))
              ;; Add starting state values
              (map #(assoc %
-                          :function player/dumb-player-decision
+                          :function dumb-player/decide
                           :status :playing
                           :cash 1500
                           :cell-residency 0 ;; All starting on "Go"
