@@ -164,8 +164,7 @@
   [game-state player]
   ;; Very dumb initial logic
   ;;  NOTE: no cash or jail free cards involved yet
-  (let [owned-props (util/owned-property-details game-state)
-        ;; Get a single desired property
+  (let [;; Get a single desired property
         target-prop (->> (find-desired-properties game-state player)
                          ;; TODO
                          ;; - sorted by something?
@@ -182,15 +181,18 @@
         offer {:action          :trade-proposal
                :trade/to-player (:owner target-prop)
                ;; Only one target property we're going after
-               :trade/asking    {:properties #{target-prop}}
+               :trade/asking    {:properties #{(:def target-prop)}}
                ;; Only offering set of properties
-               :trade/offering  {:properties (set sacrifice)}
-               }
+               :trade/offering  {:properties (set (map :def sacrifice))}}
 
         ;; Make sure we haven't offered this before
-        ;; TODO - need to figure out the expected TX format to compare to ...
+        prospective-tx {:type     :trade
+                        :status   :proposal
+                        :to       (:trade/to-player offer)
+                        :from     (:id player)
+                        :asking   (:trade/asking offer)
+                        :offering (:trade/offering offer)}
         ;;  - should just be a set intersection, between transactions and assembled proposal
-        ;;    (maybe _some_ xformation of map)
         ]
 
     )
