@@ -532,16 +532,7 @@
         target       150
         group->count (util/street-group-counts (:board game-state))
         ;; Map group name -> set of prop names
-        group->names (->> game-state :board
-                          :properties
-                          (filter #(= :street (:type %)))
-                          (group-by :group-name)
-                          (map (fn [[k coll]] [k (->> coll (map :name) set)]))
-                          (into {}))
-        owned-props  (util/owned-property-details game-state)
-        taken-props  (->> owned-props
-                          (remove #(= player-id (:owner %)))
-                          (into {}))]
+        owned-props  (util/owned-property-details game-state)]
     ;; Of all owned props
     (->> owned-props vals
          ;; - owned by us
