@@ -147,64 +147,54 @@
 (defn proposal?
   "Given a game-state and player, return the best current
   proposal available, _if_ it's a smart time to propose one."
+  ;; Street Properties:
+  ;; - If we own 50% or more of a street group (but not all),
+  ;;   AND someone else owns a property of the same street...
+  ;;       -> Attempt to build offer for that "target" property
+  ;;           - From list of our "undesirable" properties, ordered
+  ;;             by current value (taking mortgaged into account),
+  ;;             take enough props to reach a value that is more
+  ;;             than the face value of the "target" property.
+  ;;             - "undesirable" properties:
+  ;;               - utils
+  ;;               - railroads
+  ;;               - we own less than 50% of the street group
+  ;;       -> Make sure attempt offer has never been made before,
+  ;;          from transaction history
   [game-state player]
   ;; Very dumb initial logic
   ;;  NOTE: no cash or jail free cards involved yet
-  (let [owned-props (util/owned-property-details game-state)]
+  (let [owned-props (util/owned-property-details game-state)
+        ;; Get a single desired property
+        target-prop (->> (find-desired-properties game-state player)
+                         ;; TODO
+                         ;; - sorted by something?
+                         ;;   (if we randomize this, it can auto
+                         ;;    rotate through multiple possibilities)
+                         ;; - take first
+                         first)
+        ;; Get props we can offer
+        sacrifice   (find-proposable-properties
+                      game-state player
+                      (-> target-prop :def :price))
 
-    ;; Street Properties:
-    ;; - If we own 50% or more of a street group (but not all),
-    ;;   AND someone else owns a property of the same street...
-    ;;       -> Attempt to build offer for that "target" property
-    ;;           - From list of our "undesirable" properties, ordered
-    ;;             by current value (taking mortgaged into account),
-    ;;             take enough props to reach a value that is more
-    ;;             than the face value of the "target" property.
-    ;;             - "undesirable" properties:
-    ;;               - utils
-    ;;               - railroads
-    ;;               - we own less than 50% of the street group
-    ;;       -> Make sure attempt offer has never been made before,
-    ;;          from transaction history
+        ;; Assemble a proposal map, from/to player ids, asking/offering maps
+        offer {:action          :trade-proposal
+               :trade/to-player (:owner target-prop)
+               ;; Only one target property we're going after
+               :trade/asking    {:properties #{target-prop}}
+               ;; Only offering set of properties
+               :trade/offering  {:properties (set sacrifice)}
+               }
 
-    ;; Get a single desired property
-    (->>
-      ;; Of all owned props
-      owned-props
-      ;; - owned by us
-      ;; - just streets
-      ;; - grouped by group name
-      ;; - not monopolized
-      ;; - filter (group-owned / group-total) >= 1/2
-      ;; - mapcat -> missing prop from group, if owned by another player
-      ;; - sorted by something?
-      ;;   (if we randomize this, it can auto
-      ;;    rotate through multiple possibilities)
-      ;; - take first
-      )
-
-    ;; Get props we can offer
-    (->>
-      ;; Of all owned props
-      owned-props
-      ;; - owned by us
-      ;; - not the desired/target prop
-      ;; - filter (group-owned / group-total) < 1/2
-      ;;    OR utils OR railroads
-      ;; - sorted by value
-      ;;   TODO - using mortgage value if applicable
-      ;; - [take until sum value is more than desired/target prop]
-      )
-
-    ;; Assemble a proposal map, from/to player ids, asking/offering maps
-
-    ;; Make sure we haven't offered this before
-    ;;  - should just be a set intersection, between transactions and assembled proposal
-    ;;    (maybe _some_ xformation of map)
+        ;; Make sure we haven't offered this before
+        ;; TODO - need to figure out the expected TX format to compare to ...
+        ;;  - should just be a set intersection, between transactions and assembled proposal
+        ;;    (maybe _some_ xformation of map)
+        ]
 
     )
 
-  nil
 
   ;; When we're ready to send a proposal
   ;; {:action                   :trade-proposal
@@ -265,6 +255,8 @@
         {:action :roll}
 
         ;; Check to see if we can AND should make an offer
+        ;; TODO - This could return random results and should
+        ;;        be called only once per decision
         (and (-> params :actions-available :trade-proposal)
              (proposal? game-state player))
         (proposal? game-state player)
