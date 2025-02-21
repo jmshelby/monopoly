@@ -64,7 +64,7 @@
     ;; Just offerring over asking
     (/ offer-value ask-value)))
 
-(defn get-desired-properties
+(defn find-desired-properties
   [game-state player]
   (let [player-id    (:id player)
         group->count (util/street-group-counts (:board game-state))
@@ -106,6 +106,43 @@
                          eligible (taken-props want)]
                      (when eligible
                        [eligible])))))))
+
+(defn find-proposable-properties
+  [game-state player target-value]
+  (let [player-id    (:id player)
+        group->count (util/street-group-counts (:board game-state))
+        ;; Map group name -> set of prop names
+        owned-props  (util/owned-property-details game-state)]
+    ;; Of all owned props
+    (->> owned-props vals
+         ;; - owned by us
+         (filter #(= player-id (:owner %)))
+         ;; - Groups that we only own 1 spot of,
+         ;;   or any non-street type
+         ;;   -> filter (group-owned / group-total) < 1/2
+         ;;    OR utils OR railroads
+         (filter (fn [prop]
+                   (let [type (-> prop :def :type)]
+                     (or (= :utility type)
+                         (= :railroad type)
+                         (> 1/2
+                            (/ (:group-owned-count prop)
+                               (group->count (-> prop :def :group-name))))))))
+         ;; - attach a value
+         ;;   TODO - using mortgage value if applicable
+         (map #(assoc % :value (-> % :def :price)))
+         ;; - sorted by value
+         ;;   TODO - THE BIG QUESTION!! SHOULD IT BE ASC OR DESC
+         (sort-by :value)
+         ;; (sort-by :value rcompare)
+         ;; - [take until sum value is more than desired/target prop]
+         (reduce (fn [acc prop]
+                   ;; Is the sum total value of acc'd props more than the target?
+                   (if (> target-value (reduce + (map :value acc)))
+                     (conj acc prop)
+                     ;;   TODO - Would be nice to use a reduce/variant that can terminate early
+                     acc))
+                 []))))
 
 (defn proposal?
   "Given a game-state and player, return the best current
