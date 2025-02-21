@@ -1,5 +1,6 @@
 (ns jmshelby.monopoly.players.dumb
-  (:require [jmshelby.monopoly.util :as util]))
+  (:require [clojure.set :as set]
+            [jmshelby.monopoly.util :as util]))
 
 ;; Right now, just the fn/methods that act as a player logic "function"
 
@@ -62,6 +63,49 @@
         offer-value (trade-side-value board from-player offering)]
     ;; Just offerring over asking
     (/ offer-value ask-value)))
+
+(defn get-desired-properties
+  [game-state player]
+  (let [player-id    (:id player)
+        group->count (util/street-group-counts (:board game-state))
+        ;; Map group name -> set of prop names
+        group->names (->> game-state :board
+                          :properties
+                          (filter #(= :street (:type %)))
+                          (group-by :group-name)
+                          (map (fn [[k coll]] [k (->> coll (map :name) set)]))
+                          (into {}))
+        owned-props  (util/owned-property-details game-state)
+        taken-props  (->> owned-props
+                          (remove #(= player-id (:owner %)))
+                          (into {}))]
+    ;; Of all owned props
+    (->> owned-props vals
+         ;; - owned by us
+         (filter #(= player-id (:owner %)))
+         ;; - just streets
+         (filter #(= :street (-> % :def :type)))
+         ;; - not monopolized
+         (remove :group-monopoly?)
+         ;; - Only one left to get a monopoly
+         ;;   filter (group-owned / group-total) >= 1/2
+         (filter (fn [prop]
+                   (<= 1/2
+                       (/ (:group-owned-count prop)
+                          (group->count (-> prop :def :group-name))))))
+         ;; - grouped by group name
+         (group-by #(-> % :def :group-name))
+         ;; - mapcat -> missing prop(s) from group, if owned by another player
+         ;;   (find the desired props, based on groups above)
+         (mapcat (fn [[group-name props]]
+                   (let [own      (->> props
+                                       (map (comp :name :def))
+                                       set)
+                         all      (group->names group-name)
+                         want     (first (set/difference all own))
+                         eligible (taken-props want)]
+                     (when eligible
+                       [eligible])))))))
 
 (defn proposal?
   "Given a game-state and player, return the best current

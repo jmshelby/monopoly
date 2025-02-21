@@ -433,16 +433,19 @@
 
   ;; Cell landings stats
   (->> sim
-       :transactions
-       (filter #(= :move (:type %)))
-       (map (fn [tx]
-              (as-> tx *
-                (get-in sim [:board :cells (:after-cell *)])
-                (assoc * :cell (:after-cell tx)))))
-       frequencies
-       (sort-by second))
+       ;; :transactions
+       ;; (filter #(= :move (:type %)))
+       ;; (map (fn [tx]
+       ;;        (as-> tx *
+       ;;          (get-in sim [:board :cells (:after-cell *)])
+       ;;          (assoc * :cell (:after-cell tx)))))
+       ;; frequencies
+       ;; (sort-by second)
+       )
 
-  (->> (rand-game-state 4 300)
+  (init-game-state 4)
+
+  (->> (rand-game-state 4 10)
        ;; :transactions
        ;; (drop 100)
        ;; (filter #(= :payment (:type %)))
@@ -493,7 +496,8 @@
          (filter #(= :street (-> % :def :type)))
          ;; - not monopolized
          (remove :group-monopoly?)
-         ;; - filter (group-owned / group-total) >= 1/2
+         ;; - Only one left to get a monopoly
+         ;;   filter (group-owned / group-total) >= 1/2
          (filter (fn [prop]
                    (<= 1/2
                        (/ (:group-owned-count prop)
@@ -501,6 +505,7 @@
          ;; - grouped by group name
          (group-by #(-> % :def :group-name))
          ;; - mapcat -> missing prop(s) from group, if owned by another player
+         ;;   (find the desired props, based on groups above)
          (mapcat (fn [[group-name props]]
                    (let [own      (->> props
                                        (map (comp :name :def))
