@@ -2,7 +2,8 @@
   (:require [clojure.set :as set
              :refer [union subset? difference]]
             [jmshelby.monopoly.util :as util
-             :refer [roll-dice append-tx]]
+             :refer [roll-dice append-tx
+                     rcompare]]
             [jmshelby.monopoly.cards :as cards]
             [jmshelby.monopoly.trade :as trade]
             [jmshelby.monopoly.definitions :as defs]
@@ -474,8 +475,9 @@
 
   sim
 
+  ;; PROTO - get desired properties
   (let [game-state   sim
-        player-id    "D"
+        player-id    "C"
         group->count (util/street-group-counts (:board game-state))
         ;; Map group name -> set of prop names
         group->names (->> game-state :board
@@ -496,8 +498,8 @@
          (filter #(= :street (-> % :def :type)))
          ;; - not monopolized
          (remove :group-monopoly?)
-         ;; - Only one left to get a monopoly
-         ;;   filter (group-owned / group-total) >= 1/2
+         ;; - Groups with only one spot left to get a monopoly
+         ;;   -> filter (group-owned / group-total) >= 1/2
          (filter (fn [prop]
                    (<= 1/2
                        (/ (:group-owned-count prop)
@@ -522,24 +524,55 @@
          ;; count
          ))
 
-  ;; Get a single desired property
-  #_(->>
-      ;; Of all owned props
-      owned-props
-      )
+  sim
 
-  ;; Get props we can offer
-  #_(->>
-      ;; Of all owned props
-      owned-props
-      ;; - owned by us
-      ;; - not the desired/target prop
-      ;; - filter (group-owned / group-total) < 1/2
-      ;;    OR utils OR railroads
-      ;; - sorted by value
-      ;;   TODO - using mortgage value if applicable
-      ;; - [take until sum value is more than desired/target prop]
-      )
+  ;; PROTO - Get props we can offer, given a target value
+  (let [game-state   sim
+        player-id    "A"
+        target       150
+        group->count (util/street-group-counts (:board game-state))
+        ;; Map group name -> set of prop names
+        group->names (->> game-state :board
+                          :properties
+                          (filter #(= :street (:type %)))
+                          (group-by :group-name)
+                          (map (fn [[k coll]] [k (->> coll (map :name) set)]))
+                          (into {}))
+        owned-props  (util/owned-property-details game-state)
+        taken-props  (->> owned-props
+                          (remove #(= player-id (:owner %)))
+                          (into {}))]
+    ;; Of all owned props
+    (->> owned-props vals
+         ;; - owned by us
+         (filter #(= player-id (:owner %)))
+         ;; - Groups that we only own 1 spot of,
+         ;;   or any non-street type
+         ;;   -> filter (group-owned / group-total) < 1/2
+         ;;    OR utils OR railroads
+         (filter (fn [prop]
+                   (let [type (-> prop :def :type)]
+                     (or (= :utility type)
+                         (= :railroad type)
+                         (> 1/2
+                            (/ (:group-owned-count prop)
+                               (group->count (-> prop :def :group-name))))))))
+         ;; - attach a value
+         ;;   TODO - using mortgage value if applicable
+         (map #(assoc % :value (-> % :def :price)))
+         ;; - sorted by value
+         ;;   TODO - THE BIG QUESTION!! SHOULD IT BE ASC OR DESC
+         (sort-by :value)
+         ;; (sort-by :value rcompare)
+         ;; - [take until sum value is more than desired/target prop]
+         (reduce (fn [acc prop]
+                   ;; Is the sum total value of acc'd props more than the target?
+                   (if (> target (reduce + (map :value acc)))
+                     (conj acc prop)
+                     ;;   TODO - Would be nice to use a reduce/variant that can terminate early
+                     acc))
+                 [])
+         ))
 
     ;; Assemble a proposal map, from/to player ids, asking/offering maps
 

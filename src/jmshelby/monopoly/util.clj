@@ -3,6 +3,11 @@
 
 ;; ======= General =============================
 
+(defn rcompare
+  "Just compare in reverse"
+  [a b]
+  (compare b a))
+
 (defn dissoc-in
   "Dissociates an entry from a nested associative structure returning a new
   nested structure. keys is a sequence of keys. Any empty maps that result
