@@ -191,10 +191,13 @@
                         :to       (:trade/to-player offer)
                         :from     (:id player)
                         :asking   (:trade/asking offer)
-                        :offering (:trade/offering offer)}
-        ;;  - should just be a set intersection, between transactions and assembled proposal
-        ]
+                        :offering (:trade/offering offer)}]
 
+    ;; Should we return this proposal?
+    ;;  - should just be a set intersection, between transactions and assembled proposal
+    (when ((set (:transactions game-state))
+           prospective-tx)
+      prospective-tx)
     )
 
 
