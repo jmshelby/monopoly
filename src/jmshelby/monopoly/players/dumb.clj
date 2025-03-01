@@ -175,7 +175,7 @@
 
     (when target-prop
       (let [;; Get props we can offer
-            _         (println (:id player) ": Going after prop: " target-prop)
+            ;; _         (println (:id player) ": Going after prop: " target-prop)
             sacrifice (find-proposable-properties
                         game-state player
                         (-> target-prop :def :price))
