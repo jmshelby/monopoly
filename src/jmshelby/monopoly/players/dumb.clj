@@ -183,9 +183,9 @@
             ;; Assemble a proposal map, from/to player ids, asking/offering maps
             offer {:trade/to-player (:owner target-prop)
                    ;; Only one target property we're going after
-                   :trade/asking    {:properties #{(:def target-prop)}}
+                   :trade/asking    {:properties #{(-> target-prop :def :name)}}
                    ;; Only offering set of properties
-                   :trade/offering  {:properties (set (map :def sacrifice))}}
+                   :trade/offering  {:properties (set (map (comp :name :def) sacrifice))}}
 
             ;; Make sure we haven't offered this before
             prospective-tx {:type     :trade
