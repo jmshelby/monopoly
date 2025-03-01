@@ -446,25 +446,5 @@
        )
 
 
-  (println "--------------------------------------------------------")
-
-
-  (as-> (rand-game-state 4 500) *
-
-    ;; Player property count
-    ;; (:players *)
-    ;; (map (fn [p]
-    ;;        [(:id p) (count (:properties p))]
-    ;;        ) *)
-
-    ;; Player cash
-    (:players *)
-    (map #(select-keys % [:id :cash]) *)
-
-    )
-
-  (def sim (rand-game-state 4 550))
-
-
   ;;
   )
