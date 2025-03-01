@@ -177,6 +177,7 @@
       (cards/apply-card-draw new-state)
       ;; None of the above, player option
       ;; or auction off property
+      ;; TODO - does the current player have the option to trade before this possibly "forced" decsion?? (to buy the prop they are on)
       :else (util/apply-property-option new-state))))
 
 (defn- apply-dice-roll

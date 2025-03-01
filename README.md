@@ -39,7 +39,7 @@ Monopoly Game Engine + Pluggable Player API
      - offer workflow
  ---------------------------
 #### Remaining Logic
- - Auction off property (when purchased denied/unable)
+ - Auction off property (when purchase is denied/unable)
    - [still need to figure out a good way to do this]
  - Cards
    - Deferred effects (go to nearest utility, pay 10x dice roll)
