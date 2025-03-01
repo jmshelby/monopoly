@@ -164,63 +164,41 @@
   [game-state player]
   ;; Very dumb initial logic
   ;;  NOTE: no cash or jail free cards involved yet
-  (let [;; Get a single desired property
+  (let [;; Get a possible single desired property
         target-prop (->> (find-desired-properties game-state player)
                          ;; TODO
                          ;; - sorted by something?
                          ;;   (if we randomize this, it can auto
                          ;;    rotate through multiple possibilities)
                          ;; - take first
-                         first)
-        ;; Get props we can offer
-        sacrifice   (find-proposable-properties
-                      game-state player
-                      (-> target-prop :def :price))
+                         first)]
 
-        ;; Assemble a proposal map, from/to player ids, asking/offering maps
-        offer {:action          :trade-proposal
-               :trade/to-player (:owner target-prop)
-               ;; Only one target property we're going after
-               :trade/asking    {:properties #{(:def target-prop)}}
-               ;; Only offering set of properties
-               :trade/offering  {:properties (set (map :def sacrifice))}}
+    (when target-prop
+      (let [;; Get props we can offer
+            _         (println (:id player) ": Going after prop: " target-prop)
+            sacrifice (find-proposable-properties
+                        game-state player
+                        (-> target-prop :def :price))
 
-        ;; Make sure we haven't offered this before
-        prospective-tx {:type     :trade
-                        :status   :proposal
-                        :to       (:trade/to-player offer)
-                        :from     (:id player)
-                        :asking   (:trade/asking offer)
-                        :offering (:trade/offering offer)}]
+            ;; Assemble a proposal map, from/to player ids, asking/offering maps
+            offer {:trade/to-player (:owner target-prop)
+                   ;; Only one target property we're going after
+                   :trade/asking    {:properties #{(:def target-prop)}}
+                   ;; Only offering set of properties
+                   :trade/offering  {:properties (set (map :def sacrifice))}}
 
-    ;; Should we return this proposal?
-    ;;  - should just be a set intersection, between transactions and assembled proposal
-    (when ((set (:transactions game-state))
-           prospective-tx)
-      prospective-tx)
-    )
-
-
-  ;; When we're ready to send a proposal
-  ;; {:action                   :trade-proposal
-  ;;  :trade/to-player "A"
-  ;;  ;; Note - You'd never have :cash in both asking+offering
-  ;;  ;;        I guess you _could_, but there'd be no point, so we should restrict it
-  ;;  ;; Note - You'd never have :cards in both asking+offering (in standard rules board)
-  ;;  ;; Note - You can (and often will) have properties in both asking+offering
-  ;;  ;; Note - A single player _could_ have 2 get out of jail free cards and offer them
-  ;;  :trade/asking    {;; Cash dollar amount > 0
-  ;;                    :cash       123
-  ;;                    ;; Full card definitions
-  ;;                    :cards      #{}
-  ;;                    ;; Just names of properties
-  ;;                    :properties #{}}
-  ;;  :trade/offering  {:cash       123
-  ;;                    :cards      #{}
-  ;;                    :properties #{}}}
-
-
-  )
+            ;; Make sure we haven't offered this before
+            prospective-tx {:type     :trade
+                            :status   :proposal
+                            :to       (:trade/to-player offer)
+                            :from     (:id player)
+                            :asking   (:trade/asking offer)
+                            :offering (:trade/offering offer)}]
+        ;; Should we return this proposal?
+        ;;  - should just be a set intersection, between transactions and assembled proposal
+        (when-not ((set (:transactions game-state))
+                   prospective-tx)
+          offer)))))
 
 ;; TODO - multimethods..
 (defn decide
@@ -264,7 +242,27 @@
         ;;        be called only once per decision
         (and (-> params :actions-available :trade-proposal)
              (proposal? game-state player))
-        (proposal? game-state player)
+
+        ;; When we're ready to send a proposal
+        ;; {:action                   :trade-proposal
+        ;;  :trade/to-player "A"
+        ;;  ;; Note - You'd never have :cash in both asking+offering
+        ;;  ;;        I guess you _could_, but there'd be no point, so we should restrict it
+        ;;  ;; Note - You'd never have :cards in both asking+offering (in standard rules board)
+        ;;  ;; Note - You can (and often will) have properties in both asking+offering
+        ;;  ;; Note - A single player _could_ have 2 get out of jail free cards and offer them
+        ;;  :trade/asking    {;; Cash dollar amount > 0
+        ;;                    :cash       123
+        ;;                    ;; Full card definitions
+        ;;                    :cards      #{}
+        ;;                    ;; Just names of properties
+        ;;                    :properties #{}}
+        ;;  :trade/offering  {:cash       123
+        ;;                    :cards      #{}
+        ;;                    :properties #{}}}
+
+        (into {:action :trade-proposal}
+              (proposal? game-state player))
 
         ;; OR, if we are in jail and have a free out card
         ;; THEN use it
