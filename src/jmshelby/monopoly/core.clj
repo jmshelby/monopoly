@@ -1,12 +1,13 @@
 (ns jmshelby.monopoly.core
-  (:require [clojure.set :as set]
+  (:require [clojure.set :as set
+             :refer [union subset? difference]]
             [jmshelby.monopoly.util :as util
-             :refer [roll-dice dissoc-in append-tx]]
+             :refer [roll-dice append-tx
+                     rcompare]]
             [jmshelby.monopoly.cards :as cards]
-            [jmshelby.monopoly.player :as player]
-            [jmshelby.monopoly.definitions :as defs]))
-
-;; TODO - need to determine where and how many "seeds" to store
+            [jmshelby.monopoly.trade :as trade]
+            [jmshelby.monopoly.definitions :as defs]
+            [jmshelby.monopoly.players.dumb :as dumb-player]))
 
 ;; Game state, schema
 (def example-state
@@ -46,16 +47,11 @@
    :current-turn {:player     "player uuid"
                   ;; All the dice rolls from the current turn player,
                   ;; multiple because doubles get another roll
-                  :dice-rolls []
-                  ;; Some sort of state around the comm status with the player
-                  ;; TODO - need to figure out what this looks like
-                  ;; TODO - it could be a :phase thing, but maybe this tracks forced negotiation state/status
-                  :status     :?}
+                  :dice-rolls []}
 
    ;; The current *ordered* care queue to pull from.
    ;; At the beginning of the game these will be loaded at random,
    ;; when one queue is exhausted, it is randomly filled again.
-   ;; TODO - Just the keyword name? Or is a map needed?
    :card-queue {:chance          []
                 :community-chest []}
 
@@ -102,7 +98,8 @@
   [{:keys [board players]
     :as   game-state}
    new-cell driver
-   & {:keys [allowance?] :or {allowance? true}}]
+   & {:keys [allowance?]
+      :or   {allowance? true}}]
   (let [;; Get current player info
         player         (util/current-player game-state)
         player-id      (:id player)
@@ -209,8 +206,10 @@
       (let [;; Find next board position, looping back around if needed
             old-cell (:cell-residency player)
             new-cell (util/next-cell (:board game-state) (apply + new-roll) old-cell)]
-        ;; TODO - Once we start putting this "move to cell" logic in the game state,
-        ;;        we should probably invoke that one
+        ;; TODO - This "move to cell" fn/logic is now a property
+        ;;        in the game state, we should probably invoke
+        ;;        that one? (or is this tricky because this
+        ;;        function is defined in there beside it?)
         (move-to-cell new-state new-cell :dice)))))
 
 (defn advance-board
@@ -218,7 +217,6 @@
   invoking player logic and applying decisions."
   [{:keys [players current-turn]
     :as   game-state}]
-
   (let [;; Get current player function
         {player-id :id
          :keys     [cash status function]
@@ -226,7 +224,6 @@
         (util/current-player game-state)]
 
     (cond
-
       ;; Check if game is already complete
       ;; TODO - will this ever happen? (should it?)
       (= :complete (:status game-state))
@@ -269,21 +266,21 @@
 
       ;; If they have cash, and it's not time to end the train
       ;; proceed with regular player turn
+      ;; TODO - yikes, this is getting huge too ...
       :else
-      (let [;; Basic/jumbled for now, long lets nested ifs...
-            ;; TODO - need to add other actions soon, and this logic
-            ;;        _could_ blow up, need another fn
-            jail-spell (:jail-spell player)
+      (let [jail-spell (:jail-spell player)
             last-roll  (->> current-turn :dice-rolls last)
             can-roll?  (or (nil? last-roll)
                            (and (vector? last-roll)
                                 (apply = last-roll)))
             can-build? (util/can-buy-house? game-state)
             actions    (->> (vector
-                              ;; TODO - Need to force certain number of rolls before :done can be available
+                              ;; TODO - "Done" should not always be an available action,
+                              ;;         - if they haven't rolled yet
+                              ;;         - if they rolled a double last
+                              ;;         - [others?]
                               :done
                               (if jail-spell
-
                                 ;; Jail actions
                                 [;; Attempt double roll
                                  (when (nil? last-roll)
@@ -303,7 +300,14 @@
                                 (when can-roll? :roll))
 
                               ;; House building
-                              (when can-build? :buy-house))
+                              (when can-build? :buy-house)
+
+                              ;; Trade Proposals
+                              ;; TODO - the function here can-propose? doesn't do anything yet,
+                              ;;        so we just need to validate after the fact
+                              (when (trade/can-propose? game-state player-id)
+                                :trade-proposal))
+
                             flatten
                             (filter identity)
                             set)
@@ -312,30 +316,36 @@
             ;; method, to get next response/decision
             decision (function game-state :take-turn {:actions-available actions})]
 
+        ;; TODO - Detect if player is stuck in loop?
+        ;; TODO - Player is taking too long?
+
         (case (:action decision)
           ;; Player done, end turn, advance to next player
-          :done      (util/apply-end-turn game-state)
+          :done           (util/apply-end-turn game-state)
           ;; Roll Dice
-          :roll      (-> game-state
-                         ;; Do the roll and move
-                         (apply-dice-roll (roll-dice 2)))
+          :roll           (-> game-state
+                              ;; Do the roll and move
+                              (apply-dice-roll (roll-dice 2)))
           ;; Buy house(s)
-          :buy-house (util/apply-house-purchase
-                       game-state
-                       (:property-name decision))
+          :buy-house      (util/apply-house-purchase
+                            game-state
+                            (:property-name decision))
+          ;; Proposing a trade
+          ;; TODO - Call trade/validate-proposal from here first
+          ;;        (but then what to do if invalid?)
+          :trade-proposal (trade/apply-proposal
+                            game-state
+                            ;; Convenience, attach :from-player for them
+                            (assoc decision :trade/from-player player-id))
+
           ;; TODO - Sell house(s)
-          ;; TODO - Make offer
           ;; TODO - Mortgage/un-mortgage
 
           ;; JAIL
           ;; TODO - looks like any jail action can be routed to this one fn
           :jail/roll      (util/apply-jail-spell game-state (:action decision))
           :jail/bail      (util/apply-jail-spell game-state (:action decision))
-          :jail/bail-card (util/apply-jail-spell game-state (:action decision))
-
-          ;; TODO - detect if player is stuck in loop?
-          ;; TODO - player is taking too long?
-          )))))
+          :jail/bail-card (util/apply-jail-spell game-state (:action decision)))))))
 
 ;; ===============================
 
@@ -351,7 +361,7 @@
              (map (partial hash-map :id))
              ;; Add starting state values
              (map #(assoc %
-                          :function player/dumb-player-decision
+                          :function dumb-player/decide
                           :status :playing
                           :cash 1500
                           :cell-residency 0 ;; All starting on "Go"
@@ -407,8 +417,7 @@
     [(:status state)
      (-> state :transactions count)])
 
-
-  (def sim (rand-game-state 4 700))
+  (def sim (rand-game-state 3 100))
 
   sim
 
@@ -417,16 +426,19 @@
 
   ;; Cell landings stats
   (->> sim
-       :transactions
-       (filter #(= :move (:type %)))
-       (map (fn [tx]
-              (as-> tx *
-                (get-in sim [:board :cells (:after-cell *)])
-                (assoc * :cell (:after-cell tx)))))
-       frequencies
-       (sort-by second))
+       ;; :transactions
+       ;; (filter #(= :move (:type %)))
+       ;; (map (fn [tx]
+       ;;        (as-> tx *
+       ;;          (get-in sim [:board :cells (:after-cell *)])
+       ;;          (assoc * :cell (:after-cell tx)))))
+       ;; frequencies
+       ;; (sort-by second)
+       )
 
-  (->> (rand-game-state 4 300)
+  (init-game-state 4)
+
+  (->> (rand-game-state 4 10)
        ;; :transactions
        ;; (drop 100)
        ;; (filter #(= :payment (:type %)))
@@ -434,24 +446,5 @@
        )
 
 
-  (println "--------------------------------------------------------")
-
-
-  (as-> (rand-game-state 4 500) *
-
-    ;; Player property count
-    ;; (:players *)
-    ;; (map (fn [p]
-    ;;        [(:id p) (count (:properties p))]
-    ;;        ) *)
-
-    ;; Player cash
-    (:players *)
-    (map #(select-keys % [:id :cash]) *)
-
-    )
-
-
-  )
-
   ;;
+  )

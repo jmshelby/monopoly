@@ -3,6 +3,11 @@
 
 ;; ======= General =============================
 
+(defn rcompare
+  "Just compare in reverse"
+  [a b]
+  (compare b a))
+
 (defn dissoc-in
   "Dissociates an entry from a nested associative structure returning a new
   nested structure. keys is a sequence of keys. Any empty maps that result
@@ -111,15 +116,32 @@
        ;; Return next player ID
        fnext))
 
-(defn current-player
-  "Given a game-state, return the current player. Includes the index of the player"
-  [{:keys [players
-           current-turn]}]
+(defn player-by-id
+  "Given a game-state, return player with given ID.
+  Includes the index of the player"
+  [{:keys [players]} id]
   (->> players
        ;; Attach ordinal
        (map-indexed (fn [idx p] (assoc p :player-index idx)))
-       (filter #(= (:id %) (:player current-turn)))
+       (filter #(= id (:id %)))
        first))
+
+(defn other-players
+  "Given a game-state and a player ID, return a collection
+  of the other players, not including the given player ID.
+  Includes the index of each player, :player-index."
+  [{:keys [players]} id]
+  (->> players
+       ;; Attach ordinal
+       (map-indexed (fn [idx p] (assoc p :player-index idx)))
+       (remove #(= id (:id %)))))
+
+(defn current-player
+  "Given a game-state, return the current player.
+  Includes the index of the player"
+  [{:keys [current-turn]
+    :as   game-state}]
+  (player-by-id game-state (:player current-turn)))
 
 (defn apply-end-turn
   "Given a game state, advance board, changing

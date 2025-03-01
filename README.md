@@ -15,9 +15,9 @@ Monopoly Game Engine + Pluggable Player API
      - utility: monopoly; dice roll w/multiplier
      - railroad: rent based on # owned
  - House Buying
+   - Require "even" and distributed house building
  - [Simple] Player "lose" logic
    - When player is out of money, take them out of the game
- - Require "even" and distributed house building
  - Go to Jail
    - "go to jail" cell/spot
    - Roll 3 consecutive doubles, "got to jail"
@@ -32,20 +32,17 @@ Monopoly Game Engine + Pluggable Player API
    - Draw logic/transaction
    - Re-shuffle
    - Effects:
-     - Move
-     - Retain
-     - Incarcerate
-     - Pay
-     - Collect
-     - [Multiple effects] (pay per house; pay per hotel)
- ---------------------------
-#### Remaining Logic
- - Cards
-   - Deferred effects (go to nearest utility, pay 10x dice roll)
+     - Move / Retain / Incarcerate / Pay / Collect
+     - [Multiple effects] (pay per house AND pay per hotel)
  - Proposals
    - On player turn action
      - offer workflow
-   - Counter offer workflow
+ ---------------------------
+#### Remaining Logic
+ - Auction off property (when purchased denied/unable)
+   - [still need to figure out a good way to do this]
+ - Cards
+   - Deferred effects (go to nearest utility, pay 10x dice roll)
  - [Full] Player "lose" logic
    - detect if bankrupt
      - Acquisition workflow to owed party (if not bank)
@@ -56,5 +53,17 @@ Monopoly Game Engine + Pluggable Player API
  - Sell House
    - On player turn action
    - On "raise funds" workflow
- - Auction of property (when purchased denied/unable)
-   - [still need to figure out a good way to do this]
+ - Proposals
+   - Counter-offer workflow
+
+
+
+## Future
+
+#### Engine Features
+ - Seed(s) to drive random number generators
+   - Dice and card shuffle order
+ - HTTP Interface for player decision logic
+   - Handling faulty players...
+     - Latency issues
+     - Timeouts/Retries?
