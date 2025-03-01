@@ -4,9 +4,10 @@
             [jmshelby.monopoly.util :as util]))
 
 (defn- exchange-properties
+  ;; TODO - add notes, emphasising that this doesn't validate the exchange
   [game-state from-pidx to-pidx prop-names]
   (let [;; Get player maps
-        to-player   (get-in game-state [:players to-pidx])
+        ;; to-player   (get-in game-state [:players to-pidx])
         from-player (get-in game-state [:players from-pidx])
         ;; Get 'from' player property states, only
         ;; needed to preserve mortgaged status
@@ -17,7 +18,7 @@
                    ;; Just a dissoc that takes a set
                    (partial apply dissoc) prop-names)
         ;; Add props + existing state to the 'to' player
-        (update-in [:players to-player :properties]
+        (update-in [:players to-pidx :properties]
                    ;; Just a conj of existing prop states
                    ;; into player's own property state map
                    conj prop-states))))
