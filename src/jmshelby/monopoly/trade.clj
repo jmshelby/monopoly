@@ -122,7 +122,19 @@
           (validate-side to-player asking)
           ;; Offering player has resources
           (validate-side from-player offering))
-      (throw (ex-info "Invalid trade proposal" {})))
+      (throw (ex-info "Invalid trade proposal"
+                      {:checks     {;; The current player is offering
+                                    :current-player-offering?
+                                    (boolean (= (:id from-player)
+                                                (:trade/from-player proposal)))
+                                    ;; Offerred player has resources
+                                    :offered-player-has-resources?
+                                    (boolean (validate-side to-player asking))
+                                    ;; Offering player has resources
+                                    :offering-player-has-resource?
+                                    (boolean (validate-side from-player offering))}
+                       :proposal   proposal
+                       :game-state game-state})))
 
     (let [;; Log initial proposal
           game-state   (append-tx game-state :proposal proposal)
