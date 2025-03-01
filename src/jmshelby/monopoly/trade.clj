@@ -36,7 +36,10 @@
                           game-state (:trade/to-player proposal))
         ;; Pull out both sides of the proposal and ensure
         ;; all resource keys are available with empty values
-        stub-defaults   (fn [p] (merge p {:cash 0 :cards #{} :properties #{}}))
+        stub-defaults   (fn [p] (merge {:cash       0
+                                        :cards      #{}
+                                        :properties #{}}
+                                       p))
         asking          (stub-defaults (:trade/asking proposal))
         offering        (stub-defaults (:trade/offering proposal))]
     ;; With both sides of the proposal having empty defaults,
