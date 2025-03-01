@@ -413,24 +413,9 @@
        ;; :properties
        )
 
-
-  (def sim
-    (->> (init-game-state 4)
-         (iterate advance-board)
-         (drop-while
-           (fn [{:keys [transactions]}]
-             (and (not-any? #(and (= :trade (:type %))
-                                  (= :accept (:status %)))
-                            transactions)
-                  (> 2000 (count transactions)))))
-         first
-         ))
-
-
   (let [state (rand-game-end-state 4)]
     [(:status state)
      (-> state :transactions count)])
-
 
   (def sim (rand-game-state 3 100))
 
@@ -445,7 +430,6 @@
 
   (def sim
     (rand-game-end-state 4))
-
 
   ;; Cell landings stats
   (->> sim
