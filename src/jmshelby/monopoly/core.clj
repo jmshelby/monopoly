@@ -421,13 +421,6 @@
 
   sim
 
-  (-> sim
-      (dissoc :board :card-queue
-              :functions
-              ;; :transactions
-              )
-      )
-
   (def sim
     (rand-game-end-state 4))
 
@@ -472,107 +465,6 @@
 
   (def sim (rand-game-state 4 550))
 
-  sim
-
-  ;; PROTO - get desired properties
-  (let [game-state   sim
-        player-id    "C"
-        group->count (util/street-group-counts (:board game-state))
-        ;; Map group name -> set of prop names
-        group->names (->> game-state :board
-                          :properties
-                          (filter #(= :street (:type %)))
-                          (group-by :group-name)
-                          (map (fn [[k coll]] [k (->> coll (map :name) set)]))
-                          (into {}))
-        owned-props  (util/owned-property-details game-state)
-        taken-props  (->> owned-props
-                          (remove #(= player-id (:owner %)))
-                          (into {}))]
-    ;; Of all owned props
-    (->> owned-props vals
-         ;; - owned by us
-         (filter #(= player-id (:owner %)))
-         ;; - just streets
-         (filter #(= :street (-> % :def :type)))
-         ;; - not monopolized
-         (remove :group-monopoly?)
-         ;; - Groups with only one spot left to get a monopoly
-         ;;   -> filter (group-owned / group-total) >= 1/2
-         (filter (fn [prop]
-                   (<= 1/2
-                       (/ (:group-owned-count prop)
-                          (group->count (-> prop :def :group-name))))))
-         ;; - grouped by group name
-         (group-by #(-> % :def :group-name))
-         ;; - mapcat -> missing prop(s) from group, if owned by another player
-         ;;   (find the desired props, based on groups above)
-         (mapcat (fn [[group-name props]]
-                   (let [own      (->> props
-                                       (map (comp :name :def))
-                                       set)
-                         all      (group->names group-name)
-                         want     (first (set/difference all own))
-                         eligible (taken-props want)]
-                     (when eligible
-                       [eligible]))))
-         ;; - sorted by something?
-         ;;   (if we randomize this, it can auto
-         ;;    rotate through multiple possibilities)
-         ;; - take first
-         ;; count
-         ))
-
-  sim
-
-  ;; PROTO - Get props we can offer, given a target value
-  (let [game-state   sim
-        player-id    "A"
-        target       150
-        group->count (util/street-group-counts (:board game-state))
-        ;; Map group name -> set of prop names
-        owned-props  (util/owned-property-details game-state)]
-    ;; Of all owned props
-    (->> owned-props vals
-         ;; - owned by us
-         (filter #(= player-id (:owner %)))
-         ;; - Groups that we only own 1 spot of,
-         ;;   or any non-street type
-         ;;   -> filter (group-owned / group-total) < 1/2
-         ;;    OR utils OR railroads
-         (filter (fn [prop]
-                   (let [type (-> prop :def :type)]
-                     (or (= :utility type)
-                         (= :railroad type)
-                         (> 1/2
-                            (/ (:group-owned-count prop)
-                               (group->count (-> prop :def :group-name))))))))
-         ;; - attach a value
-         ;;   TODO - using mortgage value if applicable
-         (map #(assoc % :value (-> % :def :price)))
-         ;; - sorted by value
-         ;;   TODO - THE BIG QUESTION!! SHOULD IT BE ASC OR DESC
-         (sort-by :value)
-         ;; (sort-by :value rcompare)
-         ;; - [take until sum value is more than desired/target prop]
-         (reduce (fn [acc prop]
-                   ;; Is the sum total value of acc'd props more than the target?
-                   (if (> target (reduce + (map :value acc)))
-                     (conj acc prop)
-                     ;;   TODO - Would be nice to use a reduce/variant that can terminate early
-                     acc))
-                 [])
-         ))
-
-  ;; Assemble a proposal map, from/to player ids, asking/offering maps
-
-  ;; Make sure we haven't offered this before
-  ;;  - should just be a set intersection, between transactions and assembled proposal
-  ;;    (maybe _some_ xformation of map)
-
-
 
   ;;
   )
-
-  ;;
