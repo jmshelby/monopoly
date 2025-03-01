@@ -336,7 +336,7 @@
           :trade-proposal (trade/apply-proposal
                             game-state
                             ;; Convenience, attach :from-player for them
-                            (assoc decision :trade/from-player player))
+                            (assoc decision :trade/from-player player-id))
 
           ;; TODO - Sell house(s)
           ;; TODO - Mortgage/un-mortgage
