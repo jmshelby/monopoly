@@ -71,6 +71,7 @@
   [{:keys [players]
     :as   game-state}
    player-id]
+  ;; TODO - we can use the get-player-by-id fn here now....
   (let [player
         (->> players
              (map-indexed (fn [idx p] (assoc p :player-index idx)))
@@ -143,6 +144,7 @@
       (util/tax-owed? new-state)
       (let [tax-owed (util/tax-owed? new-state)]
         (-> new-state
+            ;; TODO - HERE, before transferring cash, need to check current cash, and ultimately sell-worth
             (update-in [:players pidx :cash] - tax-owed)
             ;; Just take from player
             (append-tx {:type   :payment
@@ -154,6 +156,7 @@
       (util/rent-owed? new-state)
       (let [rent-owed (util/rent-owed? new-state)]
         (-> new-state
+            ;; TODO - HERE, before transferring cash, need to check current cash, and ultimately sell-worth
             (update-in [:players pidx :cash] - (second rent-owed))
             ;; Take from current player, give to owner
             (update-in [:players
@@ -255,6 +258,7 @@
       ;; If the player is out of money,
       ;; take them out of rotation (bankrupt)
       ;; and move on to next player
+      ;; TODO - nobody else is marking this other than us...
       (or (= :bankrupt status) ;; probably don't need to check this?
           (> 0 cash))
       (-> game-state
@@ -417,9 +421,57 @@
     [(:status state)
      (-> state :transactions count)])
 
-  (def sim (rand-game-state 3 100))
+  (def sim (rand-game-state 5 150))
 
   sim
+
+
+  (let [players    (+ 2 (rand-int 5))
+        iterations (+ 20 (rand-int 500))
+        state      (rand-game-state players iterations)
+        appended   (update state :players
+                           (fn [players]
+                             (map (fn [player]
+                                    (assoc player :prop-sell-worth
+                                           (util/player-property-sell-worth state (:id player))))
+                                  players)))
+        ]
+    [players iterations appended]
+    )
+
+
+
+  (defn half [n] (/ n 2))
+
+  ;; WIP - "Net worth" logic, specifically cash worth after selling all resources and mortgaging
+  ;;       * does not include cash value for jail-free card
+  (let [sim      sim
+        player   (util/player-by-id sim "A")
+        props    (util/owned-property-details sim [player])
+        prop-val (->> props
+                      vals
+                      (map (fn [{:keys [def status house-count] :as prop}]
+                             (cond
+                               ;; Mortgaged properties aren't "worth" anything more in a bankruptcy situation
+                               (= :mortgaged status)
+                               0
+                               ;; Half face value + Half house value
+                               (= :paid status)
+                               (+ (:mortgage def) ;; TODO - could also use the :mortgage key ...
+                                  (half (* house-count (:house-price def 0))))
+                               ;; Just in case we have an invalid value
+                               :else
+                               (throw (ex-info "Unknown property status" {:owned-property prop})))))
+                      (apply +))
+        worth    (+ prop-val (:cash player))
+        ]
+    {:player    player
+     :props     props
+     :props-val prop-val
+     ;; TODO - or something around "liquidity" ??
+     :net-worth worth}
+    )
+
 
   (def sim
     (rand-game-end-state 4))

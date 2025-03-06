@@ -1,7 +1,10 @@
 (ns jmshelby.monopoly.cards
   (:require [clojure.set :as set]
-            [jmshelby.monopoly.definitions :as defs]
             [jmshelby.monopoly.util :as util]))
+
+
+;; TODO - SOMEWHERE in HERE, before transferring cash away, need to check current cash, and ultimately sell-worth
+
 
 (defn cards->deck-queues
   [cards]
