@@ -144,6 +144,7 @@
       (util/tax-owed? new-state)
       (let [tax-owed (util/tax-owed? new-state)]
         (-> new-state
+            ;; TODO - HERE, before transferring cash, need to check current cash, and ultimately sell-worth
             (update-in [:players pidx :cash] - tax-owed)
             ;; Just take from player
             (append-tx {:type   :payment
@@ -155,6 +156,7 @@
       (util/rent-owed? new-state)
       (let [rent-owed (util/rent-owed? new-state)]
         (-> new-state
+            ;; TODO - HERE, before transferring cash, need to check current cash, and ultimately sell-worth
             (update-in [:players pidx :cash] - (second rent-owed))
             ;; Take from current player, give to owner
             (update-in [:players
