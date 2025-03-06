@@ -423,6 +423,22 @@
 
   sim
 
+
+  (let [players    (+ 2 (rand-int 5))
+        iterations (+ 20 (rand-int 500))
+        state      (rand-game-state players iterations)
+        appended   (update state :players
+                           (fn [players]
+                             (map (fn [player]
+                                    (assoc player :prop-sell-worth
+                                           (util/player-property-sell-worth state (:id player))))
+                                  players)))
+        ]
+    [players iterations appended]
+    )
+
+
+
   (defn half [n] (/ n 2))
 
   ;; WIP - "Net worth" logic, specifically cash worth after selling all resources and mortgaging
