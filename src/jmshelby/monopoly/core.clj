@@ -417,9 +417,41 @@
     [(:status state)
      (-> state :transactions count)])
 
-  (def sim (rand-game-state 3 100))
+  (def sim (rand-game-state 5 150))
 
   sim
+
+  (defn half [n] (/ n 2))
+
+  ;; WIP - "Net worth" logic, specifically cash worth after selling all resources and mortgaging
+  ;;       * does not include cash value for jail-free card
+  (let [sim      sim
+        player   (util/player-by-id sim "A")
+        props    (util/owned-property-details sim [player])
+        prop-val (->> props
+                      vals
+                      (map (fn [{:keys [def status house-count] :as prop}]
+                             (cond
+                               ;; Mortgaged properties aren't "worth" anything more in a bankruptcy situation
+                               (= :mortgaged status)
+                               0
+                               ;; Half face value + Half house value
+                               (= :paid status)
+                               (+ (half (:price def)) ;; TODO - could also use the :mortgage key ...
+                                  (half (* house-count (:house-price def 0))))
+                               ;; Just in case we have an invalid value
+                               :else
+                               (throw (ex-info "Unknown property status" {:owned-property prop})))))
+                      (apply +))
+        worth    (+ prop-val (:cash player))
+        ]
+    {:player    player
+     :props     props
+     :props-val prop-val
+     ;; TODO - or something around "liquidity" ??
+     :net-worth worth}
+    )
+
 
   (def sim
     (rand-game-end-state 4))
