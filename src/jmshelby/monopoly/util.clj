@@ -327,8 +327,11 @@
     - owner ID
     - monopoly? (if a street type, does owner have a monopoly)
     - property details/definition"
-  [{:keys [board]
-    :as   game-state}]
+  ([game-state]
+   (*owned-property-details game-state
+                            (:players game-state)))
+  ([{:keys [board]}
+   players]
   (let [;; Prep static aggs
         street-group->count
         (street-group-counts board)
@@ -343,7 +346,7 @@
                                                  (filter #(= prop-name (:name %)))
                                                  first))])
                              (:properties player)))
-                      (:players game-state))]
+                      players)]
     ;; Derive/Attach monopoly status to each street type
     (->> props
          (map (fn [[prop-name deets]]
@@ -364,7 +367,7 @@
                              ;; Number required for a monopoly, by this group
                              ;; TODO - this assumes that only one type of prop has a group name
                              (street-group->count (-> deets :def :group-name))))])))
-         (into {}))))
+         (into {})))))
 
 (def owned-property-details
   ;; *owned-property-details
