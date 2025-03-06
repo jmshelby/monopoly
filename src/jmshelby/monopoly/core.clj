@@ -71,6 +71,7 @@
   [{:keys [players]
     :as   game-state}
    player-id]
+  ;; TODO - we can use the get-player-by-id fn here now....
   (let [player
         (->> players
              (map-indexed (fn [idx p] (assoc p :player-index idx)))
@@ -255,6 +256,7 @@
       ;; If the player is out of money,
       ;; take them out of rotation (bankrupt)
       ;; and move on to next player
+      ;; TODO - nobody else is marking this other than us...
       (or (= :bankrupt status) ;; probably don't need to check this?
           (> 0 cash))
       (-> game-state
@@ -437,7 +439,7 @@
                                0
                                ;; Half face value + Half house value
                                (= :paid status)
-                               (+ (half (:price def)) ;; TODO - could also use the :mortgage key ...
+                               (+ (:mortgage def) ;; TODO - could also use the :mortgage key ...
                                   (half (* house-count (:house-price def 0))))
                                ;; Just in case we have an invalid value
                                :else
