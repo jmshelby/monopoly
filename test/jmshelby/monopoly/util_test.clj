@@ -18,10 +18,11 @@
             sims      (time
                         (doall
                           (pmap (fn [n]
-                                  (let [players    (+ 2 (rand-int 5))
-                                        iterations (+ 20 (rand-int 500))
-                                        state      (c/rand-game-state players
-                                                                      iterations)
+                                  (let [players (+ 2 (rand-int 5))
+                                        tx-max  (+ 20 (rand-int 500))
+                                        state   (c/rand-game-end-state
+                                                  players
+                                                  tx-max)
                                         ;; Invoke the fn-in-test here
                                         appended
                                         (update state :players
@@ -31,13 +32,13 @@
                                                                 (u/player-property-sell-worth state (:id player))))
                                                        players)))
                                         ]
-                                    [[n players iterations] appended])
+                                    [[n players tx-max] appended])
                                   )
                                 (range 1 (inc sim-count)))))]
         (println "Running" sim-count "game simulations...DONE")
         (println "Sims:")
-        (doseq [[[n players iterations] sim] sims]
-          (println "  [" players "/" iterations "/" (-> sim :transactions count) "]"
+        (doseq [[[n players tx-max] sim] sims]
+          (println "  [" players "/" tx-max"/" (-> sim :transactions count) "]"
                    "->" (->> sim :players (map :prop-sell-worth))
                    )))
       ;; TODO - maybe assert that they are all integers??
