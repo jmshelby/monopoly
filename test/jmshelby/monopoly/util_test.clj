@@ -37,7 +37,7 @@
                                 (range 1 (inc sim-count)))))]
         (println "Running" sim-count "game simulations...DONE")
         (println "Sims:")
-        (doseq [[[n players tx-max] sim] sims]
+        (doseq [[[_ players tx-max] sim] sims]
           (println "  [" players "/" tx-max"/" (-> sim :transactions count) "]"
                    "->" (->> sim :players (map :prop-sell-worth))
                    )))
