@@ -3,6 +3,10 @@
 
 ;; ======= General =============================
 
+(defn half
+  "Just a convenience/readable usage"
+  [n] (/ n 2))
+
 (defn rcompare
   "Just compare in reverse"
   [a b]
@@ -327,8 +331,11 @@
     - owner ID
     - monopoly? (if a street type, does owner have a monopoly)
     - property details/definition"
-  [{:keys [board]
-    :as   game-state}]
+  ([game-state]
+   (*owned-property-details game-state
+                            (:players game-state)))
+  ([{:keys [board]}
+   players]
   (let [;; Prep static aggs
         street-group->count
         (street-group-counts board)
@@ -343,7 +350,7 @@
                                                  (filter #(= prop-name (:name %)))
                                                  first))])
                              (:properties player)))
-                      (:players game-state))]
+                      players)]
     ;; Derive/Attach monopoly status to each street type
     (->> props
          (map (fn [[prop-name deets]]
@@ -364,11 +371,36 @@
                              ;; Number required for a monopoly, by this group
                              ;; TODO - this assumes that only one type of prop has a group name
                              (street-group->count (-> deets :def :group-name))))])))
-         (into {}))))
+         (into {})))))
 
 (def owned-property-details
   ;; *owned-property-details
   (memoize *owned-property-details))
+
+(defn player-property-sell-worth
+  "Given a game-state, and a player ID, calculate and return the player's \"sell worth\" as a cash integer.
+     Mortgaged properties = 0
+     Regular properties = [ their mortgage value ]
+     Resources = [ half the price they were bought at ] "
+  [game-state player-id]
+  (let [player   (player-by-id game-state player-id)
+        props    (owned-property-details game-state [player])]
+    (->> props
+         vals
+         (map (fn [{:keys [def status house-count] :as prop}]
+                (cond
+                  ;; Mortgaged properties aren't "worth"
+                  ;; anything more in a bankruptcy situation
+                  (= :mortgaged status)
+                  0
+                  ;; Half face value + Half house value
+                  (= :paid status)
+                  (+ (:mortgage def) ;; TODO - could also use the :mortgage key ...
+                     (half (* house-count (:house-price def 0))))
+                  ;; Just in case we have an invalid value
+                  :else
+                  (throw (ex-info "Unknown property status" {:owned-property prop})))))
+         (apply +))))
 
 (defn apply-property-option
   "Given a game state, check if current player is able to buy the property
