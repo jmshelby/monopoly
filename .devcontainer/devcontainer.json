@@ -19,17 +19,9 @@
 		"vscode": {
 			"extensions": [
 				"betterthantomorrow.calva",
-				"betterthantomorrow.joyride",
-				"djblue.portal",
-				"redhat.vscode-yaml",
-				"usernamehw.errorlens",
-				"rangav.vscode-thunder-client",
 				"vscodevim.vim"
 			]
 		}
 
-	},
-	"remoteEnv": {
-		"DATOMIC_DEV_LOCAL":"1"
 	}
 }
