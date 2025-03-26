@@ -143,37 +143,41 @@
       ;; Tax
       (util/tax-owed? new-state)
       (let [tax-owed (util/tax-owed? new-state)]
-        (-> new-state
-            ;; TODO - HERE, before transferring cash, need to check current cash, and ultimately sell-worth
-            (update-in [:players pidx :cash] - tax-owed)
-            ;; Just take from player
-            (append-tx {:type   :payment
-                        :from   player-id
-                        :to     :bank
-                        :amount tax-owed
-                        :reason :tax})))
+        ;; TODO - REQUISITE-PAYMENT
+        (player/make-requisite-payment
+          game-state player-id tax-owed
+          #(-> %
+               ;; Just take from player
+               (append-tx {:type   :payment
+                           :from   player-id
+                           :to     :bank
+                           :amount tax-owed
+                           :reason :tax}))))
       ;; Rent
       (util/rent-owed? new-state)
       (let [rent-owed (util/rent-owed? new-state)]
-        (-> new-state
-            ;; TODO - HERE, before transferring cash, need to check current cash, and ultimately sell-worth
-            (update-in [:players pidx :cash] - (second rent-owed))
-            ;; Take from current player, give to owner
-            (update-in [:players
-                        ;; Get the player index of owed player
-                        ;; TODO - this could probably be refactored
-                        (->> players
-                             (map-indexed vector)
-                             (filter #(= (:id (second %))
-                                         (first rent-owed)))
-                             first first)
-                        :cash]
-                       + (second rent-owed))
-            (append-tx {:type   :payment
-                        :from   player-id
-                        :to     (first rent-owed)
-                        :amount (second rent-owed)
-                        :reason :rent})))
+        ;; TODO - REQUISITE-PAYMENT
+        (player/make-requisite-payment
+          game-state player-id (second rent-owed)
+          #(-> %
+               ;; Take from current player, give to owner
+               (update-in [:players
+                           ;; Get the player index of owed player
+                           ;; TODO - this could probably be refactored
+                           (->> players
+                                (map-indexed vector)
+                                (filter #(= (:id (second %))
+                                            (first rent-owed)))
+                                first first)
+                           :cash]
+                          + (second rent-owed))
+               (append-tx {:type   :payment
+                           :from   player-id
+                           :to     (first rent-owed)
+                           :amount (second rent-owed)
+                           :reason :rent}))
+          )
+        )
       ;; Card Draw
       (let [cell-def (get-in board [:cells new-cell])]
         (= :card (:type cell-def)))
@@ -259,6 +263,7 @@
       ;; take them out of rotation (bankrupt)
       ;; and move on to next player
       ;; TODO - nobody else is marking this other than us...
+      ;; TODO - with the new bankrupt payment function checks, we may only need to check for bankupt status to move to the next person??
       (or (= :bankrupt status) ;; probably don't need to check this?
           (> 0 cash))
       (-> game-state
@@ -434,43 +439,9 @@
                              (map (fn [player]
                                     (assoc player :prop-sell-worth
                                            (util/player-property-sell-worth state (:id player))))
-                                  players)))
-        ]
-    [players iterations appended]
-    )
+                                  players)))]
+    [players iterations appended])
 
-
-
-  (defn half [n] (/ n 2))
-
-  ;; WIP - "Net worth" logic, specifically cash worth after selling all resources and mortgaging
-  ;;       * does not include cash value for jail-free card
-  (let [sim      sim
-        player   (util/player-by-id sim "A")
-        props    (util/owned-property-details sim [player])
-        prop-val (->> props
-                      vals
-                      (map (fn [{:keys [def status house-count] :as prop}]
-                             (cond
-                               ;; Mortgaged properties aren't "worth" anything more in a bankruptcy situation
-                               (= :mortgaged status)
-                               0
-                               ;; Half face value + Half house value
-                               (= :paid status)
-                               (+ (:mortgage def) ;; TODO - could also use the :mortgage key ...
-                                  (half (* house-count (:house-price def 0))))
-                               ;; Just in case we have an invalid value
-                               :else
-                               (throw (ex-info "Unknown property status" {:owned-property prop})))))
-                      (apply +))
-        worth    (+ prop-val (:cash player))
-        ]
-    {:player    player
-     :props     props
-     :props-val prop-val
-     ;; TODO - or something around "liquidity" ??
-     :net-worth worth}
-    )
 
 
   (def sim

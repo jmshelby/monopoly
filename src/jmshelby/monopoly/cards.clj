@@ -129,16 +129,15 @@
         player
         mult   (get-payment-multiplier game-state player card)
         amount (* mult (:card.pay/cash card))]
-    (-> game-state
-        ;; Subtract money
-        (update-in [:players pidx :cash] - amount)
-        ;; Track transaction
-        (util/append-tx {:type   :payment
-                         :from   player-id
-                         :to     :bank
-                         :amount amount
-                         :reason :card
-                         :card   card}))))
+    ;; TODO - REQUISITE-PAYMENT
+    (player/make-requisite-payment
+      game-state player-id amount
+      #(util/append-tx % {:type   :payment
+                          :from   player-id
+                          :to     :bank
+                          :amount amount
+                          :reason :card
+                          :card   card}))))
 
 (defmethod apply-card-effect :collect
   [game-state player card]

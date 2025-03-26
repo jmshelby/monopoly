@@ -248,15 +248,17 @@
           ;; Not a double, third attempt.
           ;; Force bail payment, and move
           (<= 3 attempt)
-          (-> game-state
-              (dissoc-in [:players pidx :jail-spell])
-              (update-in [:players pidx :cash] - bail)
-              ;; TODO - The "roll" transaction should happen here,
-              ;;        but the apply-dice-roll is doing that for us ...
-              (append-tx {:type   :bail
-                          :player player-id
-                          :means  [:cash bail]})
-              (apply-dice-roll new-roll))
+          ;; TODO - REQUISITE-PAYMENT
+          (player/make-requisite-payment
+            game-state player-id bail
+            #(-> %
+                 (dissoc-in [:players pidx :jail-spell])
+                 ;; TODO - The "roll" transaction should happen here,
+                 ;;        but the apply-dice-roll is doing that for us ...
+                 (append-tx {:type   :bail
+                             :player player-id
+                             :means  [:cash bail]})
+                 (apply-dice-roll new-roll)))
 
           ;; Not a double, register roll
           :else
@@ -270,6 +272,8 @@
 
       ;; If you can afford it, pay to get out of jail,
       ;; staying on the same cell
+      ;; TODO - Should we validate there is enough money for this "chosen bail" action?? (maybe not REQUISITE-PAYMENT)
+      ;;        The caller is checking this, but maybe it's good to throw an exception to catch bugs there?
       :jail/bail
       ;; TODO - this is quite duplicated code..
       (-> game-state
@@ -440,6 +444,7 @@
                      assoc (:name property) {:status      :paid
                                              :house-count 0})
           ;; Subtract money
+          ;; NOTE - validation for this cash payment above (not a REQUISITE-PAYMENT)
           (update-in [:players player-index :cash]
                      - (:price property))
           ;; Track transaction
