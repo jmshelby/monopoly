@@ -18,7 +18,6 @@
 (defn- shuffle-deck
   "Given a game state, and a deck name, replinish the deck with a full shuffled one, in the card queue, minus the retained cards of the other players."
   [game-state deck]
-  ;; TODO - We may need to consider the retained cards of inactive players?
   (let [cards    (-> game-state :board :cards)
         retained (->> game-state
                       :players

@@ -9,14 +9,13 @@
        game-state (:id player))))
 
 (defn- bankrupt-player
-  [game-state player]
-  ;; TODO - finish...
-  ;; * mark player as bankrupt
-  ;; * mark player cash at zero
-  ;; * mark player props empty
-  ;; * put all houses back into inventory
-  )
-
+  [game-state pidx]
+  ;; TODO - when we have a bank "house inventory", return houses back to it
+  (-> game-state
+      (assoc-in [:players pidx :cash] 0)
+      (assoc-in [:players pidx :cards] #{}) ;; TODO - should we randomly put back in deck immediately, or wait for next natural shuffle?
+      (assoc-in [:players pidx :properties] {})
+      (assoc-in [:players pidx :status] :bankrupt)))
 
 ;; NOTE - mostly taken from trade/exchange-properties
 (defn- transfer-property
@@ -92,7 +91,7 @@
       ;;  -> No custom follow-up
       (string? debtee) ;; TODO - check that the player exists
       (-> game-state
-          (bankrupt-player player)
+          (bankrupt-player pidx)
           (pay-debtee (:cash player))
           (transfer-property debtor debtee
                              (-> player :properties keys)))
@@ -100,7 +99,5 @@
       :else
       nil ;; TODO - throw exception
       )
-
-
 
     ))
