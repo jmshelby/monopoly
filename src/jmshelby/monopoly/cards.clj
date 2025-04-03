@@ -124,20 +124,19 @@
 
 (defmethod apply-card-effect :pay
   [game-state player card]
-  (let [{player-id :id
-         pidx      :player-index}
-        player
-        mult   (get-payment-multiplier game-state player card)
-        amount (* mult (:card.pay/cash card))]
+  (let [player-id (:id player)
+        pay       (-> game-state :functions :make-requisite-payment)
+        mult      (get-payment-multiplier game-state player card)
+        amount    (* mult (:card.pay/cash card))]
     ;; TODO - REQUISITE-PAYMENT
-    (player/make-requisite-payment
-      game-state player-id amount
-      #(util/append-tx % {:type   :payment
-                          :from   player-id
-                          :to     :bank
-                          :amount amount
-                          :reason :card
-                          :card   card}))))
+    ;; Pay as a "requisite" payment
+    (pay game-state player-id amount
+         #(util/append-tx % {:type   :payment
+                             :from   player-id
+                             :to     :bank
+                             :amount amount
+                             :reason :card
+                             :card   card}))))
 
 (defmethod apply-card-effect :collect
   [game-state player card]

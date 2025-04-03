@@ -6,6 +6,7 @@
                      rcompare]]
             [jmshelby.monopoly.cards :as cards]
             [jmshelby.monopoly.trade :as trade]
+            [jmshelby.monopoly.player :as player]
             [jmshelby.monopoly.definitions :as defs]
             [jmshelby.monopoly.players.dumb :as dumb-player]))
 
@@ -96,7 +97,8 @@
   for moving... apply effects to move current player from their
   cell to the destination cell. Applies GO allowance if applicable,
   resulting transactions, and destination cell effects/options."
-  [{:keys [board players]
+  [{:keys [board players
+           functions]
     :as   game-state}
    new-cell driver
    & {:keys [allowance?]
@@ -144,40 +146,38 @@
       (util/tax-owed? new-state)
       (let [tax-owed (util/tax-owed? new-state)]
         ;; TODO - REQUISITE-PAYMENT
-        (player/make-requisite-payment
-          game-state player-id tax-owed
-          #(-> %
-               ;; Just take from player
-               (append-tx {:type   :payment
-                           :from   player-id
-                           :to     :bank
-                           :amount tax-owed
-                           :reason :tax}))))
+        ((functions :make-requisite-payment)
+         game-state player-id tax-owed
+         #(-> %
+              ;; Just take from player
+              (append-tx {:type   :payment
+                          :from   player-id
+                          :to     :bank
+                          :amount tax-owed
+                          :reason :tax}))))
       ;; Rent
       (util/rent-owed? new-state)
       (let [rent-owed (util/rent-owed? new-state)]
         ;; TODO - REQUISITE-PAYMENT
-        (player/make-requisite-payment
-          game-state player-id (second rent-owed)
-          #(-> %
-               ;; Take from current player, give to owner
-               (update-in [:players
-                           ;; Get the player index of owed player
-                           ;; TODO - this could probably be refactored
-                           (->> players
-                                (map-indexed vector)
-                                (filter #(= (:id (second %))
-                                            (first rent-owed)))
-                                first first)
-                           :cash]
-                          + (second rent-owed))
-               (append-tx {:type   :payment
-                           :from   player-id
-                           :to     (first rent-owed)
-                           :amount (second rent-owed)
-                           :reason :rent}))
-          )
-        )
+        ((functions :make-requisite-payment)
+         game-state player-id (second rent-owed)
+         #(-> %
+              ;; Take from current player, give to owner
+              (update-in [:players
+                          ;; Get the player index of owed player
+                          ;; TODO - this could probably be refactored
+                          (->> players
+                               (map-indexed vector)
+                               (filter #(= (:id (second %))
+                                           (first rent-owed)))
+                               first first)
+                          :cash]
+                         + (second rent-owed))
+              (append-tx {:type   :payment
+                          :from   player-id
+                          :to     (first rent-owed)
+                          :amount (second rent-owed)
+                          :reason :rent}))))
       ;; Card Draw
       (let [cell-def (get-in board [:cells new-cell])]
         (= :card (:type cell-def)))
@@ -388,8 +388,9 @@
          ;; Shuffle all cards by deck
          :card-queue   (cards/cards->deck-queues (:cards defs/board))
          :transactions []
-         :functions    {:move-to-cell    move-to-cell
-                        :apply-dice-roll apply-dice-roll}}]
+         :functions    {:move-to-cell           move-to-cell
+                        :apply-dice-roll        apply-dice-roll
+                        :make-requisite-payment player/make-requisite-payment}}]
     ;; Just return this state
     initial-state))
 

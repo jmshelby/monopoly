@@ -208,7 +208,8 @@
   double dice roll attempt and staying in jail, to getting
   out, moving spaces and landing on another which can cause
   other side affects."
-  [{{apply-dice-roll :apply-dice-roll}
+  [{{apply-dice-roll        :apply-dice-roll
+     make-requisite-payment :make-requisite-payment}
     :functions
     :as game-state}
    action]
@@ -249,7 +250,7 @@
           ;; Force bail payment, and move
           (<= 3 attempt)
           ;; TODO - REQUISITE-PAYMENT
-          (player/make-requisite-payment
+          (make-requisite-payment
             game-state player-id bail
             #(-> %
                  (dissoc-in [:players pidx :jail-spell])
