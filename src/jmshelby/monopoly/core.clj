@@ -161,23 +161,24 @@
         ;; TODO - REQUISITE-PAYMENT
         ((functions :make-requisite-payment)
          game-state player-id (second rent-owed)
-         #(-> %
-              ;; Take from current player, give to owner
-              (update-in [:players
-                          ;; Get the player index of owed player
-                          ;; TODO - this could probably be refactored
-                          (->> players
-                               (map-indexed vector)
-                               (filter #(= (:id (second %))
-                                           (first rent-owed)))
-                               first first)
-                          :cash]
-                         + (second rent-owed))
-              (append-tx {:type   :payment
-                          :from   player-id
-                          :to     (first rent-owed)
-                          :amount (second rent-owed)
-                          :reason :rent}))))
+         (fn [gs] (-> gs
+                      ;; Take from current player, give to owner
+                      (update-in [:players
+                                  ;; Get the player index of owed player
+                                  ;; TODO - this could probably be refactored
+                                  (->> players
+                                       (map-indexed vector)
+                                       (filter #(= (:id (second %))
+                                                   (first rent-owed)))
+                                       first first)
+                                  :cash]
+                                 + (second rent-owed))
+                      ;; And transaction
+                      (append-tx {:type   :payment
+                                  :from   player-id
+                                  :to     (first rent-owed)
+                                  :amount (second rent-owed)
+                                  :reason :rent})))))
       ;; Card Draw
       (let [cell-def (get-in board [:cells new-cell])]
         (= :card (:type cell-def)))
@@ -427,9 +428,13 @@
     [(:status state)
      (-> state :transactions count)])
 
-  (def sim (rand-game-state 5 150))
+  (def sim (rand-game-end-state 4 1500))
 
-  sim
+  (->> sim
+       :transactions
+       (filter #(= :payment (:type %)))
+       (map :amount)
+       )
 
 
   (let [players    (+ 2 (rand-int 5))
