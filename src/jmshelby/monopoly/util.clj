@@ -386,7 +386,7 @@
   "Given a game-state, and a player ID, calculate and return the player's \"sell worth\" as a cash integer.
      Mortgaged properties = 0
      Regular properties = [ their mortgage value ]
-     Resources = [ half the price they were bought at ] "
+     Resources = [ half the price they were bought at ]"
   [game-state player-id]
   (let [player   (player-by-id game-state player-id)
         props    (owned-property-details game-state [player])]

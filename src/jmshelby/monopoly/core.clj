@@ -431,9 +431,9 @@
   (def sim (rand-game-end-state 4 1500))
 
   (->> sim
-       :transactions
-       (filter #(= :payment (:type %)))
-       (map :amount)
+       ;; :transactions
+       ;; (filter #(= :payment (:type %)))
+       ;; (map :amount)
        )
 
 
