@@ -147,7 +147,7 @@
       (let [tax-owed (util/tax-owed? new-state)]
         ;; TODO - REQUISITE-PAYMENT
         ((functions :make-requisite-payment)
-         game-state player-id tax-owed
+         game-state player-id :bank tax-owed
          #(-> %
               ;; Just take from player
               (append-tx {:type   :payment
@@ -159,8 +159,8 @@
       (util/rent-owed? new-state)
       (let [rent-owed (util/rent-owed? new-state)]
         ;; TODO - REQUISITE-PAYMENT
-        ((functions :make-requisite-payment)
-         game-state player-id (second rent-owed)
+        ((functions :make-requisite-payment) game-state
+         player-id (first rent-owed) (second rent-owed)
          (fn [gs] (-> gs
                       ;; Take from current player, give to owner
                       (update-in [:players

@@ -2,10 +2,6 @@
   (:require [clojure.set :as set]
             [jmshelby.monopoly.util :as util]))
 
-
-;; TODO - SOMEWHERE in HERE, before transferring cash away, need to check current cash, and ultimately sell-worth
-
-
 (defn cards->deck-queues
   [cards]
   (->> cards
@@ -130,7 +126,7 @@
         amount    (* mult (:card.pay/cash card))]
     ;; TODO - REQUISITE-PAYMENT
     ;; Pay as a "requisite" payment
-    (pay game-state player-id amount
+    (pay game-state player-id :bank amount
          #(util/append-tx % {:type   :payment
                              :from   player-id
                              :to     :bank

@@ -251,7 +251,7 @@
           (<= 3 attempt)
           ;; TODO - REQUISITE-PAYMENT
           (make-requisite-payment
-            game-state player-id bail
+            game-state player-id :bank bail
             #(-> %
                  (dissoc-in [:players pidx :jail-spell])
                  ;; TODO - The "roll" transaction should happen here,
