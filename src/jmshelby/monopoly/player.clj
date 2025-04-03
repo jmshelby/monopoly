@@ -1,7 +1,8 @@
 (ns jmshelby.monopoly.player
   (:require [jmshelby.monopoly.util :as util]))
 
-;; TODO - in order to implement the aquisition/transfer logic, we need to indicate the target entity of the cash
+;; TODO - In order to implement the aquisition/transfer logic,
+;;        we need to indicate the target entity of the cash
 (defn make-requisite-payment
   "Given a game-state, player, and amount of cash, perform a requisite payment if possible.
   Four things can happen:
