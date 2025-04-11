@@ -15,8 +15,29 @@
               [deck (shuffle cards)]))
        (into {})))
 
+(defn add-to-deck-queue
+  "Given a game state, and a card, add it to the end
+  of the current card queue for it's deck."
+  [game-state card]
+  (update-in game-state
+             [:card-queue (:deck card)]
+             conj card))
+
+(defn add-to-deck-queues
+  "Given a game state, and a collection of cards, add
+  them, one at a time, to the end of the current card
+  queues, to their respective decks."
+  [game-state cards]
+  ;; Simple reduce over our single card fn
+  (reduce
+    add-to-deck-queue
+    game-state
+    cards))
+
 (defn- shuffle-deck
-  "Given a game state, and a deck name, replinish the deck with a full shuffled one, in the card queue, minus the retained cards of the other players."
+  "Given a game state, and a deck name, replinish the
+  deck with a full shuffled one, in the card queue,
+  minus the retained cards of the other players."
   [game-state deck]
   (let [cards    (-> game-state :board :cards)
         retained (->> game-state
