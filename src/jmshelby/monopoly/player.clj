@@ -19,11 +19,15 @@
 
 ;; NOTE - mostly taken from trade/exchange-properties
 (defn- transfer-property
-  ;; TODO - do player id -> player/pidx conversion
   ;; TODO - do mortgaged/acquistion workflow logic
   [game-state from to prop-names]
   (let [;; Get player maps
-        ;; to-player   (get-in game-state [:players to-pidx])
+        to-pidx     (-> game-state
+                        (util/player-by-id to)
+                        :player-index)
+        from-pidx   (-> game-state
+                        (util/player-by-id from)
+                        :player-index)
         from-player (get-in game-state [:players from-pidx])
         ;; Get 'from' player property states, only
         ;; needed to preserve mortgaged status
@@ -58,6 +62,9 @@
         pay-debtee (fn [gs amount]
                      (let [player (util/player-by-id gs debtee)
                            pidx   (:player-index player)]
+                       ;; TODO - We also need to pay half price per house
+                       ;;        (simulating selling them back to the bank
+                       ;;         right before paying debtee)
                        (update-in gs [:players pidx :cash]
                                   + amount)))]
 
