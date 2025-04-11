@@ -29,6 +29,7 @@
 ;; NOTE - mostly taken from trade/exchange-properties
 (defn- transfer-property
   ;; TODO - do mortgaged/acquistion workflow logic
+  ;;        TODO - as a part of this, should we signal something in the game-state that we're in the middle of a bankruptcy asset transfer???
   [game-state from to prop-names]
   (let [;; Get player maps
         to-pidx     (-> game-state
