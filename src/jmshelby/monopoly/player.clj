@@ -18,7 +18,7 @@
     (-> game-state
         ;; Re/Set player state for bankruptcy
         (assoc-in [:players pidx :cash] 0)
-        (assoc-in [:players pidx :cards] #{}) ;; TODO - should we randomly put back in deck immediately, or wait for next natural shuffle?
+        (assoc-in [:players pidx :cards] #{})
         (assoc-in [:players pidx :properties] {})
         (assoc-in [:players pidx :status] :bankrupt)
         ;; Put retained cards back into their decks (bottom)
