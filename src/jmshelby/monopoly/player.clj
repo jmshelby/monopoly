@@ -36,8 +36,8 @@
 
 ;; NOTE - mostly taken from trade/exchange-properties NS/fn
 (defn- transfer-property
-  ;; TODO - do mortgaged/acquistion workflow logic
-  ;;        TODO - as a part of this, should we signal something in the game-state that we're in the middle of a bankruptcy asset transfer???
+  ;; TODO - Do mortgaged/acquistion workflow logic
+  ;;        -> As a part of this, should we signal something in the game-state that we're in the middle of a bankruptcy asset transfer???
   [game-state from to prop-names]
   (let [;; Get player maps
         to-pidx     (-> game-state
@@ -67,27 +67,26 @@
         retain-cards
         (->> game-state
              (get-in [:players (:player-index player) :cards])
+             ;; TODO - wait ... aren't all cards in a player's inventory, by definition, "retained"?
              (filter #(= :retain (:card/effect %))))]
-    ;; Put retained cards back into their decks (bottom)
-    (cards/add-to-deck-queues game-state retain-cards)
     ;; TODO - when we have a bank "house inventory", return houses back to it
-    ;; TODO - finish
-
-    )
-  )
+    ;; Put retained cards back into their decks (bottom)
+    (cards/add-to-deck-queues game-state retain-cards)))
 
 (defn- bankrupt-to-player
   [game-state debtor debtee]
-
   (-> game-state
-      (bankrupt-player pidx)
+
       ;; TODO - We also need to sell off half price per house
       ;;        (simulating selling them back to the bank
       ;;         right before paying debtee)
       (pay-debtee (:cash player))
+
       (transfer-property debtor debtee
-                         (-> player :properties keys)))
-  )
+                         (-> player :properties keys))
+
+
+      ))
 
 
 (defn make-requisite-payment
