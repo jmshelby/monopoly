@@ -29,7 +29,7 @@
   raising money or bankruptcy.
   Multi-arity, if no amount is passed, all cash is tranfer from->to."
   ([game-state from to]
-   (transfer-cash (:cash from) from to))
+   (transfer-cash game-state (:cash from) from to))
   ([game-state amount from to]
    (letfn [(txact [gs p op]
              (update-in gs [:players (:player-index p) :cash]
@@ -40,8 +40,12 @@
 
 (defn- transfer-cards
   [game-state from to]
-  (let [cards ()])
-  )
+  (let [to-idx   (:player-index to)
+        from-idx (:player-index from)
+        cards    (get-in game-state [:players from-idx :cards])]
+    (-> game-state
+        (assoc-in [:players from-idx :cards] #{})
+        (update-in [:players to-idx :cards] into cards))))
 
 ;; NOTE - mostly taken from trade/exchange-properties NS/fn
 (defn- transfer-property
@@ -86,44 +90,30 @@
 (defn- bankrupt-to-player
   [game-state debtor debtee]
   (let [;; General details
-        pidx       (:player-index debtor)
+        pidx        (:player-index debtor)
         ;; Get property details
-        props      (util/owned-property-details game-state [debtor])
+        props       (util/owned-property-details game-state [debtor])
         ;; Get house sell value
-        house-cash (->> props
-                        vals
-                        (map (fn [{:keys [def house-count]}]
-                               (* house-count (:house-price def))))
-                        (apply +)
-                        util/half)]
+        house-worth (->> props
+                         vals
+                         (map (fn [{:keys [def house-count]}]
+                                (* house-count (:house-price def))))
+                         (apply +)
+                         util/half)]
     (-> game-state
-
         ;; First sell off all houses to bank, half price for each house
-        (update-in [:players pidx :cash] + house-cash)
+        (update-in [:players pidx :cash] + house-worth)
         ;; TODO - when we have a bank "house inventory", return houses back to it
         (update-in [:players pidx :properties]
-                   (fn [props]
-                     (->> props
-                          (map (fn [[k m]] [k (assoc m :house-count 0)]))
-                          (into {}))))
+                   (fn [props] (->> props
+                                    (map (fn [[k m]] [k (assoc m :house-count 0)]))
+                                    (into {}))))
         ;; Transfer all current cash (after the above sell off) to debtee
         (transfer-cash debtor debtee)
         ;; Transfer all cards over to debtee
-
+        (transfer-cards debtor debtee)
         ;; Transfer all properties over to debtee (including mortgaged acquistion workflow)
-        (transfer-property debtor debtee)
-
-        )
-
-    )
-
-
-  )
-
-
-
-
-
+        (transfer-property debtor debtee))))
 
 (defn make-requisite-payment
   "Given a game-state, player, and amount of cash, perform a requisite payment if possible.
@@ -143,7 +133,7 @@
       ;;  -> Just deduct, and custom follow-up
       (<= amount (:cash debtor))
       (-> game-state
-          (transfer-cash amount player debtee)
+          (transfer-cash amount debtor debtee)
           follow-up)
       ;; Player doesn't have enough cash,
       ;; but does have net worth..
@@ -152,7 +142,7 @@
       (<= amount (net-worth game-state debtor))
       (-> game-state
           ;; TODO - raise money workflow
-          (transfer-cash amount player debtee)
+          (transfer-cash amount debtor debtee)
           follow-up)
       ;; Bankrupt to bank
       ;;  -> Bankruptcy sequence, no custom follow-up
