@@ -9,7 +9,7 @@
      (util/player-property-sell-worth
        game-state (:id player))))
 
-;; TODO - thought, is this function needed? Maybe without it it could highlight bugs??
+;; TODO - THOUGHT - Is this function needed? Maybe without it it could highlight bugs??
 (defn- reset-player-assets
   [game-state player]
   (let [pidx (:player-index player)]
@@ -83,7 +83,9 @@
              (get-in [:players (:player-index player) :cards])
              ;; TODO - wait ... aren't all cards in a player's inventory, by definition, "retained"?
              (filter #(= :retain (:card/effect %))))]
-    ;; TODO - when we have a bank "house inventory", return houses back to it
+    ;; TODO - When we have a bank "house inventory", return houses back to it
+    ;; TODO - Need to auction off all properties (regardless of mortgaged status).
+    ;;        Once we have auction functions we can make that happen..
     ;; Put retained cards back into their decks (bottom)
     (cards/add-to-deck-queues game-state retain-cards)))
 

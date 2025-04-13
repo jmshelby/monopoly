@@ -223,6 +223,12 @@
       ;; TODO - There won't actually be a :decline option
       :acquisition {:action :decline}
 
+      ;; When we owe more cash than we have, we are
+      ;; forced to sell off our assets until we have
+      ;; enough cash
+      ;; TODO - finish
+      :raise-funds {}
+
       ;; A trade proposal offered to us
       :trade-proposal
       ;; Real simple, no worry about our state or the other player's state.
@@ -291,7 +297,7 @@
         {:action :jail/roll}
 
         ;; Next, if we can buy a house,
-        ;; and have more than $40 left (yes very dumb)
+        ;; and have more than $40 left (yes very dumb, and arbitrary)
         (and (-> params :actions-available :buy-house)
              (> cash 40))
         {:action :buy-house
