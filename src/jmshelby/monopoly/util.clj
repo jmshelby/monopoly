@@ -388,8 +388,8 @@
      Regular properties = [ their mortgage value ]
      Resources = [ half the price they were bought at ]"
   [game-state player-id]
-  (let [player   (player-by-id game-state player-id)
-        props    (owned-property-details game-state [player])]
+  (let [player (player-by-id game-state player-id)
+        props  (owned-property-details game-state [player])]
     (->> props
          vals
          (map (fn [{:keys [def status house-count] :as prop}]
@@ -400,7 +400,7 @@
                   0
                   ;; Half face value + Half house value
                   (= :paid status)
-                  (+ (:mortgage def) ;; TODO - could also use the :mortgage key ...
+                  (+ (:mortgage def)
                      (half (* house-count (:house-price def 0))))
                   ;; Just in case we have an invalid value
                   :else

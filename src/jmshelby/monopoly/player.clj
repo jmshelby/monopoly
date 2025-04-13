@@ -35,11 +35,12 @@
       (not= :bank from) (txact from -))))
 
 ;; NOTE - mostly taken from trade/exchange-properties NS/fn
-(defn- transfer-property
+(defn- transfer-all-property
   ;; TODO - Do mortgaged/acquistion workflow logic
   ;;        -> As a part of this, should we signal something in the game-state that we're in the middle of a bankruptcy asset transfer???
-  [game-state from to prop-names]
-  (let [;; Get player maps
+  [game-state from to]
+  (let [prop-names  (-> from :properties keys)
+        ;; Get player maps
         to-pidx     (-> game-state
                         (util/player-by-id to)
                         :player-index)
@@ -75,18 +76,48 @@
 
 (defn- bankrupt-to-player
   [game-state debtor debtee]
-  (-> game-state
+  (let [;; General details
+        pidx       (:player-index debtor)
+        ;; Get property details
+        props      (util/owned-property-details game-state [debtor])
+        ;; Get house sell value
+        house-cash (->> props
+                        vals
+                        (map (fn [{:keys [def house-count]}]
+                               (* house-count (:house-price def))))
+                        (apply +)
+                        util/half)]
+    (-> game-state
 
-      ;; TODO - We also need to sell off half price per house
-      ;;        (simulating selling them back to the bank
-      ;;         right before paying debtee)
-      (pay-debtee (:cash player))
+        ;; First sell off all houses to bank, half price for each house
+        (update-in [:players pidx :cash] + house-cash)
+        ;; TODO - when we have a bank "house inventory", return houses back to it
+        (update-in [:players pidx :properties]
+                   (fn [props]
+                     (->> props
+                          (fn [[k m]] [k (assoc m :house-count 0)])
+                          (into {}))))
 
-      (transfer-property debtor debtee
-                         (-> player :properties keys))
+        ;; Transfer all current cash (after the above sell off) to debtee
+
+        ;; Transfer all cards over to debtee
+
+        ;; Transfer all properties over to debtee (including mortgaged acquistion workflow)
+
+        (pay-debtee (:cash player))
+
+        (transfer-all-property debtor debtee)
+
+        )
+
+    )
 
 
-      ))
+  )
+
+
+
+
 
 
 (defn make-requisite-payment
