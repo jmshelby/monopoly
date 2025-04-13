@@ -227,7 +227,23 @@
       ;; forced to sell off our assets until we have
       ;; enough cash
       ;; TODO - finish
-      :raise-funds {}
+      :raise-funds
+      ;; When this happens:
+      ;; - sell house(s)
+      ;; - mortgage property
+      ;; - deal??? (this could be difficult, logic-wise)
+      {:action #{
+                 :sell-house
+                 :mortgage-property
+                 }
+       ;; Action = sell-house
+       ;;  - prop name
+
+       ;; Action = mortgage-property
+       ;;  - prop name
+
+       ;; NOTE - later we can worry about bulk actions, this style will just keep iterating until funds are raised
+       }
 
       ;; A trade proposal offered to us
       :trade-proposal
