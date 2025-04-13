@@ -9,6 +9,7 @@
      (util/player-property-sell-worth
        game-state (:id player))))
 
+;; TODO - thought, is this function needed? Maybe without it it could highlight bugs??
 (defn- reset-player-assets
   [game-state player]
   (let [pidx (:player-index player)]
@@ -25,17 +26,25 @@
   bank as the from or to player ID. This is a lower level
   function and does *not* verify funds are available, nor
   does it trigger additional higher level workflows like
-  raising money or bankruptcy."
-  [game-state amount from to]
-  (letfn [(txact [gs p op]
-            (update-in gs [:players (:player-index p) :cash]
-                       op amount))]
-    (cond-> game-state
-      (not= :bank to)   (txact to +)
-      (not= :bank from) (txact from -))))
+  raising money or bankruptcy.
+  Multi-arity, if no amount is passed, all cash is tranfer from->to."
+  ([game-state from to]
+   (transfer-cash (:cash from) from to))
+  ([game-state amount from to]
+   (letfn [(txact [gs p op]
+             (update-in gs [:players (:player-index p) :cash]
+                        op amount))]
+     (cond-> game-state
+       (not= :bank to)   (txact to +)
+       (not= :bank from) (txact from -)))))
+
+(defn- transfer-cards
+  [game-state from to]
+  (let [cards ()])
+  )
 
 ;; NOTE - mostly taken from trade/exchange-properties NS/fn
-(defn- transfer-all-property
+(defn- transfer-property
   ;; TODO - Do mortgaged/acquistion workflow logic
   ;;        -> As a part of this, should we signal something in the game-state that we're in the middle of a bankruptcy asset transfer???
   [game-state from to]
@@ -95,18 +104,14 @@
         (update-in [:players pidx :properties]
                    (fn [props]
                      (->> props
-                          (fn [[k m]] [k (assoc m :house-count 0)])
+                          (map (fn [[k m]] [k (assoc m :house-count 0)]))
                           (into {}))))
-
         ;; Transfer all current cash (after the above sell off) to debtee
-
+        (transfer-cash debtor debtee)
         ;; Transfer all cards over to debtee
 
         ;; Transfer all properties over to debtee (including mortgaged acquistion workflow)
-
-        (pay-debtee (:cash player))
-
-        (transfer-all-property debtor debtee)
+        (transfer-property debtor debtee)
 
         )
 
