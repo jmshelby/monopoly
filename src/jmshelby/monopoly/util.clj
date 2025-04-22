@@ -734,14 +734,13 @@
         proceeds (half (:house-price property))]
 
     ;; Validation
-    ;; TODO - Should this be done by the caller?
-    (when-not (can-sell-house? game-state property-name)
-      (throw (ex-info "Player decision not allowed"
-                      {:action   :sell-house
-                       :player   player-id
-                       :property property-name
-                       ;; TODO - could be: house not owned; house even distribution violation
-                       :reason   :unspecified})))
+    (let [valid? (can-sell-house? game-state property-name)]
+      (when-not (first valid?)
+        (throw (ex-info "Player decision not allowed"
+                        {:action   :sell-house
+                         :player   player-id
+                         :property property-name
+                         :reason   (second valid?)}))))
 
     ;; Apply the purchase
     (-> game-state
