@@ -117,15 +117,32 @@
         ;; Transfer all properties over to debtee (including mortgaged acquistion workflow)
         (transfer-property debtor debtee))))
 
+(defn- invoke-and-apply-raise-funds
+  ;; TODO - docs
+  "amount here is the outstanding amount..."
+  [game-state player amount]
+  (let [player-fn (:function player)
+        decision  (player-fn game-state
+                             :raise-funds
+                             {:amount amount})]
+    ;; TODO - we can probably route this through core sometime...
+    (case (:action decision)
+      :sell-house        (util/apply-house-sale
+                           game-state
+                           (:property-name decision))
+      :mortgage-property (util/apply-property-mortgage
+                           game-state
+                           (:property-name decision)))))
+
 (defn- apply-raise-funds-workflow
   [game-state player amount]
   ;; Set GS to indicate this current player owes a certain amount (more than they have)
   ;;  - probably just setting a "target owed amount" on the :current-turn map
-  ;;    - or maybe a key like "raising funds to"??
-  (let [player-fn (:function player)
-        state     (assoc-in game-state
-                            [:current-turn :raise-funds]
-                            amount)]
+  (let [pid   (:id player)
+        ;; Set *total* amount of cash that player needs to raise
+        state (assoc-in game-state
+                        [:current-turn :raise-funds]
+                        amount)]
 
     ;; TODO - The nature of this operation is susceptible to an endless
     ;;        loop, we'll need to figure out how to detect a player that
@@ -133,20 +150,23 @@
 
     ;; Start loop/reduce, until player cash is sufficient:
     (loop [gs state]
-      ;; TODO - call player :raise-funds method
-      ;;   Invoke player decision method to "raise-funds"
-      ;;     actions:
-      ;;       - sell-house
-      ;;       - mortgage-property
-      ;; TODO - check if player has enough cash yet, in order to break out
-      (player-fn :raise-funds {:total      amount
-                               :difference (- amount (:cash player))})
-      )
-
-    )
-
-  )
-
+      (let [;; Get current params
+            player      (->> gs :players
+                             (filter #(= pid (:id %)))
+                             first)
+            remaining   (- amount (:cash player))
+            ;; Call out to player, apply decision
+            gs-next     (invoke-and-apply-raise-funds
+                          gs player remaining)
+            player-next (->> gs-next :players
+                             (filter #(= pid (:id %)))
+                             first)]
+        ;; Check if we need to keep raising
+        (if (= amount (:cash player-next))
+          ;; Player has raised enough cash, return last game state
+          gs-next
+          ;; Player needs more cash, keep invoking
+          (recur gs-next))))))
 
 (defn make-requisite-payment
   "Given a game-state, player, and amount of cash, perform a requisite payment if possible.
