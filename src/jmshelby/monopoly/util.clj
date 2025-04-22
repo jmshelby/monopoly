@@ -756,3 +756,56 @@
                     :player   player-id
                     :property property-name
                     :proceeds proceeds}))))
+
+(defn apply-property-mortgage
+  "Given a game-state and a property, apply the mortgaging
+  of said property for current player. Validates and throws
+  if current player cannot perform operation."
+  [game-state property-name]
+  (let [{player-id :id
+         pidx      :player-index
+         :as       player}
+        (current-player game-state)
+        ;; Get property definition
+        property       (->> game-state :board :properties
+                            (filter #(= :street (:type %)))
+                            (filter #(= property-name (:name %)))
+                            first)
+        mortgage-price (:mortgage property)
+        prop-state     (get-in player [:properties property-name])]
+
+    ;; Validate - make sure they own it
+    (when (not prop-state)
+      (throw (ex-info "Player decision not allowed"
+                      {:action   :sell-house
+                       :player   player-id
+                       :property property-name
+                       :reason   :property-not-owned})))
+    ;; Validate - make sure it doesn't have houses
+    (when (->> prop-state :house-count (< 0))
+      (throw (ex-info "Player decision not allowed"
+                      {:action   :sell-house
+                       :player   player-id
+                       :property property-name
+                       :reason   :property-has-buildings})))
+    ;; Validate - make sure it's not already mortgaged
+    (when (not= :paid (:status prop-state))
+      (throw (ex-info "Player decision not allowed"
+                      {:action   :sell-house
+                       :player   player-id
+                       :property property-name
+                       :reason   :property-not-paid})))
+    ;; Apply the flip
+    (-> game-state
+        ;; Dec house count in player's owned collection
+        (assoc-in [:players pidx :properties
+                   property-name :status]
+                  :mortgaged)
+        ;; Pay player mortgage amount
+        (update-in [:players pidx :cash]
+                   + mortgage-price)
+        ;; Track transaction
+        (append-tx {:type     :mortgage-property
+                    :player   player-id
+                    :property property-name
+                    :proceeds mortgage-price}))))
