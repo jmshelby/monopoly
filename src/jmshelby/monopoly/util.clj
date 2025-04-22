@@ -639,6 +639,44 @@
      (and single-prop
           (>= cash (nth single-prop 2))))))
 
+(defn- can-sell-house?
+  [game-state prop-name]
+  (let [{player-id :id}
+        (current-player game-state)
+        ;; All properties owned
+        owned       (->> game-state
+                         owned-property-details
+                         (map second)
+                         (filter #(= player-id (:owner %))))
+        ;; The property in question
+        single-prop (->> owned
+                         (filter #(= prop-name (second %)))
+                         first)
+        ;; Current max houses owned in this group
+        house-max   (->> owned
+                         (filter #(= (-> % :def :group-name)
+                                     (-> single-prop :def :group-name)))
+                         (map :house-count)
+                         (apply max))]
+    ;; Itemized validation
+    (cond
+      ;; Ensure property ownership
+      (not  single-prop)
+      [false :property-unowned]
+
+      ;; Ensure home ownership
+      (< 0 (:house-count single-prop))
+      [false :house-inventory]
+
+      ;; Ensure even house distribution
+      ;; If the current house count is the max
+      ;; count across this group, then they can sell.
+      (= house-max
+         (:house-count single-prop))
+      [false :even-house-distribution]
+      ;; All good!
+      :else [true nil])))
+
 (defn apply-house-purchase
   "Given a game state and property, apply purchase of a single house
   for current player on given property. Validates and throws if house
@@ -679,3 +717,43 @@
                     :player   player-id
                     :property property-name
                     :price    (:house-price property)}))))
+
+(defn apply-house-sale
+  "Given a game state and a property, apply the sell of a single house for
+  current player on given property. Validates and throws if house sell is
+  not allowed by game rules."
+  [game-state property-name]
+  (let [{player-id :id
+         pidx      :player-index}
+        (current-player game-state)
+        ;; Get property definition
+        property (->> game-state :board :properties
+                      (filter #(= :street (:type %)))
+                      (filter #(= property-name (:name %)))
+                      first)
+        proceeds (half (:house-price property))]
+
+    ;; Validation
+    ;; TODO - Should this be done by the caller?
+    (when-not (can-sell-house? game-state property-name)
+      (throw (ex-info "Player decision not allowed"
+                      {:action   :sell-house
+                       :player   player-id
+                       :property property-name
+                       ;; TODO - could be: house not owned; house even distribution violation
+                       :reason   :unspecified})))
+
+    ;; Apply the purchase
+    (-> game-state
+        ;; Dec house count in player's owned collection
+        (update-in [:players pidx :properties
+                    property-name :house-count]
+                   dec)
+        ;; Add back money, half of original price
+        (update-in [:players pidx :cash]
+                   + proceeds)
+        ;; Track transaction
+        (append-tx {:type     :sell-house
+                    :player   player-id
+                    :property property-name
+                    :proceeds proceeds}))))
