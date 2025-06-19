@@ -641,6 +641,7 @@
 
 (defn- can-sell-house?
   [game-state prop-name]
+  ;; TODO - the player in question should probably be passed as a prop
   (let [{player-id :id}
         (current-player game-state)
         ;; All properties owned
@@ -661,8 +662,8 @@
     ;; Itemized validation
     (cond
       ;; Ensure property ownership
-      (not  single-prop)
-      [false :property-unowned]
+      (not single-prop)
+      [false :property-ownership]
 
       ;; Ensure home ownership
       (< 0 (:house-count single-prop))
@@ -670,7 +671,7 @@
 
       ;; Ensure even house distribution
       ;; If the current house count is the max
-      ;; count across this group, then they can sell.
+      ;; count across this group, then they can't sell.
       (= house-max
          (:house-count single-prop))
       [false :even-house-distribution]
@@ -723,6 +724,7 @@
   current player on given property. Validates and throws if house sell is
   not allowed by game rules."
   [game-state property-name]
+  ;; TODO - the player in question should probably be passed as a prop
   (let [{player-id :id
          pidx      :player-index}
         (current-player game-state)
@@ -743,6 +745,7 @@
                          :reason   (second valid?)}))))
 
     ;; Apply the purchase
+    ;; TODO - when we have a bank "house inventory", return houses back to it
     (-> game-state
         ;; Dec house count in player's owned collection
         (update-in [:players pidx :properties
@@ -755,6 +758,7 @@
         (append-tx {:type     :sell-house
                     :player   player-id
                     :property property-name
+                    ;; TODO - is there a better, more consistent, key name for this?
                     :proceeds proceeds}))))
 
 (defn apply-property-mortgage
@@ -762,13 +766,13 @@
   of said property for current player. Validates and throws
   if current player cannot perform operation."
   [game-state property-name]
+  ;; TODO - the player in question should probably be passed as a prop?
   (let [{player-id :id
          pidx      :player-index
          :as       player}
         (current-player game-state)
         ;; Get property definition
         property       (->> game-state :board :properties
-                            (filter #(= :street (:type %)))
                             (filter #(= property-name (:name %)))
                             first)
         mortgage-price (:mortgage property)
@@ -797,7 +801,7 @@
                        :reason   :property-not-paid})))
     ;; Apply the flip
     (-> game-state
-        ;; Dec house count in player's owned collection
+        ;; Update to mortgaged status in player state
         (assoc-in [:players pidx :properties
                    property-name :status]
                   :mortgaged)
