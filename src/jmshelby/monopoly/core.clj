@@ -48,7 +48,11 @@
    :current-turn {:player     "player uuid"
                   ;; All the dice rolls from the current turn player,
                   ;; multiple because doubles get another roll
-                  :dice-rolls []}
+                  :dice-rolls []
+                  ;; Opt - when needing to raise funds for a player
+                  ;; TODO - not sure if this will be original/total amount, or current remaining amount...
+                  :raise-funds 999
+                  }
 
    ;; The current *ordered* care queue to pull from.
    ;; At the beginning of the game these will be loaded at random,

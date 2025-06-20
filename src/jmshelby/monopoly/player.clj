@@ -121,11 +121,14 @@
   ;; TODO - docs
   "amount here is the outstanding amount..."
   [game-state player amount]
+  ;; TODO - should we also determine which actions are currently available for the player?
   (let [player-fn (:function player)
+        ;; Make actual call to player decision logic
         decision  (player-fn game-state
                              :raise-funds
                              {:amount amount})]
     ;; TODO - we can probably route this through core sometime...
+    ;; TODO - we'll need a default that doesn't allow indecision...
     (case (:action decision)
       :sell-house        (util/apply-house-sale
                            game-state
@@ -135,11 +138,13 @@
                            (:property-name decision)))))
 
 (defn- apply-raise-funds-workflow
+  ;; TODO - 'amount' here is the total amount, maybe a better name?
   [game-state player amount]
   ;; Set GS to indicate this current player owes a certain amount (more than they have)
   ;;  - probably just setting a "target owed amount" on the :current-turn map
   (let [pid   (:id player)
-        ;; Set *total* amount of cash that player needs to raise
+        ;; For now, just the *total* amount of cash that player needs to raise
+        ;; TODO - should/can we track both original total, *and* remaining amounts?
         state (assoc-in game-state
                         [:current-turn :raise-funds]
                         amount)]
@@ -194,7 +199,8 @@
       ;;  -> Then deduct, and custom follow-up
       (<= amount (net-worth game-state debtor))
       (-> game-state
-          ;; TODO - raise money workflow
+          ;; TODO - Bring this fn in when it's complete ...
+          ;; (apply-raise-funds-workflow debtor amount)
           (transfer-cash amount debtor debtee)
           follow-up)
       ;; Bankrupt to bank
