@@ -203,6 +203,7 @@
 ;; TODO - multimethods..
 (defn decide
   [game-state method params]
+  ;; TODO - the current player won't always be the player being called ...
   (let [{my-id :id
          cash  :cash
          :as   player}
@@ -225,25 +226,59 @@
 
       ;; When we owe more cash than we have, we are
       ;; forced to sell off our assets until we have
-      ;; enough cash
+      ;; enough cash.
+      ;; Params: {:amount 999} ;; where amount is the remaining amount needed to raise
       ;; TODO - finish
       :raise-funds
-      ;; When this happens:
+      ;; When this happens, we can:
       ;; - sell house(s)
+      ;;   like: {:action :sell-house
+      ;;          :property-name :some-property}
       ;; - mortgage property
-      ;; - deal??? (this could be difficult, logic-wise)
-      {:action #{
-                 :sell-house
-                 :mortgage-property
-                 }
-       ;; Action = sell-house
-       ;;  - prop name
+      ;;   like: {:action :mortgage-property
+      ;;          :property-name :some-property}
 
-       ;; Action = mortgage-property
-       ;;  - prop name
+      ;; START ====== claude pre-code =======
+      (let [amount-needed (:amount params)
+            my-properties
+            (get-in game-state [:players (util/player-index game-state my-id) :properties])
 
-       ;; NOTE - later we can worry about bulk actions, this style will just keep iterating until funds are raised
-       }
+            ;; Find properties with houses to sell first
+            houses-to-sell
+            (->> my-properties
+                 (filter (fn [[_ prop-data]]
+                           (> (:house-count prop-data) 0)))
+                 (sort-by (fn [[_ prop-data]]
+                            (:house-count prop-data)))
+                 reverse) ;; sell from properties with most houses first
+
+            ;; Find unmortgaged properties we can mortgage
+            mortgageable
+            (->> my-properties
+                 (filter (fn [[_ prop-data]]
+                           (and (= (:status prop-data) :paid)
+                                (= (:house-count prop-data) 0))))
+                 (sort-by first)) ;; just alphabetical order for simplicity
+            ]
+
+        (cond
+          ;; First priority: sell houses if we have any
+          (seq houses-to-sell)
+          {:action        :sell-house
+           :property-name (ffirst houses-to-sell)}
+
+          ;; Second priority: mortgage unmortgaged properties
+          (seq mortgageable)
+          {:action        :mortgage-property
+           :property-name (ffirst mortgageable)}
+
+          ;; If we get here, we're probably bankrupt
+          ;; (no more assets to liquidate)
+          :else
+          {:action :unable-to-raise-funds}))
+
+      ;; END   ====== claude pre-code =======
+
 
       ;; A trade proposal offered to us
       :trade-proposal
