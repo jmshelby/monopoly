@@ -19,7 +19,8 @@
 		"vscode": {
 			"extensions": [
 				"betterthantomorrow.calva",
-				"vscodevim.vim"
+				"vscodevim.vim",
+				"anthropic.claude-dev"
 			]
 		}
 
