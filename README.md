@@ -47,6 +47,7 @@ Monopoly Game Engine + Pluggable Player API
    - detect if bankrupt
      - Acquisition workflow to owed party (if not bank)
    - force sell off, "raise funds" workflow
+     > [Ability to make deals when needing funds ]
    > Should you owe the Bank, instead of another player, more than you can pay (because of taxes or penalties) even by selling off buildings and mortgaging property, you must turn over all assets to the Bank. In this case, the Bank immediately sells by auction all property so taken, except buildings
  - Mortgage/Un-mortgage
    - On player turn action
@@ -64,6 +65,7 @@ Monopoly Game Engine + Pluggable Player API
      * in real life play this could result in contention that requires an action with limited numbers of inventory .... not sure how that would work here ...
      > BUILDING SHORTAGES: When the Bank has no houses to sell, players wishing to build must wait for some player to return or sell histher houses to the Bank before building. If there are a limited number of houses and hotels available and two or more players wish to buy more than the Bank has, the houses or hotels must be sold at auction to the highest bidder.
    > "INCOME TAX": If you land here you have two options: You may estimate your tax at $900 and pay the Bank, or you may pay 10% of your total worth to the Bank. Your total worth is all your cash on hand, printed prices of mortgaged and unmortgaged properties and cost price of all buildings you own. You must decide which option you will take before you add up your total worth.
+     - ?? Which version of the game has these rules ??
 
 
 
