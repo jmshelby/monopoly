@@ -54,12 +54,8 @@
   [game-state from to]
   (let [prop-names  (-> from :properties keys)
         ;; Get player maps
-        to-pidx     (-> game-state
-                        (util/player-by-id to)
-                        :player-index)
-        from-pidx   (-> game-state
-                        (util/player-by-id from)
-                        :player-index)
+        to-pidx     (:player-index to)
+        from-pidx   (:player-index from)
         from-player (get-in game-state [:players from-pidx])
         ;; Get 'from' player property states, only
         ;; needed to preserve mortgaged status
