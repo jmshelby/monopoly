@@ -78,12 +78,20 @@
         (->> game-state
              (get-in [:players (:player-index player) :cards])
              ;; TODO - wait ... aren't all cards in a player's inventory, by definition, "retained"?
-             (filter #(= :retain (:card/effect %))))]
+             (filter #(= :retain (:card/effect %))))
+        ;; Get properties for transaction record
+        properties (:properties player)]
     ;; TODO - When we have a bank "house inventory", return houses back to it
     ;; TODO - Need to auction off all properties (regardless of mortgaged status).
     ;;        Once we have auction functions we can make that happen..
-    ;; Put retained cards back into their decks (bottom)
-    (cards/add-to-deck-queues game-state retain-cards)))
+    (-> game-state
+        ;; Put retained cards back into their decks (bottom)
+        (cards/add-to-deck-queues retain-cards)
+        ;; Record bankruptcy transaction
+        (util/append-tx {:type       :bankruptcy
+                         :player     (:id player)
+                         :properties properties
+                         :acquistion [:auction :bank]}))))
 
 (defn- bankrupt-to-player
   [game-state debtor debtee]

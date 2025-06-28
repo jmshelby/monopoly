@@ -67,33 +67,6 @@
    ;;  - Each item in this list could be every unique game state
    :transactions []})
 
-;; TODO - This will most likely turn into the "bankrupt by the bank" flow..
-(defn- simple-bankupt-player
-  "Apply simple bankruptcy logic to player in game state.
-  Remove houses from properties, remove properties, making
-  them available back to bank and to other players.
-  Finally mark player status as bankrupt."
-  [{:keys [players]
-    :as   game-state}
-   player-id]
-  ;; TODO - we can use the get-player-by-id fn here now....
-  (let [player
-        (->> players
-             (map-indexed (fn [idx p] (assoc p :player-index idx)))
-             (filter #(= (:id %) player-id))
-             first)
-        pidx (:player-index player)]
-    (-> game-state
-        ;; Remove all properties, this is like giving back
-        ;; to the bank, freeing up for others to buy
-        (assoc-in [:players pidx :properties] {})
-        ;; Final marker
-        (assoc-in [:players pidx :status] :bankrupt)
-        ;; Transaction, just a single one for this basic->bank style
-        (append-tx {:type       :bankruptcy
-                    :player     player-id
-                    :properties (:properties player)
-                    :acquistion [:basic :bank]}))))
 
 ;; Special function to core
 (defn- move-to-cell
@@ -264,19 +237,13 @@
           (assoc game-state :status :complete))
 
       ;; Basic bankrupt logic, before turn..
-      ;; If the player is out of money,
-      ;; take them out of rotation (bankrupt)
-      ;; and move on to next player
-      ;; TODO - nobody else is marking this other than us...
-      ;; TODO - with the new bankrupt payment function checks, we may only need to check for bankupt status to move to the next person??
-      (or (= :bankrupt status) ;; probably don't need to check this?
-          (> 0 cash))
+      ;; If the player is already marked as bankrupt,
+      ;; just move to next player (bankruptcy handling should
+      ;; have been done when they were marked bankrupt)
+      (= :bankrupt status)
       (-> game-state
-          ;; Move to next player FIRST
-          ;; (we can get caught in a loop if we don't do this right)
-          util/apply-end-turn
-          ;; Then process bankruptcy workflow
-          (simple-bankupt-player player-id))
+          ;; Move to next player
+          util/apply-end-turn)
 
       ;; If they have cash, and it's not time to end the train
       ;; proceed with regular player turn
