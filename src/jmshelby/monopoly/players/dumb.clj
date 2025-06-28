@@ -228,56 +228,35 @@
       ;; forced to sell off our assets until we have
       ;; enough cash.
       ;; Params: {:amount 999} ;; where amount is the remaining amount needed to raise
-      ;; TODO - finish
       :raise-funds
-      ;; When this happens, we can:
-      ;; - sell house(s)
-      ;;   like: {:action :sell-house
-      ;;          :property-name :some-property}
-      ;; - mortgage property
-      ;;   like: {:action :mortgage-property
-      ;;          :property-name :some-property}
-
-      ;; START ====== claude pre-code =======
-      (let [amount-needed (:amount params)
-            my-properties
-            (get-in game-state [:players (util/player-index game-state my-id) :properties])
-
-            ;; Find properties with houses to sell first
-            houses-to-sell
-            (->> my-properties
-                 (filter (fn [[_ prop-data]]
-                           (> (:house-count prop-data) 0)))
-                 (sort-by (fn [[_ prop-data]]
-                            (:house-count prop-data)))
-                 reverse) ;; sell from properties with most houses first
-
-            ;; Find unmortgaged properties we can mortgage
-            mortgageable
-            (->> my-properties
-                 (filter (fn [[_ prop-data]]
-                           (and (= (:status prop-data) :paid)
-                                (= (:house-count prop-data) 0))))
-                 (sort-by first)) ;; just alphabetical order for simplicity
-            ]
-
+      (let [owned-props (->> (util/owned-property-details game-state)
+                             vals
+                             (filter #(= my-id (:owner %))))
+            ;; First try to sell houses (gives back 50% of house cost)
+            houses-to-sell (->> owned-props
+                                (filter #(> (:houses %) 0))
+                                (sort-by :houses >)
+                                first)
+            ;; Then try to mortgage unmortgaged properties
+            props-to-mortgage (->> owned-props
+                                   (filter #(= :paid (:status %)))
+                                   (sort-by #(-> % :def :mortgage) >)
+                                   first)]
         (cond
-          ;; First priority: sell houses if we have any
-          (seq houses-to-sell)
-          {:action        :sell-house
-           :property-name (ffirst houses-to-sell)}
-
-          ;; Second priority: mortgage unmortgaged properties
-          (seq mortgageable)
-          {:action        :mortgage-property
-           :property-name (ffirst mortgageable)}
-
-          ;; If we get here, we're probably bankrupt
-          ;; (no more assets to liquidate)
+          houses-to-sell
+          {:action :sell-house
+           :property-name (-> houses-to-sell :def :name)}
+          
+          props-to-mortgage
+          {:action :mortgage-property
+           :property-name (-> props-to-mortgage :def :name)}
+          
+          ;; If no houses to sell or properties to mortgage, we're bankrupt
           :else
-          {:action :unable-to-raise-funds}))
+          (throw (ex-info "Player cannot raise funds - no assets to liquidate"
+                          {:player-id my-id
+                           :amount-needed (:amount params)}))))
 
-      ;; END   ====== claude pre-code =======
 
 
       ;; A trade proposal offered to us

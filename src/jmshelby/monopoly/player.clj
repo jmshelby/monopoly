@@ -98,6 +98,7 @@
         ;; Get house sell value
         house-worth (->> props
                          vals
+                         (filter #(= :street (-> % :def :type))) ; Only street properties have houses
                          (map (fn [{:keys [def house-count]}]
                                 (* house-count (:house-price def))))
                          (apply +)
@@ -185,7 +186,9 @@
    amount follow-up]
   ;; TODO - Should we also add the transaction?
   (let [debtor (util/player-by-id game-state debtor-id)
-        debtee (util/player-by-id game-state debtee-id)]
+        debtee (if (= debtee-id :bank)
+                 :bank
+                 (util/player-by-id game-state debtee-id))]
     (cond
       ;; Player has enough cash
       ;;  -> Just deduct, and custom follow-up

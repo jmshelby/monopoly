@@ -434,8 +434,11 @@
 
   (def sim (rand-game-end-state 4 1500))
 
-  (->> sim
-       ;; :transactions
+(spit "game-state.edn" (with-out-str (clojure.pprint/pprint sim)))
+
+  (-> sim
+  (dissoc :transactions)
+        
        ;; (filter #(= :payment (:type %)))
        ;; (map :amount)
        )
