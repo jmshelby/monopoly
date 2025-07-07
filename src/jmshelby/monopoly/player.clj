@@ -206,8 +206,7 @@
       ;;  -> Then deduct, and custom follow-up
       (<= amount (net-worth game-state debtor))
       (-> game-state
-          ;; TODO - Bring this fn in when it's complete ...
-          ;; (apply-raise-funds-workflow debtor amount)
+          (apply-raise-funds-workflow debtor amount)
           (transfer-cash amount debtor debtee)
           follow-up)
       ;; Bankrupt to bank
