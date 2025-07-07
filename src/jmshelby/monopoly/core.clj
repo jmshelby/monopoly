@@ -404,8 +404,8 @@
 (spit "game-state.edn" (with-out-str (clojure.pprint/pprint sim)))
 
   (-> sim
-  (dissoc :transactions)
-        
+  ;; (dissoc :transactions)
+
        ;; (filter #(= :payment (:type %)))
        ;; (map :amount)
        )

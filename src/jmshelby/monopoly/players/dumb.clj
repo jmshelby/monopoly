@@ -234,8 +234,8 @@
                              (filter #(= my-id (:owner %))))
             ;; First try to sell houses (gives back 50% of house cost)
             houses-to-sell (->> owned-props
-                                (filter #(> (:houses %) 0))
-                                (sort-by :houses >)
+                                (filter #(> (:house-count %) 0))
+                                (sort-by :house-count >)
                                 first)
             ;; Then try to mortgage unmortgaged properties
             props-to-mortgage (->> owned-props
