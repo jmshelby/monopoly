@@ -172,7 +172,8 @@
                              (filter #(= pid (:id %)))
                              first)]
         ;; Check if we need to keep raising
-        (if (= amount (:cash player-next))
+        ;; TODO - should we allow the user to go down to $0?
+        (if (<= amount (:cash player-next))
           ;; Player has raised enough cash, return last game state
           gs-next
           ;; Player needs more cash, keep invoking
