@@ -72,3 +72,10 @@ See `players/dumb.clj` for example AI implementation. Players need to implement 
 - Trading proposals
 - Bankruptcy fund-raising
 - Building purchases
+
+## Code Style Guidelines
+
+### Formatting
+- Empty lines should contain no trailing whitespace (spaces or tabs)
+- Use completely empty lines for visual separation
+- Maintain consistent indentation with spaces (not tabs)
