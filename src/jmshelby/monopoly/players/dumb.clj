@@ -246,11 +246,11 @@
           houses-to-sell
           {:action :sell-house
            :property-name (-> houses-to-sell :def :name)}
-          
+
           props-to-mortgage
           {:action :mortgage-property
            :property-name (-> props-to-mortgage :def :name)}
-          
+
           ;; If no houses to sell or properties to mortgage, we're bankrupt
           :else
           (throw (ex-info "Player cannot raise funds - no assets to liquidate"
