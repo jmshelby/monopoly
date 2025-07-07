@@ -375,19 +375,45 @@
        last))
 
 (defn rand-game-end-state
-  "Return a new, random, completed game state, with # of given players"
+  "Return a new, random, completed game state, with # of given players.
+  If an exception occurs during game simulation, returns the last valid
+  game state with exception details added under :exception key."
   ([players] (rand-game-end-state players 2000))
   ([players failsafe-thresh]
-   (->> (init-game-state players)
-        (iterate advance-board)
-        ;; Skip past all iterations until game is done, and there is a winner
-        ;; OR, failsafe, the transactions have gone beyond X, most likely endless game
-        (drop-while
-          (fn [{:keys [status transactions]}]
-            (and (= :playing status)
-                 ;; Some arbitrary limit
-                 (> failsafe-thresh (count transactions)))))
-        first)))
+   (letfn [(safe-advance [state iteration]
+             (try
+               (let [next-state (advance-board state)]
+                 {:state next-state :exception nil})
+               (catch Exception e
+                 {:state state
+                  :exception {:message (.getMessage e)
+                              :type (str (type e))
+                              :stack-trace (mapv str (.getStackTrace e))
+                              :iteration iteration
+                              :last-transaction (last (:transactions state))
+                              :current-player (get-in state [:current-turn :player])
+                              :player-cash (->> state :players
+                                               (map #(select-keys % [:id :cash :status]))
+                                               (into {}))}})))]
+     (loop [current-state (init-game-state players)
+            iteration-count 0]
+       (let [{:keys [state exception]} (safe-advance current-state iteration-count)]
+         (cond
+           ;; Exception occurred
+           exception
+           (assoc current-state :exception exception)
+
+           ;; Game completed normally
+           (= :complete (:status state))
+           state
+
+           ;; Failsafe - too many iterations
+           (>= iteration-count failsafe-thresh)
+           (assoc state :failsafe-stop true)
+
+           ;; Continue game
+           :else
+           (recur state (inc iteration-count))))))))
 
 (comment
 
@@ -401,7 +427,6 @@
 
   (def sim (rand-game-end-state 4 1500))
 
-(spit "game-state.edn" (with-out-str (clojure.pprint/pprint sim)))
 
   (-> sim
   ;; (dissoc :transactions)
