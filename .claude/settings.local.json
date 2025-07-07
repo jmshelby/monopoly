@@ -3,7 +3,8 @@
     "allow": [
       "mcp__ide__getDiagnostics",
       "Bash(rg:*)",
-      "Bash(clojure:*)"
+      "Bash(clojure:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }
