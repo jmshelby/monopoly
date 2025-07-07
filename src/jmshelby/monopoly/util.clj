@@ -651,7 +651,7 @@
                          (filter #(= player-id (:owner %))))
         ;; The property in question
         single-prop (->> owned
-                         (filter #(= prop-name (second %)))
+                         (filter #(= prop-name (-> % :def :name)))
                          first)
         ;; Current max houses owned in this group
         house-max   (->> owned
