@@ -666,7 +666,7 @@
       [false :property-ownership]
 
       ;; Ensure home ownership
-      (< 0 (:house-count single-prop))
+      (= 0 (:house-count single-prop))
       [false :house-inventory]
 
       ;; Ensure even house distribution
@@ -675,6 +675,7 @@
       (= house-max
          (:house-count single-prop))
       [false :even-house-distribution]
+
       ;; All good!
       :else [true nil])))
 
