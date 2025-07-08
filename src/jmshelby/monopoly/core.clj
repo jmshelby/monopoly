@@ -386,15 +386,18 @@
                  {:state next-state :exception nil})
                (catch Exception e
                  {:state state
-                  :exception {:message (.getMessage e)
-                              :type (str (type e))
-                              :stack-trace (mapv str (.getStackTrace e))
-                              :iteration iteration
-                              :last-transaction (last (:transactions state))
-                              :current-player (get-in state [:current-turn :player])
-                              :player-cash (->> state :players
-                                               (map #(select-keys % [:id :cash :status]))
-                                               (into {}))}})))]
+                  :exception (merge {:message (.getMessage e)
+                                     :type (str (type e))
+                                     :stack-trace (mapv str (.getStackTrace e))
+                                     :iteration iteration
+                                     :last-transaction (last (:transactions state))
+                                     :current-player (get-in state [:current-turn :player])
+                                     :player-cash (->> state :players
+                                                      (map #(select-keys % [:id :cash :status]))
+                                                      (into {}))}
+                                    ;; Include ex-info data if available
+                                    (when (instance? clojure.lang.ExceptionInfo e)
+                                      {:ex-data (ex-data e)}))})))]
      (loop [current-state (init-game-state players)
             iteration-count 0]
        (let [{:keys [state exception]} (safe-advance current-state iteration-count)]
@@ -427,14 +430,9 @@
 
   (def sim (rand-game-end-state 4 1500))
 
-
   (-> sim
-  ;; (dissoc :transactions)
 
-       ;; (filter #(= :payment (:type %)))
-       ;; (map :amount)
        )
-
 
   (let [players    (+ 2 (rand-int 5))
         iterations (+ 20 (rand-int 500))
