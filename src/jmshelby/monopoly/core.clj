@@ -418,6 +418,170 @@
            :else
            (recur state (inc iteration-count))))))))
 
+(defn summarize-game
+  "Analyze a game state and transactions to provide a summary of what happened.
+  Includes basic statistics, player outcomes, and potential inconsistencies."
+  [{:keys [status players transactions current-turn] :as game-state}]
+  (let [;; Basic stats
+        total-transactions (count transactions)
+        tx-by-type (frequencies (map :type transactions))
+
+        ;; Player analysis
+        active-players (->> players (filter #(= :playing (:status %))))
+        bankrupt-players (->> players (filter #(= :bankrupt (:status %))))
+
+        ;; Financial analysis
+        total-cash (->> players (map :cash) (apply +))
+        total-properties (->> players (map :properties) (map count) (apply +))
+
+        ;; Transaction analysis
+        payments (->> transactions (filter #(= :payment (:type %))))
+        bankruptcies (->> transactions (filter #(= :bankruptcy (:type %))))
+
+        ;; Money flow analysis
+        bank-payments (->> payments (filter #(or (= :bank (:from %)) (= :bank (:to %)))))
+        player-to-bank (->> bank-payments (filter #(= :bank (:to %))) (map :amount) (apply + 0))
+        bank-to-player (->> bank-payments (filter #(= :bank (:from %))) (map :amount) (apply + 0))
+
+        ;; Consistency checks
+        inconsistencies
+        (cond-> []
+          ;; Check for bankrupt players with cash/properties
+          (->> bankrupt-players
+               (some #(or (> (:cash %) 0) (seq (:properties %)))))
+          (conj "Bankrupt players still have cash or properties")
+
+          ;; Check for negative cash
+          (->> players (some #(< (:cash %) 0)))
+          (conj "Players with negative cash found")
+
+          ;; Check current turn player status
+          (and (= :playing status)
+               (->> players
+                    (filter #(= (:id %) (:player current-turn)))
+                    first
+                    :status
+                    (not= :playing)))
+          (conj "Current turn player is not active")
+
+          ;; Check if game should be complete
+          (and (= :playing status) (<= (count active-players) 1))
+          (conj "Game should be complete but status is still :playing"))]
+
+    {:summary
+     {:game-status status
+      :total-turns (count (filter #(= :roll (:type %)) transactions))
+      :total-transactions total-transactions
+      :players {:total (count players)
+                :active (count active-players)
+                :bankrupt (count bankrupt-players)}
+      :economics {:total-cash total-cash
+                  :total-properties total-properties
+                  :money-to-bank player-to-bank
+                  :money-from-bank bank-to-player
+                  :net-bank-flow (- player-to-bank bank-to-player)}}
+
+     :transaction-breakdown tx-by-type
+
+     :player-outcomes
+     (->> players
+          (map (fn [player]
+                 {:id (:id player)
+                  :status (:status player)
+                  :final-cash (:cash player)
+                  :properties-owned (count (:properties player))
+                  :net-worth (when (= :playing (:status player))
+                               (+ (:cash player)
+                                  (util/player-property-sell-worth game-state (:id player))))}))
+          (sort-by :status))
+
+     :bankruptcies
+     (->> bankruptcies
+          (map #(select-keys % [:player :properties :acquistion])))
+
+     :inconsistencies inconsistencies
+
+     :winner
+     (when (= :complete status)
+       (->> active-players first :id))}))
+
+(defn print-game-summary
+  "Print a human-readable summary of the game analysis from summarize-game."
+  [summary]
+  (let [{:keys [summary transaction-breakdown player-outcomes bankruptcies inconsistencies winner]} summary
+        {:keys [game-status total-turns total-transactions players economics]} summary]
+
+    (println "=== MONOPOLY GAME SUMMARY ===")
+    (println)
+
+    ;; Game Overview
+    (println "📊 GAME OVERVIEW")
+    (printf "   Status: %s\n" (name game-status))
+    (when winner
+      (printf "   🏆 Winner: Player %s\n" winner))
+    (printf "   Total Turns: %d\n" total-turns)
+    (printf "   Total Transactions: %d\n" total-transactions)
+    (println)
+
+    ;; Player Summary
+    (println "👥 PLAYERS")
+    (printf "   Total: %d (Active: %d, Bankrupt: %d)\n"
+            (:total players) (:active players) (:bankrupt players))
+    (println)
+
+    ;; Economics
+    (println "💰 ECONOMICS")
+    (printf "   Total Cash in Circulation: $%d\n" (:total-cash economics))
+    (printf "   Properties Owned: %d\n" (:total-properties economics))
+    (printf "   Money Paid to Bank: $%d\n" (:money-to-bank economics))
+    (printf "   Money Received from Bank: $%d\n" (:money-from-bank economics))
+    (printf "   Net Bank Flow: $%d %s\n"
+            (Math/abs (:net-bank-flow economics))
+            (if (pos? (:net-bank-flow economics)) "(to bank)" "(from bank)"))
+    (println)
+
+    ;; Transaction Breakdown
+    (println "📝 TRANSACTION BREAKDOWN")
+    (doseq [[tx-type count] (sort-by second > transaction-breakdown)]
+      (printf "   %s: %d\n" (name tx-type) count))
+    (println)
+
+    ;; Player Outcomes
+    (println "🎯 PLAYER OUTCOMES")
+    (doseq [player player-outcomes]
+      (printf "   Player %s (%s): $%d cash, %d properties"
+              (:id player)
+              (name (:status player))
+              (:final-cash player)
+              (:properties-owned player))
+      (when (:net-worth player)
+        (printf ", $%d net worth" (:net-worth player)))
+      (println))
+    (println)
+
+    ;; Bankruptcies
+    (when (seq bankruptcies)
+      (println "💸 BANKRUPTCIES")
+      (doseq [bankruptcy bankruptcies]
+        (printf "   Player %s went bankrupt (%d properties transferred)\n"
+                (:player bankruptcy)
+                (count (:properties bankruptcy))))
+      (println))
+
+    ;; Inconsistencies (if any)
+    (when (seq inconsistencies)
+      (println "⚠️  INCONSISTENCIES DETECTED")
+      (doseq [issue inconsistencies]
+        (printf "   • %s\n" issue))
+      (println))
+
+    ;; Game Health
+    (if (empty? inconsistencies)
+      (println "✅ Game state appears consistent")
+      (printf "❌ %d consistency issues found\n" (count inconsistencies)))
+
+    (println "=== END SUMMARY ===")))
+
 (comment
 
   (->> defs/board
@@ -431,7 +595,8 @@
   (def sim (rand-game-end-state 4 1500))
 
   (-> sim
-
+      summarize-game
+      print-game-summary
        )
 
   (let [players    (+ 2 (rand-int 5))
