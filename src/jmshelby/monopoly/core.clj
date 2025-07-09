@@ -393,7 +393,7 @@
                                      :last-transaction (last (:transactions state))
                                      :current-player (get-in state [:current-turn :player])
                                      :player-cash (->> state :players
-                                                      (map #(select-keys % [:id :cash :status]))
+                                                      (map #(vector (:id %) (select-keys % [:cash :status])))
                                                       (into {}))}
                                     ;; Include ex-info data if available
                                     (when (instance? clojure.lang.ExceptionInfo e)
