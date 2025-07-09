@@ -561,7 +561,7 @@
 
      :bankruptcies
      (->> bankruptcies
-          (map #(select-keys % [:player :properties :acquistion])))
+          (map #(select-keys % [:player :properties :acquisition])))
 
      :monopolies
      {:total-formed (->> monopolies-by-player vals (map count) (apply + 0))

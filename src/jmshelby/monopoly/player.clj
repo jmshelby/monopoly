@@ -49,7 +49,7 @@
 
 ;; NOTE - mostly taken from trade/exchange-properties NS/fn
 (defn- transfer-property
-  ;; TODO - Do mortgaged/acquistion workflow logic
+  ;; TODO - Do mortgaged/acquisition workflow logic
   ;;        -> As a part of this, should we signal something in the game-state that we're in the middle of a bankruptcy asset transfer???
   [game-state from to]
   (let [prop-names  (-> from :properties keys)
@@ -88,10 +88,13 @@
         ;; Put retained cards back into their decks (bottom)
         (cards/add-to-deck-queues retain-cards)
         ;; Record bankruptcy transaction
+        ;; TODO - need to think about a better tx structure for bankruptcy type
         (util/append-tx {:type       :bankruptcy
                          :player     (:id player)
-                         :properties properties
-                         :acquistion [:auction :bank]}))))
+                         :to         :bank
+                         :cash       (:cash player)
+                         :cards      retain-cards
+                         :properties properties}))))
 
 (defn- bankrupt-to-player
   [game-state debtor debtee]
@@ -119,8 +122,16 @@
         (transfer-cash debtor debtee)
         ;; Transfer all cards over to debtee
         (transfer-cards debtor debtee)
-        ;; Transfer all properties over to debtee (including mortgaged acquistion workflow)
-        (transfer-property debtor debtee))))
+        ;; Transfer all properties over to debtee (including mortgaged acquisition workflow)
+        (transfer-property debtor debtee)
+        ;; Record bankruptcy transaction
+        ;; TODO - need to think about a better tx structure for bankruptcy type
+        (util/append-tx {:type       :bankruptcy
+                         :player     (:id debtor)
+                         :to         (:id debtee)
+                         :cash       (:cash debtor)
+                         :cards      (get-in game-state [:players pidx :cards])
+                         :properties (:properties debtor)}))))
 
 (defn- invoke-and-apply-raise-funds
   ;; TODO - docs
@@ -218,7 +229,7 @@
           (reset-player-assets debtor))
       ;; Bankrupt to other player
       ;;  -> Bankrupcy flow
-      ;;  -> Property + cash transfer/acquistion workflow
+      ;;  -> Property + cash transfer/acquisition workflow
       ;;  -> No custom follow-up
       debtee
       (-> game-state
