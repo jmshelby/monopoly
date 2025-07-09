@@ -16,8 +16,14 @@ Monopoly Game Engine + Pluggable Player API
      - railroad: rent based on # owned
  - House Buying
    - Require "even" and distributed house building
- - [Simple] Player "lose" logic
-   - When player is out of money, take them out of the game
+ - Sell House
+   - On "raise funds" workflow
+ - Mortgage Property
+   - on "raise funds" workflow
+ - Player "lose" logic
+   - detect if bankrupt
+   - force sell off, "raise funds" workflow
+   > Should you owe the Bank, instead of another player, more than you can pay (because of taxes or penalties) even by selling off buildings and mortgaging property, you must turn over all assets to the Bank. In this case, the Bank immediately sells by auction all property so taken, except buildings
  - Go to Jail
    - "go to jail" cell/spot
    - Roll 3 consecutive doubles, "got to jail"
@@ -44,17 +50,13 @@ Monopoly Game Engine + Pluggable Player API
  - Cards
    - Deferred effects (go to nearest utility, pay 10x dice roll)
  - [Full] Player "lose" logic
-   - detect if bankrupt
-     - Acquisition workflow to owed party (if not bank)
-   - force sell off, "raise funds" workflow
-     > [Ability to make deals when needing funds ]
-   > Should you owe the Bank, instead of another player, more than you can pay (because of taxes or penalties) even by selling off buildings and mortgaging property, you must turn over all assets to the Bank. In this case, the Bank immediately sells by auction all property so taken, except buildings
+   - Acquisition workflow to owed party (if not bank)
+     - requiring 10% payment of mortgaged properties or to instantly unmortgage property to acquire
+   > [Ability to make deals when needing funds]
  - Mortgage/Un-mortgage
    - On player turn action
-   - on "raise funds" workflow
  - Sell House
    - On player turn action
-   - On "raise funds" workflow
  - Proposals
    - Mortgaged property requirements
      > If you are the new owner, you may lift the mortgage at once if you wish by paying off the mortgage plus 10% interest to the Bank. If the mortgage is not lifted at once, you must pay the Bank 10% interest when you buy the property and if you lift the mortgage later you must pay the Bank an additional 10% interest as well as the amount of the mortgage
@@ -68,6 +70,15 @@ Monopoly Game Engine + Pluggable Player API
      - ?? Which version of the game has these rules ??
 
 
+
+## Known Issues
+
+#### Code Quality
+- **Parameter Passing Inconsistency**: Several utility functions in `util.clj` rely on "current player" context instead of accepting explicit player parameters. This affects:
+  - `can-sell-house?` - should accept player parameter
+  - `apply-house-sale` - should accept player parameter  
+  - `apply-property-mortgage` - should accept player parameter
+  - This creates tight coupling and makes functions less reusable/testable
 
 ## Future
 

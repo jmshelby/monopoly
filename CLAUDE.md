@@ -33,15 +33,17 @@ clojure -M:repl
 - Basic dice roll and movement
 - Property purchase and rent collection
 - House/hotel building with monopoly rules
-- Player bankruptcy detection
+- Player bankruptcy detection and raise-funds workflow
 - Jail mechanics (go to jail, get out of jail)
 - Card system with multiple decks
 - Trading/proposal system
+- Game analysis and summary functions
+- Exception handling in game simulations
 
 ### In Progress
-- Bankrupt player logic and raise-funds workflow
 - Auction system for declined property purchases
 - Mortgage/unmortgage functionality
+- Property acquisition workflow for mortgaged assets
 
 ### Future Features
 - HTTP interface for remote players
