@@ -237,5 +237,7 @@
           (reset-player-assets debtor))
       ;; Anything else is an invalid state
       :else
-      nil ;; TODO - throw exception
-      )))
+      (throw (ex-info "make-requisite-payment: no valid player state. player can't pay, and we don't know who to pay to..."
+                      {:debtor debtor-id
+                       :debtee debtee-id
+                       :amount amount})))))
