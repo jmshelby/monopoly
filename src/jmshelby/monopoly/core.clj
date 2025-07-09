@@ -457,27 +457,36 @@
                                  (into {}))
         
         ;; Track monopoly formations through transactions
-        monopoly-formations (let [trade-txs (->> transactions
-                                               (filter #(and (= :trade (:type %))
-                                                             (= :accept (:status %))))
-                                               (map-indexed vector))]
-                             (->> trade-txs
-                                  (map (fn [[idx tx]]
-                                         ;; For each trade, check if it created a monopoly
-                                         ;; This is simplified - in reality we'd need to replay
-                                         ;; the game state at each point to detect formations
-                                         {:transaction-number (inc idx)
-                                          :type :trade
-                                          :players [(:from tx) (:to tx)]}))
-                                  ;; Add purchase monopolies (when buying the last property in a group)
-                                  (concat (->> transactions
-                                              (filter #(= :purchase (:type %)))
-                                              (map-indexed vector)
-                                              (map (fn [[idx tx]]
-                                                     {:transaction-number (inc idx)
-                                                      :type :purchase
-                                                      :player (:player tx)
-                                                      :property (:property tx)}))))))
+        ;; Note: This is a simplified approach - for perfect accuracy we'd need
+        ;; to replay game state at each transaction to detect monopoly formations
+        monopoly-formations (->> (concat
+                                  ;; Track trades that might form monopolies
+                                  (->> transactions
+                                       (filter #(and (= :trade (:type %))
+                                                     (= :accept (:status %))))
+                                       (map-indexed (fn [idx tx]
+                                                      {:transaction-number (+ idx 1)
+                                                       :type :trade
+                                                       :player (:to tx)
+                                                       :description (format "Trade with %s" (:from tx))})))
+                                  ;; Track purchases that might complete monopolies
+                                  (->> transactions
+                                       (filter #(= :purchase (:type %)))
+                                       (map-indexed (fn [idx tx]
+                                                      ;; Look up property group from board definition
+                                                      (let [prop-def (->> game-state :board :properties
+                                                                         (filter #(= (:property tx) (:name %)))
+                                                                         first)
+                                                            group-name (:group-name prop-def)]
+                                                        {:transaction-number (+ idx 1)
+                                                         :type :purchase
+                                                         :player (:player tx)
+                                                         :property (:property tx)
+                                                         :group group-name
+                                                         :description (format "%s (%s)" 
+                                                                            (name (:property tx))
+                                                                            (name (or group-name :unknown)))})))))
+                                 (take 20))
 
         ;; Consistency checks
         inconsistencies
@@ -552,7 +561,18 @@
   "Print a human-readable summary of the game analysis from summarize-game."
   [summary]
   (let [{:keys [summary transaction-breakdown player-outcomes bankruptcies monopolies inconsistencies winner]} summary
-        {:keys [game-status total-turns total-transactions players economics]} summary]
+        {:keys [game-status total-turns total-transactions players economics]} summary
+        ;; Monopoly earning potential (based on typical Monopoly rent values)
+        monopoly-power {"brown" "$"           ; Mediterranean/Baltic - lowest
+                        "light-blue" "$"      ; Oriental/Vermont/Connecticut - low
+                        "purple" "$$"         ; St. Charles/States/Virginia - medium-low
+                        "orange" "$$$"        ; St. James/Tennessee/New York - high traffic
+                        "red" "$$$$"          ; Kentucky/Indiana/Illinois - very high
+                        "yellow" "$$$"        ; Atlantic/Ventnor/Marvin Gardens - high
+                        "green" "$$$$"        ; Pacific/N. Carolina/Pennsylvania - very high
+                        "blue" "$$$$$"        ; Park Place/Boardwalk - highest
+                        "railroad" "$$"       ; Railroads - steady income
+                        "utility" "$"}]       ; Utilities - variable/low
 
     (println "=== MONOPOLY GAME SUMMARY ===")
     (println)
@@ -600,7 +620,10 @@
       (when (:net-worth player)
         (printf ", $%d net worth" (:net-worth player)))
       (when (seq (:monopolies player))
-        (printf ", monopolies: %s" (clojure.string/join ", " (map name (:monopolies player)))))
+        (printf ", monopolies: %s" 
+                (clojure.string/join ", " 
+                                   (map #(str (name %) " " (get monopoly-power (name %) "$")) 
+                                        (:monopolies player)))))
       (println))
     (println)
 
@@ -613,14 +636,25 @@
         (doseq [[player-id groups] (:by-player monopolies)]
           (when (seq groups)
             (printf "     Player %s: %s\n" player-id 
-                    (clojure.string/join ", " (map name groups)))))
+                    (clojure.string/join ", " 
+                                       (map #(str (name %) " " (get monopoly-power (name %) "$")) 
+                                            groups)))))
         (when (seq (:formations monopolies))
           (println "   Monopoly Formation Timeline:")
           (doseq [formation (take 10 (:formations monopolies))]
-            (printf "     Transaction #%d: %s via %s\n"
-                    (:transaction-number formation)
-                    (or (:property formation) "trade")
-                    (name (:type formation))))))
+            (let [power-indicator (when (:group formation)
+                                   (get monopoly-power (name (:group formation)) "$"))
+                  display-text (if (:group formation)
+                                 (format "%s %s %s" 
+                                         (:description formation)
+                                         (name (:group formation))
+                                         power-indicator)
+                                 (:description formation))]
+              (printf "     Transaction #%d: Player %s - %s via %s\n"
+                      (:transaction-number formation)
+                      (:player formation)
+                      display-text
+                      (name (:type formation)))))))
       (println "   🚫 No monopolies formed - this explains the game stall!"))
     (println)
 
