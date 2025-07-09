@@ -129,12 +129,10 @@
     :hotel/count  (->> player :properties vals
                        (filter #(= 5 (:house-count %)))
                        count)
-    ;; Count of total active players,
-    ;; other than current player
+    ;; Count of total active players
     :player/count (->> game-state :players
                        (filter #(= :playing (:status %)))
-                       count
-                       dec)
+                       count)
     ;; Default to 1, no multiplier
     1))
 
@@ -157,9 +155,8 @@
   [game-state player card]
   (let [{player-id :id
          pidx      :player-index} player
-        ;; TODO - Need to check for :card.collect/multiplier, and apply
-        ;;        Could be: :player/count
-        amount                    (:card.collect/cash card)]
+        mult   (get-payment-multiplier game-state player card)
+        amount (* mult (:card.collect/cash card))]
     (-> game-state
         ;; Add money
         (update-in [:players pidx :cash] + amount)
