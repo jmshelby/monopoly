@@ -123,7 +123,6 @@
       ;; Tax
       (util/tax-owed? new-state)
       (let [tax-owed (util/tax-owed? new-state)]
-        ;; TODO - REQUISITE-PAYMENT
         ((functions :make-requisite-payment)
          new-state player-id :bank tax-owed
          #(-> %
@@ -136,7 +135,6 @@
       ;; Rent
       (util/rent-owed? new-state)
       (let [rent-owed (util/rent-owed? new-state)]
-        ;; TODO - REQUISITE-PAYMENT
         ((functions :make-requisite-payment) new-state
          player-id (first rent-owed) (second rent-owed)
          (fn [gs] (-> gs
