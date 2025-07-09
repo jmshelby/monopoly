@@ -465,10 +465,27 @@
                                        (filter #(and (= :trade (:type %))
                                                      (= :accept (:status %))))
                                        (map-indexed (fn [idx tx]
-                                                      {:transaction-number (+ idx 1)
-                                                       :type :trade
-                                                       :player (:to tx)
-                                                       :description (format "Trade with %s" (:from tx))})))
+                                                      ;; Extract property groups from trade
+                                                      (let [asking-props (get-in tx [:asking :properties] #{})
+                                                            offering-props (get-in tx [:offering :properties] #{})
+                                                            all-trade-props (concat asking-props offering-props)
+                                                            ;; Look up groups for traded properties
+                                                            prop-groups (->> all-trade-props
+                                                                           (map (fn [prop-name]
+                                                                                  (->> game-state :board :properties
+                                                                                       (filter #(= prop-name (:name %)))
+                                                                                       first
+                                                                                       :group-name)))
+                                                                           (filter identity)
+                                                                           distinct)
+                                                            group-desc (if (seq prop-groups)
+                                                                        (clojure.string/join ", " (map name prop-groups))
+                                                                        "properties")]
+                                                        {:transaction-number (+ idx 1)
+                                                         :type :trade
+                                                         :player (:to tx)
+                                                         :groups prop-groups
+                                                         :description (format "Trade with %s (%s)" (:from tx) group-desc)}))))
                                   ;; Track purchases that might complete monopolies
                                   (->> transactions
                                        (filter #(= :purchase (:type %)))
@@ -642,14 +659,25 @@
         (when (seq (:formations monopolies))
           (println "   Monopoly Formation Timeline:")
           (doseq [formation (take 10 (:formations monopolies))]
-            (let [power-indicator (when (:group formation)
-                                   (get monopoly-power (name (:group formation)) "$"))
-                  display-text (if (:group formation)
-                                 (format "%s %s %s" 
-                                         (:description formation)
-                                         (name (:group formation))
-                                         power-indicator)
-                                 (:description formation))]
+            (let [display-text (cond
+                                ;; Single group (purchase)
+                                (:group formation)
+                                (let [power-indicator (get monopoly-power (name (:group formation)) "$")]
+                                  (format "%s %s %s" 
+                                          (:description formation)
+                                          (name (:group formation))
+                                          power-indicator))
+                                ;; Multiple groups (trade)
+                                (:groups formation)
+                                (let [group-indicators (->> (:groups formation)
+                                                           (map #(str (name %) " " (get monopoly-power (name %) "$")))
+                                                           (clojure.string/join ", "))
+                                      base-desc (first (clojure.string/split (:description formation) #" \("))
+                                      trade-partner (second (re-find #"Trade with (\w+)" (:description formation)))]
+                                  (format "Trade with %s (%s)" trade-partner group-indicators))
+                                ;; Fallback
+                                :else
+                                (:description formation))]
               (printf "     Transaction #%d: Player %s - %s via %s\n"
                       (:transaction-number formation)
                       (:player formation)
