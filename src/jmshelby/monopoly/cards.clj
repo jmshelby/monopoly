@@ -144,7 +144,6 @@
         pay       (-> game-state :functions :make-requisite-payment)
         mult      (get-payment-multiplier game-state player card)
         amount    (* mult (:card.pay/cash card))]
-    ;; TODO - REQUISITE-PAYMENT
     ;; Pay as a "requisite" payment
     (pay game-state player-id :bank amount
          #(util/append-tx % {:type   :payment
