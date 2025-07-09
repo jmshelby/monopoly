@@ -2,10 +2,6 @@
   (:require [clojure.set :as set]
             [jmshelby.monopoly.util :as util]))
 
-
-;; TODO - SOMEWHERE in HERE, before transferring cash away, need to check current cash, and ultimately sell-worth
-
-
 (defn cards->deck-queues
   [cards]
   (->> cards
@@ -19,10 +15,30 @@
               [deck (shuffle cards)]))
        (into {})))
 
+(defn add-to-deck-queue
+  "Given a game state, and a card, add it to the end
+  of the current card queue for it's deck."
+  [game-state card]
+  (update-in game-state
+             [:card-queue (:deck card)]
+             conj card))
+
+(defn add-to-deck-queues
+  "Given a game state, and a collection of cards, add
+  them, one at a time, to the end of the current card
+  queues, to their respective decks."
+  [game-state cards]
+  ;; Simple reduce over our single card fn
+  (reduce
+    add-to-deck-queue
+    game-state
+    cards))
+
 (defn- shuffle-deck
-  "Given a game state, and a deck name, replinish the deck with a full shuffled one, in the card queue, minus the retained cards of the other players."
+  "Given a game state, and a deck name, replinish the
+  deck with a full shuffled one, in the card queue,
+  minus the retained cards of the other players."
   [game-state deck]
-  ;; TODO - We may need to consider the retained cards of inactive players?
   (let [cards    (-> game-state :board :cards)
         retained (->> game-state
                       :players
@@ -124,21 +140,18 @@
 
 (defmethod apply-card-effect :pay
   [game-state player card]
-  (let [{player-id :id
-         pidx      :player-index}
-        player
-        mult   (get-payment-multiplier game-state player card)
-        amount (* mult (:card.pay/cash card))]
-    (-> game-state
-        ;; Subtract money
-        (update-in [:players pidx :cash] - amount)
-        ;; Track transaction
-        (util/append-tx {:type   :payment
-                         :from   player-id
-                         :to     :bank
-                         :amount amount
-                         :reason :card
-                         :card   card}))))
+  (let [player-id (:id player)
+        pay       (-> game-state :functions :make-requisite-payment)
+        mult      (get-payment-multiplier game-state player card)
+        amount    (* mult (:card.pay/cash card))]
+    ;; Pay as a "requisite" payment
+    (pay game-state player-id :bank amount
+         #(util/append-tx % {:type   :payment
+                             :from   player-id
+                             :to     :bank
+                             :amount amount
+                             :reason :card
+                             :card   card}))))
 
 (defmethod apply-card-effect :collect
   [game-state player card]

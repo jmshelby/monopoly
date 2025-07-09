@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(rg:*)",
+      "Bash(clojure:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

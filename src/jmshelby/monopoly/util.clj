@@ -208,7 +208,8 @@
   double dice roll attempt and staying in jail, to getting
   out, moving spaces and landing on another which can cause
   other side affects."
-  [{{apply-dice-roll :apply-dice-roll}
+  [{{apply-dice-roll        :apply-dice-roll
+     make-requisite-payment :make-requisite-payment}
     :functions
     :as game-state}
    action]
@@ -248,15 +249,16 @@
           ;; Not a double, third attempt.
           ;; Force bail payment, and move
           (<= 3 attempt)
-          (-> game-state
-              (dissoc-in [:players pidx :jail-spell])
-              (update-in [:players pidx :cash] - bail)
-              ;; TODO - The "roll" transaction should happen here,
-              ;;        but the apply-dice-roll is doing that for us ...
-              (append-tx {:type   :bail
-                          :player player-id
-                          :means  [:cash bail]})
-              (apply-dice-roll new-roll))
+          (make-requisite-payment
+            game-state player-id :bank bail
+            #(-> %
+                 (dissoc-in [:players pidx :jail-spell])
+                 ;; TODO - The "roll" transaction should happen here,
+                 ;;        but the apply-dice-roll is doing that for us ...
+                 (append-tx {:type   :bail
+                             :player player-id
+                             :means  [:cash bail]})
+                 (apply-dice-roll new-roll)))
 
           ;; Not a double, register roll
           :else
@@ -270,6 +272,8 @@
 
       ;; If you can afford it, pay to get out of jail,
       ;; staying on the same cell
+      ;; TODO - Should we validate there is enough money for this "chosen bail" action?? (maybe not REQUISITE-PAYMENT)
+      ;;        The caller is checking this, but maybe it's good to throw an exception to catch bugs there?
       :jail/bail
       ;; TODO - this is quite duplicated code..
       (-> game-state
@@ -381,10 +385,10 @@
   "Given a game-state, and a player ID, calculate and return the player's \"sell worth\" as a cash integer.
      Mortgaged properties = 0
      Regular properties = [ their mortgage value ]
-     Resources = [ half the price they were bought at ] "
+     Resources = [ half the price they were bought at ]"
   [game-state player-id]
-  (let [player   (player-by-id game-state player-id)
-        props    (owned-property-details game-state [player])]
+  (let [player (player-by-id game-state player-id)
+        props  (owned-property-details game-state [player])]
     (->> props
          vals
          (map (fn [{:keys [def status house-count] :as prop}]
@@ -395,7 +399,7 @@
                   0
                   ;; Half face value + Half house value
                   (= :paid status)
-                  (+ (:mortgage def) ;; TODO - could also use the :mortgage key ...
+                  (+ (:mortgage def)
                      (half (* house-count (:house-price def 0))))
                   ;; Just in case we have an invalid value
                   :else
@@ -440,6 +444,7 @@
                      assoc (:name property) {:status      :paid
                                              :house-count 0})
           ;; Subtract money
+          ;; NOTE - validation for this cash payment above (not a REQUISITE-PAYMENT)
           (update-in [:players player-index :cash]
                      - (:price property))
           ;; Track transaction
@@ -633,6 +638,44 @@
      (and single-prop
           (>= cash (nth single-prop 2))))))
 
+(defn- can-sell-house?
+  [game-state prop-name]
+  ;; TODO - the player in question should probably be passed as a prop
+  (let [{player-id :id}
+        (current-player game-state)
+        ;; All properties owned
+        owned       (->> game-state
+                         owned-property-details
+                         (map second)
+                         (filter #(= player-id (:owner %))))
+        ;; The property in question
+        single-prop (->> owned
+                         (filter #(= prop-name (-> % :def :name)))
+                         first)
+        ;; Current max houses owned in this group
+        house-max   (->> owned
+                         (filter #(= (-> % :def :group-name)
+                                     (-> single-prop :def :group-name)))
+                         (map :house-count)
+                         (apply max))]
+    ;; Itemized validation
+    (cond
+      ;; Ensure property ownership
+      (not single-prop)
+      [false :property-ownership]
+
+      ;; Ensure home ownership
+      (= 0 (:house-count single-prop))
+      [false :house-inventory]
+
+      ;; Ensure even house distribution
+      ;; Can only sell if this property HAS the max house count in its group
+      (not= house-max (:house-count single-prop))
+      [false :even-house-distribution]
+
+      ;; All good!
+      :else [true nil])))
+
 (defn apply-house-purchase
   "Given a game state and property, apply purchase of a single house
   for current player on given property. Validates and throws if house
@@ -673,3 +716,98 @@
                     :player   player-id
                     :property property-name
                     :price    (:house-price property)}))))
+
+(defn apply-house-sale
+  "Given a game state and a property, apply the sell of a single house for
+  current player on given property. Validates and throws if house sell is
+  not allowed by game rules."
+  [game-state property-name]
+  ;; TODO - the player in question should probably be passed as a prop
+  (let [{player-id :id
+         pidx      :player-index}
+        (current-player game-state)
+        ;; Get property definition
+        property (->> game-state :board :properties
+                      (filter #(= :street (:type %)))
+                      (filter #(= property-name (:name %)))
+                      first)
+        proceeds (half (:house-price property))]
+
+    ;; Validation
+    (let [valid? (can-sell-house? game-state property-name)]
+      (when-not (first valid?)
+        (throw (ex-info "Player decision not allowed"
+                        {:action   :sell-house
+                         :player   player-id
+                         :property property-name
+                         :reason   (second valid?)}))))
+
+    ;; Apply the purchase
+    ;; TODO - when we have a bank "house inventory", return houses back to it
+    (-> game-state
+        ;; Dec house count in player's owned collection
+        (update-in [:players pidx :properties
+                    property-name :house-count]
+                   dec)
+        ;; Add back money, half of original price
+        (update-in [:players pidx :cash]
+                   + proceeds)
+        ;; Track transaction
+        (append-tx {:type     :sell-house
+                    :player   player-id
+                    :property property-name
+                    ;; TODO - is there a better, more consistent, key name for this?
+                    :proceeds proceeds}))))
+
+(defn apply-property-mortgage
+  "Given a game-state and a property, apply the mortgaging
+  of said property for current player. Validates and throws
+  if current player cannot perform operation."
+  [game-state property-name]
+  ;; TODO - the player in question should probably be passed as a prop?
+  (let [{player-id :id
+         pidx      :player-index
+         :as       player}
+        (current-player game-state)
+        ;; Get property definition
+        property       (->> game-state :board :properties
+                            (filter #(= property-name (:name %)))
+                            first)
+        mortgage-price (:mortgage property)
+        prop-state     (get-in player [:properties property-name])]
+
+    ;; Validate - make sure they own it
+    (when (not prop-state)
+      (throw (ex-info "Player decision not allowed"
+                      {:action   :sell-house
+                       :player   player-id
+                       :property property-name
+                       :reason   :property-not-owned})))
+    ;; Validate - make sure it doesn't have houses
+    (when (->> prop-state :house-count (< 0))
+      (throw (ex-info "Player decision not allowed"
+                      {:action   :sell-house
+                       :player   player-id
+                       :property property-name
+                       :reason   :property-has-buildings})))
+    ;; Validate - make sure it's not already mortgaged
+    (when (not= :paid (:status prop-state))
+      (throw (ex-info "Player decision not allowed"
+                      {:action   :sell-house
+                       :player   player-id
+                       :property property-name
+                       :reason   :property-not-paid})))
+    ;; Apply the flip
+    (-> game-state
+        ;; Update to mortgaged status in player state
+        (assoc-in [:players pidx :properties
+                   property-name :status]
+                  :mortgaged)
+        ;; Pay player mortgage amount
+        (update-in [:players pidx :cash]
+                   + mortgage-price)
+        ;; Track transaction
+        (append-tx {:type     :mortgage-property
+                    :player   player-id
+                    :property property-name
+                    :proceeds mortgage-price}))))

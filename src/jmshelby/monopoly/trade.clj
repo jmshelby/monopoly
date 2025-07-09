@@ -3,6 +3,7 @@
              :refer [union subset? difference]]
             [jmshelby.monopoly.util :as util]))
 
+;; TODO - similar to the "transfer-property" fn player, but that actually does "acquisition" logic for mortgaged properties
 (defn- exchange-properties
   ;; TODO - add notes, emphasising that this doesn't validate the exchange
   [game-state from-pidx to-pidx prop-names]

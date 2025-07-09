@@ -6,8 +6,10 @@
                      rcompare]]
             [jmshelby.monopoly.cards :as cards]
             [jmshelby.monopoly.trade :as trade]
+            [jmshelby.monopoly.player :as player]
             [jmshelby.monopoly.definitions :as defs]
-            [jmshelby.monopoly.players.dumb :as dumb-player]))
+            [jmshelby.monopoly.players.dumb :as dumb-player]
+            [jmshelby.monopoly.analysis :as analysis]))
 
 ;; Game state, schema
 (def example-state
@@ -47,7 +49,11 @@
    :current-turn {:player     "player uuid"
                   ;; All the dice rolls from the current turn player,
                   ;; multiple because doubles get another roll
-                  :dice-rolls []}
+                  :dice-rolls []
+                  ;; Opt - when needing to raise funds for a player
+                  ;; TODO - not sure if this will be original/total amount, or current remaining amount...
+                  :raise-funds 999
+                  }
 
    ;; The current *ordered* care queue to pull from.
    ;; At the beginning of the game these will be loaded at random,
@@ -62,33 +68,6 @@
    ;;  - Each item in this list could be every unique game state
    :transactions []})
 
-;; TODO - This will most likely turn into the "bankrupt by the bank" flow..
-(defn- simple-bankupt-player
-  "Apply simple bankruptcy logic to player in game state.
-  Remove houses from properties, remove properties, making
-  them available back to bank and to other players.
-  Finally mark player status as bankrupt."
-  [{:keys [players]
-    :as   game-state}
-   player-id]
-  ;; TODO - we can use the get-player-by-id fn here now....
-  (let [player
-        (->> players
-             (map-indexed (fn [idx p] (assoc p :player-index idx)))
-             (filter #(= (:id %) player-id))
-             first)
-        pidx (:player-index player)]
-    (-> game-state
-        ;; Remove all properties, this is like giving back
-        ;; to the bank, freeing up for others to buy
-        (assoc-in [:players pidx :properties] {})
-        ;; Final marker
-        (assoc-in [:players pidx :status] :bankrupt)
-        ;; Transaction, just a single one for this basic->bank style
-        (append-tx {:type       :bankruptcy
-                    :player     player-id
-                    :properties (:properties player)
-                    :acquistion [:basic :bank]}))))
 
 ;; Special function to core
 (defn- move-to-cell
@@ -96,7 +75,8 @@
   for moving... apply effects to move current player from their
   cell to the destination cell. Applies GO allowance if applicable,
   resulting transactions, and destination cell effects/options."
-  [{:keys [board players]
+  [{:keys [board players
+           functions]
     :as   game-state}
    new-cell driver
    & {:keys [allowance?]
@@ -143,37 +123,38 @@
       ;; Tax
       (util/tax-owed? new-state)
       (let [tax-owed (util/tax-owed? new-state)]
-        (-> new-state
-            ;; TODO - HERE, before transferring cash, need to check current cash, and ultimately sell-worth
-            (update-in [:players pidx :cash] - tax-owed)
-            ;; Just take from player
-            (append-tx {:type   :payment
-                        :from   player-id
-                        :to     :bank
-                        :amount tax-owed
-                        :reason :tax})))
+        ((functions :make-requisite-payment)
+         new-state player-id :bank tax-owed
+         #(-> %
+              ;; Just take from player
+              (append-tx {:type   :payment
+                          :from   player-id
+                          :to     :bank
+                          :amount tax-owed
+                          :reason :tax}))))
       ;; Rent
       (util/rent-owed? new-state)
       (let [rent-owed (util/rent-owed? new-state)]
-        (-> new-state
-            ;; TODO - HERE, before transferring cash, need to check current cash, and ultimately sell-worth
-            (update-in [:players pidx :cash] - (second rent-owed))
-            ;; Take from current player, give to owner
-            (update-in [:players
-                        ;; Get the player index of owed player
-                        ;; TODO - this could probably be refactored
-                        (->> players
-                             (map-indexed vector)
-                             (filter #(= (:id (second %))
-                                         (first rent-owed)))
-                             first first)
-                        :cash]
-                       + (second rent-owed))
-            (append-tx {:type   :payment
-                        :from   player-id
-                        :to     (first rent-owed)
-                        :amount (second rent-owed)
-                        :reason :rent})))
+        ((functions :make-requisite-payment) new-state
+         player-id (first rent-owed) (second rent-owed)
+         (fn [gs] (-> gs
+                      ;; Take from current player, give to owner
+                      (update-in [:players
+                                  ;; Get the player index of owed player
+                                  ;; TODO - this could probably be refactored
+                                  (->> players
+                                       (map-indexed vector)
+                                       (filter #(= (:id (second %))
+                                                   (first rent-owed)))
+                                       first first)
+                                  :cash]
+                                 + (second rent-owed))
+                      ;; And transaction
+                      (append-tx {:type   :payment
+                                  :from   player-id
+                                  :to     (first rent-owed)
+                                  :amount (second rent-owed)
+                                  :reason :rent})))))
       ;; Card Draw
       (let [cell-def (get-in board [:cells new-cell])]
         (= :card (:type cell-def)))
@@ -255,18 +236,13 @@
           (assoc game-state :status :complete))
 
       ;; Basic bankrupt logic, before turn..
-      ;; If the player is out of money,
-      ;; take them out of rotation (bankrupt)
-      ;; and move on to next player
-      ;; TODO - nobody else is marking this other than us...
-      (or (= :bankrupt status) ;; probably don't need to check this?
-          (> 0 cash))
+      ;; If the player is already marked as bankrupt,
+      ;; just move to next player (bankruptcy handling should
+      ;; have been done when they were marked bankrupt)
+      (= :bankrupt status)
       (-> game-state
-          ;; Move to next player FIRST
-          ;; (we can get caught in a loop if we don't do this right)
-          util/apply-end-turn
-          ;; Then process bankruptcy workflow
-          (simple-bankupt-player player-id))
+          ;; Move to next player
+          util/apply-end-turn)
 
       ;; If they have cash, and it's not time to end the train
       ;; proceed with regular player turn
@@ -383,8 +359,9 @@
          ;; Shuffle all cards by deck
          :card-queue   (cards/cards->deck-queues (:cards defs/board))
          :transactions []
-         :functions    {:move-to-cell    move-to-cell
-                        :apply-dice-roll apply-dice-roll}}]
+         :functions    {:move-to-cell           move-to-cell
+                        :apply-dice-roll        apply-dice-roll
+                        :make-requisite-payment player/make-requisite-payment}}]
     ;; Just return this state
     initial-state))
 
@@ -397,19 +374,49 @@
        last))
 
 (defn rand-game-end-state
-  "Return a new, random, completed game state, with # of given players"
+  "Return a new, random, completed game state, with # of given players.
+  If an exception occurs during game simulation, returns the last valid
+  game state with exception details added under :exception key."
   ([players] (rand-game-end-state players 2000))
   ([players failsafe-thresh]
-   (->> (init-game-state players)
-        (iterate advance-board)
-        ;; Skip past all iterations until game is done, and there is a winner
-        ;; OR, failsafe, the transactions have gone beyond X, most likely endless game
-        (drop-while
-          (fn [{:keys [status transactions]}]
-            (and (= :playing status)
-                 ;; Some arbitrary limit
-                 (> failsafe-thresh (count transactions)))))
-        first)))
+   (letfn [(safe-advance [state iteration]
+             (try
+               (let [next-state (advance-board state)]
+                 {:state next-state :exception nil})
+               (catch Exception e
+                 {:state state
+                  :exception (merge {:message (.getMessage e)
+                                     :type (str (type e))
+                                     :stack-trace (mapv str (.getStackTrace e))
+                                     :iteration iteration
+                                     :last-transaction (last (:transactions state))
+                                     :current-player (get-in state [:current-turn :player])
+                                     :player-cash (->> state :players
+                                                      (map #(vector (:id %) (select-keys % [:cash :status])))
+                                                      (into {}))}
+                                    ;; Include ex-info data if available
+                                    (when (instance? clojure.lang.ExceptionInfo e)
+                                      {:ex-data (ex-data e)}))})))]
+     (loop [current-state (init-game-state players)
+            iteration-count 0]
+       (let [{:keys [state exception]} (safe-advance current-state iteration-count)]
+         (cond
+           ;; Exception occurred
+           exception
+           (assoc current-state :exception exception)
+
+           ;; Game completed normally
+           (= :complete (:status state))
+           state
+
+           ;; Failsafe - too many iterations
+           (>= iteration-count failsafe-thresh)
+           (assoc state :failsafe-stop true)
+
+           ;; Continue game
+           :else
+           (recur state (inc iteration-count))))))))
+
 
 (comment
 
@@ -421,10 +428,11 @@
     [(:status state)
      (-> state :transactions count)])
 
-  (def sim (rand-game-state 5 150))
+  (def sim (rand-game-end-state 4 1500))
 
-  sim
-
+  (-> sim
+      analysis/summarize-game
+      analysis/print-game-summary)
 
   (let [players    (+ 2 (rand-int 5))
         iterations (+ 20 (rand-int 500))
@@ -434,43 +442,9 @@
                              (map (fn [player]
                                     (assoc player :prop-sell-worth
                                            (util/player-property-sell-worth state (:id player))))
-                                  players)))
-        ]
-    [players iterations appended]
-    )
+                                  players)))]
+    [players iterations appended])
 
-
-
-  (defn half [n] (/ n 2))
-
-  ;; WIP - "Net worth" logic, specifically cash worth after selling all resources and mortgaging
-  ;;       * does not include cash value for jail-free card
-  (let [sim      sim
-        player   (util/player-by-id sim "A")
-        props    (util/owned-property-details sim [player])
-        prop-val (->> props
-                      vals
-                      (map (fn [{:keys [def status house-count] :as prop}]
-                             (cond
-                               ;; Mortgaged properties aren't "worth" anything more in a bankruptcy situation
-                               (= :mortgaged status)
-                               0
-                               ;; Half face value + Half house value
-                               (= :paid status)
-                               (+ (:mortgage def) ;; TODO - could also use the :mortgage key ...
-                                  (half (* house-count (:house-price def 0))))
-                               ;; Just in case we have an invalid value
-                               :else
-                               (throw (ex-info "Unknown property status" {:owned-property prop})))))
-                      (apply +))
-        worth    (+ prop-val (:cash player))
-        ]
-    {:player    player
-     :props     props
-     :props-val prop-val
-     ;; TODO - or something around "liquidity" ??
-     :net-worth worth}
-    )
 
 
   (def sim

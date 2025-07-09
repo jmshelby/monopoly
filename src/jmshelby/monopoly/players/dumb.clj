@@ -203,6 +203,7 @@
 ;; TODO - multimethods..
 (defn decide
   [game-state method params]
+  ;; TODO - the current player won't always be the player being called ...
   (let [{my-id :id
          cash  :cash
          :as   player}
@@ -210,8 +211,53 @@
     (case method
 
       ;; Dumb, always decline these actions
-      :acquisition {:action :decline}
       :auction-bid {:action :decline}
+
+      ;; An acquisition of property from a debtor, when mortgaged, requires
+      ;; a decision on our part.
+      ;; TODO - Verify the below....
+      ;; We can either:
+      ;;  - Un-mortgage the property now, by paying half the property's cost (plus 10%??)
+      ;;  - Keep the property mortgaged, but only paying 10% of the total value
+      ;;    - Allowing us to still un-mortgage later, but still needing to pay an additional interest charge
+      ;; TODO - What are the params passed in here
+      ;; TODO - There won't actually be a :decline option
+      :acquisition {:action :decline}
+
+      ;; When we owe more cash than we have, we are
+      ;; forced to sell off our assets until we have
+      ;; enough cash.
+      ;; Params: {:amount 999} ;; where amount is the remaining amount needed to raise
+      :raise-funds
+      (let [owned-props (->> (util/owned-property-details game-state)
+                             vals
+                             (filter #(= my-id (:owner %))))
+            ;; First try to sell houses (gives back 50% of house cost)
+            houses-to-sell (->> owned-props
+                                (filter #(> (:house-count %) 0))
+                                (sort-by :house-count >)
+                                first)
+            ;; Then try to mortgage unmortgaged properties
+            props-to-mortgage (->> owned-props
+                                   (filter #(= :paid (:status %)))
+                                   (sort-by #(-> % :def :mortgage) >)
+                                   first)]
+        (cond
+          houses-to-sell
+          {:action :sell-house
+           :property-name (-> houses-to-sell :def :name)}
+
+          props-to-mortgage
+          {:action :mortgage-property
+           :property-name (-> props-to-mortgage :def :name)}
+
+          ;; If no houses to sell or properties to mortgage, we're bankrupt
+          :else
+          (throw (ex-info "Player cannot raise funds - no assets to liquidate"
+                          {:player-id my-id
+                           :amount-needed (:amount params)}))))
+
+
 
       ;; A trade proposal offered to us
       :trade-proposal
@@ -281,7 +327,7 @@
         {:action :jail/roll}
 
         ;; Next, if we can buy a house,
-        ;; and have more than $40 left (yes very dumb)
+        ;; and have more than $40 left (yes very dumb, and arbitrary)
         (and (-> params :actions-available :buy-house)
              (> cash 40))
         {:action :buy-house
