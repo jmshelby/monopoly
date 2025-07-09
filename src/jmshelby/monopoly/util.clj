@@ -670,10 +670,8 @@
       [false :house-inventory]
 
       ;; Ensure even house distribution
-      ;; If the current house count is the max
-      ;; count across this group, then they can't sell.
-      (= house-max
-         (:house-count single-prop))
+      ;; Can only sell if this property HAS the max house count in its group
+      (not= house-max (:house-count single-prop))
       [false :even-house-distribution]
 
       ;; All good!
