@@ -249,7 +249,6 @@
           ;; Not a double, third attempt.
           ;; Force bail payment, and move
           (<= 3 attempt)
-          ;; TODO - REQUISITE-PAYMENT
           (make-requisite-payment
             game-state player-id :bank bail
             #(-> %

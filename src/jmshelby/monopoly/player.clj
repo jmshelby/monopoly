@@ -9,7 +9,6 @@
      (util/player-property-sell-worth
        game-state (:id player))))
 
-;; TODO - THOUGHT - Is this function needed? Maybe without it it could highlight bugs??
 (defn- reset-player-assets
   [game-state player]
   (let [pidx (:player-index player)]
@@ -154,7 +153,6 @@
                            (:property-name decision)))))
 
 (defn- apply-raise-funds-workflow
-  ;; TODO - 'amount' here is the total amount, maybe a better name?
   [game-state player amount]
   ;; Set GS to indicate this current player owes a certain amount (more than they have)
   ;;  - probably just setting a "target owed amount" on the :current-turn map
