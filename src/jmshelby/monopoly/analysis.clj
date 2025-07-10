@@ -195,7 +195,8 @@
         group-transactions (fn [txs]
                             (loop [remaining txs
                                    grouped []
-                                   current-group nil]
+                                   current-group nil
+                                   transaction-idx 0]
                               (if (empty? remaining)
                                 ;; Add final group if exists
                                 (if current-group
@@ -230,16 +231,18 @@
                                     ;; Add to current group
                                     (recur (rest remaining)
                                            grouped
-                                           (update current-group :transactions conj tx))
+                                           (update current-group :transactions conj tx)
+                                           (inc transaction-idx))
                                     ;; Start new group
                                     (recur (rest remaining)
                                            (if current-group
                                              (conj grouped current-group)
                                              grouped)
                                            {:transactions [tx]
-                                            :start-idx (count grouped)
+                                            :start-idx transaction-idx
                                             :type tx-type
-                                            :player tx-player}))))))
+                                            :player tx-player}
+                                           (inc transaction-idx)))))))
         
         ;; Calculate total transactions to determine padding width
         total-txs (count transactions)
