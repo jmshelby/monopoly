@@ -534,6 +534,40 @@
       (println (format-group group)))
     
     (println)
+    
+    ;; Final game outcome summary
+    (let [active-players (->> players (filter #(= :playing (:status %))))
+          bankrupt-players (->> players (filter #(= :bankrupt (:status %))))]
+      (cond
+        ;; Single winner
+        (= 1 (count active-players))
+        (let [winner (first active-players)
+              net-worth (+ (:cash winner) 
+                          (util/player-property-sell-worth game-state (:id winner)))]
+          (println (format "🏆 WINNER: Player %s with $%d cash ($%d net worth, %d properties)"
+                          (:id winner)
+                          (:cash winner)
+                          net-worth
+                          (count (:properties winner)))))
+        
+        ;; Multiple players still active
+        (> (count active-players) 1)
+        (do
+          (println (format "🎮 GAME INCOMPLETE: %d players remaining" (count active-players)))
+          (doseq [player active-players]
+            (let [net-worth (+ (:cash player) 
+                              (util/player-property-sell-worth game-state (:id player)))]
+              (println (format "   Player %s: $%d cash ($%d net worth, %d properties)"
+                              (:id player)
+                              (:cash player)
+                              net-worth
+                              (count (:properties player)))))))
+        
+        ;; No active players (shouldn't happen but handle it)
+        :else
+        (println "💥 NO ACTIVE PLAYERS - Game ended in mutual destruction!")))
+    
+    (println)
     (println "=== END TRANSACTION LOG ===")))
 
 (defn print-game-summary
