@@ -1,4 +1,4 @@
-(ns test-simulation
+(ns jmshelby.monopoly.simulation
   (:require [jmshelby.monopoly.core :as core]
             [clojure.pprint :as pprint]))
 
@@ -162,28 +162,8 @@
 (defn -main
   "Run the simulation and print results"
   [& args]
-  (println "Starting simulation...")
   (let [num-games (if (first args) 
                     (Integer/parseInt (first args)) 
-                    1000)]
-    (println (format "Running %d games..." num-games))
+                    100)]
     (-> (run-simulation num-games)
         print-simulation-results)))
-
-;; Auto-run when loaded (uncomment to run automatically)
-;; (println "Loading simulation script...")
-;; (-main "50")
-
-;; For REPL usage
-(comment
-  ;; Run a quick test
-  (-> (run-simulation 100)
-      print-simulation-results)
-  
-  ;; Run full simulation
-  (-> (run-simulation 1000)
-      print-simulation-results)
-  
-  ;; Run with custom count
-  (-main "500")
-  )
