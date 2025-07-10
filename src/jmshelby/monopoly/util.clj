@@ -1,5 +1,6 @@
 (ns jmshelby.monopoly.util
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set]
+            [clojure.core.memoize :as memo]))
 
 ;; ======= General =============================
 
@@ -378,8 +379,8 @@
          (into {})))))
 
 (def owned-property-details
-  ;; *owned-property-details
-  (memoize *owned-property-details))
+  ;; LRU cache with max 1000 entries to prevent memory leaks
+  (memo/lru *owned-property-details :lru/threshold 1000))
 
 (defn player-property-sell-worth
   "Given a game-state, and a player ID, calculate and return the player's \"sell worth\" as a cash integer.
