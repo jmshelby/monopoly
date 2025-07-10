@@ -362,13 +362,21 @@
                                   roll-result (:roll roll-tx)
                                   roll-total (apply + roll-result)
                                   to-cell (:after-cell move-tx)
-                                  driver (:driver move-tx)]
-                              (format "[%s] %s rolls %d and moves to %s"
-                                     tx-num player roll-total (get-cell-name to-cell)))
+                                  driver (:driver move-tx)
+                                  is-double? (apply = roll-result)
+                                  base-text (format "[%s] %s rolls %d and moves to %s"
+                                                   tx-num player roll-total (get-cell-name to-cell))]
+                              (if is-double?
+                                (str base-text " (rolled double)")
+                                base-text))
                             ;; Just a roll (shouldn't happen in normal flow but handle it)
-                            (let [roll-result (:roll first-tx)]
-                              (format "[%s] %s rolls %s (total: %d)"
-                                     tx-num player roll-result (apply + roll-result))))
+                            (let [roll-result (:roll first-tx)
+                                  is-double? (apply = roll-result)
+                                  base-text (format "[%s] %s rolls %s (total: %d)"
+                                                   tx-num player roll-result (apply + roll-result))]
+                              (if is-double?
+                                (str base-text " (rolled double)")
+                                base-text)))
                           
                           :move
                           (let [from-cell (:before-cell first-tx)
