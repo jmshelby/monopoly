@@ -1,1 +1,2 @@
-clojure -X:test
+#!/bin/bash
+clojure -M:test "$@"

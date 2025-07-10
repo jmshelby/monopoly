@@ -157,9 +157,8 @@
   [game-state player card]
   (let [{player-id :id
          pidx      :player-index} player
-        ;; TODO - Need to check for :card.collect/multiplier, and apply
-        ;;        Could be: :player/count
-        amount                    (:card.collect/cash card)]
+        mult   (get-payment-multiplier game-state player card)
+        amount (* mult (:card.collect/cash card))]
     (-> game-state
         ;; Add money
         (update-in [:players pidx :cash] + amount)
