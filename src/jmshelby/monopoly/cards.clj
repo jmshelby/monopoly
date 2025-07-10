@@ -129,10 +129,12 @@
     :hotel/count  (->> player :properties vals
                        (filter #(= 5 (:house-count %)))
                        count)
-    ;; Count of total active players
+    ;; Count of total active players,
+    ;; other than current player
     :player/count (->> game-state :players
                        (filter #(= :playing (:status %)))
-                       count)
+                       count
+                       dec)
     ;; Default to 1, no multiplier
     1))
 
