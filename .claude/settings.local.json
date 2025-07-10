@@ -6,7 +6,8 @@
       "Bash(clojure:*)",
       "Bash(grep:*)",
       "Bash(sed:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(./bin/test)"
     ],
     "deny": []
   }

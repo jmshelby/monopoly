@@ -25,4 +25,4 @@ jobs:
         key: cljdeps-${{ hashFiles('deps.edn') }}
         restore-keys: cljdeps-
     - name: Unit Tests
-      run: bin/test
+      run: bin/test --profile ci --no-capture-output
