@@ -33,7 +33,7 @@
         process-game (fn [game-num]
                        (when (= 0 (mod game-num 100))
                          (println (format "Completed %d/%d games..." game-num num-games)))
-                       (let [game-state (core/rand-game-end-state 4 2000)]
+                       (let [game-state (core/rand-game-end-state 4 1500)]
                         ;; Extract minimal stats and let GC clean up the full game state
                          (analyze-game-outcome game-state)))
 
@@ -73,6 +73,9 @@
 
         ;; Transaction count statistics for winning games
         winning-tx-counts (->> games-with-winner (map :transaction-count))
+        
+        ;; Transaction count statistics for failsafe games
+        failsafe-tx-counts (->> failsafe-games (map :transaction-count))
 
         ;; Incomplete game analysis
         incomplete-games (->> games-without-winner
@@ -103,6 +106,13 @@
                                      :avg (double (/ (apply + winning-tx-counts) (count winning-tx-counts)))
                                      :median (nth (sort winning-tx-counts)
                                                   (int (/ (count winning-tx-counts) 2)))})
+               
+               :failsafe-transaction-stats (when (seq failsafe-tx-counts)
+                                             {:min (apply min failsafe-tx-counts)
+                                              :max (apply max failsafe-tx-counts)
+                                              :avg (double (/ (apply + failsafe-tx-counts) (count failsafe-tx-counts)))
+                                              :median (nth (sort failsafe-tx-counts)
+                                                          (int (/ (count failsafe-tx-counts) 2)))})
 
                :incomplete-game-breakdown incomplete-games}]
 
@@ -116,7 +126,7 @@
                 games-with-winner games-without-winner winner-percentage
                 failsafe-games exception-games
                 winner-distribution winner-percentages
-                transaction-stats incomplete-game-breakdown]} stats]
+                transaction-stats failsafe-transaction-stats incomplete-game-breakdown]} stats]
     
     (println "\n=== MONOPOLY SIMULATION RESULTS ===")
     (println)
@@ -156,6 +166,15 @@
       (printf "   Maximum: %d transactions\n" (:max transaction-stats))
       (printf "   Average: %.1f transactions\n" (:avg transaction-stats))
       (printf "   Median: %d transactions\n" (:median transaction-stats))
+      (println))
+    
+    ;; Failsafe Transaction Statistics
+    (when failsafe-transaction-stats
+      (println "⏱️  FAILSAFE TRANSACTION STATISTICS (Incomplete Games)")
+      (printf "   Minimum: %d transactions\n" (:min failsafe-transaction-stats))
+      (printf "   Maximum: %d transactions\n" (:max failsafe-transaction-stats))
+      (printf "   Average: %.1f transactions\n" (:avg failsafe-transaction-stats))
+      (printf "   Median: %d transactions\n" (:median failsafe-transaction-stats))
       (println))
     
     ;; Incomplete Game Analysis
