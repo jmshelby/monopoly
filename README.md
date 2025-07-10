@@ -80,6 +80,36 @@ Monopoly Game Engine + Pluggable Player API
   - `apply-property-mortgage` - should accept player parameter
   - This creates tight coupling and makes functions less reusable/testable
 
+## Development Commands
+
+### Running Tests
+```bash
+clojure -M:test
+```
+
+### Game Simulation
+Run parallel game simulations to analyze game mechanics and balance:
+
+```bash
+# Quick test (100 games - default)
+clojure -M:sim
+
+# Small test (50 games)
+clojure -M:sim 50
+
+# Large simulation (1000 games)
+clojure -M:sim 1000
+
+# For large simulations, increase memory if needed
+clojure -J-Xmx8g -M:sim 1000
+```
+
+The simulation provides statistics on:
+- Game completion rates and winner distribution
+- Transaction counts and game length analysis  
+- Performance metrics and memory usage
+- Incomplete game breakdown (failsafe cases)
+
 ## Future
 
 #### Engine Features
