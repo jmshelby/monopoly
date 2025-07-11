@@ -133,8 +133,10 @@
                          :properties (:properties debtor)}))))
 
 (defn- invoke-and-apply-raise-funds
-  ;; TODO - docs
-  "amount here is the outstanding amount..."
+  "Given a game state, player, and outstanding amount, invoke the player's
+  raise-funds decision logic and apply their chosen action to the game state.
+  Player can choose to sell houses or mortgage properties. Returns updated
+  game state with the applied action and corresponding transaction."
   [game-state player amount]
   ;; TODO - should we also determine which actions are currently available for the player?
   (let [player-fn (:function player)
@@ -153,6 +155,10 @@
                            (:property-name decision)))))
 
 (defn- apply-raise-funds-workflow
+  "Given a game state, player, and required amount, initiate the raise-funds
+  workflow where the player must liquidate assets to cover their debt.
+  Continuously invokes player decision logic until sufficient cash is raised.
+  Sets :raise-funds flag on current turn and removes it when complete."
   [game-state player amount]
   ;; Set GS to indicate this current player owes a certain amount (more than they have)
   ;;  - probably just setting a "target owed amount" on the :current-turn map

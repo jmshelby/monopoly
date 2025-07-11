@@ -213,6 +213,7 @@
     (case method
 
       ;; Dumb, always decline these actions
+      ;; TODO - when auctioning is active in the engine, implement this
       :auction-bid {:action :decline}
 
       ;; An acquisition of property from a debtor, when mortgaged, requires

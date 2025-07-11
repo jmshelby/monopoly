@@ -449,6 +449,7 @@
           (update-in [:players player-index :cash]
                      - (:price property))
           ;; Track transaction
+          ;; TODO - maybe add an indicator that this was a purchase via direct landing on? (vs auction or other acquisition)
           (append-tx {:type     :purchase
                       :player   (:id player)
                       :property (:name property)
@@ -456,7 +457,6 @@
 
       ;; Apply auction workflow
       ;; TODO - need to implement this
-      ;; TODO - need also add another condition that it's unowned
       game-state)))
 
 
