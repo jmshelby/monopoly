@@ -407,6 +407,32 @@
                   (throw (ex-info "Unknown property status" {:owned-property prop})))))
          (apply +))))
 
+
+;; TODO - Need to do a special transfer/acquisition workflow for mortgaged properties,
+;;        currently we just assume it's owned outright
+(defn- apply-auction-property-workflow
+  "Given a game-state and a property name, carry out the auction workflow by sequentially invoking the 'auction-bid' player decision method, per player, until a winner is found. Starts by establishing a random order to call players in, and continues that order in a loop. When a winner is found, the game-state is updated to reflect the purchase, indicating it was purchased via auction.
+
+  NOTE - This does not handle correct mortgaged property rules yet"
+  [game-state property]
+
+  ;; -> Establish random player call ordering
+  ;; -> Determine the raise increment for offering bids
+  ;;      - perhaps this can be defined in the "board" definition attached to the game state. Like a new :rules key, that can contain various rule configurations/options
+  ;;      - the starting price can be this increment
+  ;; -> Loop through each player, invoking their :auction-bid method
+  ;;      - params:
+  ;;        - property details (from def)
+  ;;        - highest bid
+  ;;        - highest bidder
+  ;;        - [the current required amount in order to take the lead]
+  ;;      - expected return map keys
+  ;;        - :action - [decline | bid]
+  ;;        - :bid    - [some dollar amount, gte to the required next bid amount]
+  ;;    -> As invocations are carried out:
+  ;;      - players that decline are taken out of rotation for this auction
+  )
+
 (defn apply-property-option
   "Given a game state, check if current player is able to buy the property
   they are currently on, if so, invoke player decision logic to determine
