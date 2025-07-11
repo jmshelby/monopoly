@@ -1,6 +1,7 @@
 (ns jmshelby.monopoly.players.dumb-test
   (:require [clojure.test :refer :all]
             [jmshelby.monopoly.core :as core]
+            [jmshelby.monopoly.util :as util]
             [jmshelby.monopoly.players.dumb :as dumb-player]))
 
 (deftest trade-side-value
@@ -158,3 +159,33 @@
                       :trade/from-player "C"
                       :trade/asking      {:cards #{{:deck :chance}}}
                       :trade/offering    {:cash 11}}))))))
+
+(deftest empty-offers-prevention
+  (testing "proposal? should not create empty offers"
+    ;; Set up a game state where a player wants a property but has nothing to offer
+    (let [game-state (-> (core/init-game-state 2)
+                         ;; Player A owns boardwalk
+                         (assoc-in [:players 0 :properties :boardwalk] {:status :paid :house-count 0})
+                         ;; Player B has no properties and limited cash (can't afford boardwalk)
+                         (assoc-in [:players 1 :cash] 100)
+                         (assoc-in [:players 1 :properties] {}))
+          player-b   (get-in game-state [:players 1])
+          proposal   (dumb-player/proposal? game-state player-b)]
+      
+      ;; Should not create a proposal when player has nothing to offer
+      (is (nil? proposal) "Should not create empty trade proposals")
+      
+      ;; Verify the logic: player should have a target but no sacrifice
+      (let [target-props (->> (util/owned-property-details game-state)
+                              vals
+                              (remove #(= (:id player-b) (:owner %)))
+                              (filter #(= :paid (:status %)))
+                              (filter #(zero? (:house-count %)))
+                              (remove #(:group-monopoly? %)))
+            target-prop  (first target-props)
+            sacrifice    (dumb-player/find-proposable-properties
+                           game-state player-b
+                           (-> target-prop :def :price))]
+        
+        (is (some? target-prop) "Player should have a target property to want")
+        (is (empty? sacrifice) "Player should have no properties to sacrifice")))))

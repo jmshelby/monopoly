@@ -178,27 +178,29 @@
             ;; _         (println (:id player) ": Going after prop: " target-prop)
             sacrifice (find-proposable-properties
                         game-state player
-                        (-> target-prop :def :price))
+                        (-> target-prop :def :price))]
 
-            ;; Assemble a proposal map, from/to player ids, asking/offering maps
-            offer {:trade/to-player (:owner target-prop)
-                   ;; Only one target property we're going after
-                   :trade/asking    {:properties #{(-> target-prop :def :name)}}
-                   ;; Only offering set of properties
-                   :trade/offering  {:properties (set (map (comp :name :def) sacrifice))}}
+        ;; Only create an offer if we have something to sacrifice
+        (when (seq sacrifice)
+          (let [;; Assemble a proposal map, from/to player ids, asking/offering maps
+                offer {:trade/to-player (:owner target-prop)
+                       ;; Only one target property we're going after
+                       :trade/asking    {:properties #{(-> target-prop :def :name)}}
+                       ;; Only offering set of properties
+                       :trade/offering  {:properties (set (map (comp :name :def) sacrifice))}}
 
-            ;; Make sure we haven't offered this before
-            prospective-tx {:type     :trade
-                            :status   :proposal
-                            :to       (:trade/to-player offer)
-                            :from     (:id player)
-                            :asking   (:trade/asking offer)
-                            :offering (:trade/offering offer)}]
-        ;; Should we return this proposal?
-        ;;  - should just be a set intersection, between transactions and assembled proposal
-        (when-not ((set (:transactions game-state))
-                   prospective-tx)
-          offer)))))
+                ;; Make sure we haven't offered this before
+                prospective-tx {:type     :trade
+                                :status   :proposal
+                                :to       (:trade/to-player offer)
+                                :from     (:id player)
+                                :asking   (:trade/asking offer)
+                                :offering (:trade/offering offer)}]
+            ;; Should we return this proposal?
+            ;;  - should just be a set intersection, between transactions and assembled proposal
+            (when-not ((set (:transactions game-state))
+                       prospective-tx)
+              offer)))))))
 
 ;; TODO - multimethods..
 (defn decide
