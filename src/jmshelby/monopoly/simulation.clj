@@ -24,6 +24,8 @@
      :failed-to-complete (= :playing (:status game-state))
      :hit-failsafe (boolean (:failsafe-stop game-state))
      :had-exception (boolean (:exception game-state))
+     :exception-message (when (:exception game-state) 
+                          (get-in game-state [:exception :message]))
      
      ;; Auction statistics
      :auction-initiated-count (count auction-initiated-txs)
@@ -80,6 +82,13 @@
         games-without-winner (->> results (remove :has-winner))
         failsafe-games (->> results (filter :hit-failsafe))
         exception-games (->> results (filter :had-exception))
+        
+        ;; Exception message statistics
+        exception-messages (->> exception-games
+                               (map :exception-message)
+                               (filter some?)
+                               frequencies
+                               (sort-by second >))
 
         ;; Winner statistics
         winner-stats (->> games-with-winner
@@ -127,6 +136,7 @@
 
                :failsafe-games (count failsafe-games)
                :exception-games (count exception-games)
+               :exception-messages exception-messages
 
                :winner-distribution winner-stats
                :winner-percentages (->> winner-stats
@@ -180,7 +190,7 @@
   [stats]
   (let [{:keys [total-games duration-seconds games-per-second
                 games-with-winner games-without-winner winner-percentage
-                failsafe-games exception-games
+                failsafe-games exception-games exception-messages
                 winner-distribution winner-percentages
                 transaction-stats failsafe-transaction-stats incomplete-game-breakdown
                 games-with-auctions auction-occurrence-rate total-auctions-initiated total-auctions-completed
@@ -210,6 +220,17 @@
       (printf "   Exception Games: %d (%.1f%%)\n" 
               exception-games (* 100.0 (/ exception-games total-games))))
     (println)
+    
+    ;; Exception Details - only show if there are exceptions
+    (when (and (> exception-games 0) (seq exception-messages))
+      (println "💥 EXCEPTION DETAILS")
+      (printf "   Games with Exceptions: %d (%.1f%%)\n" 
+              exception-games (* 100.0 (/ exception-games total-games)))
+      (println "   Exception Messages:")
+      (doseq [[message count] exception-messages]
+        (let [percentage (* 100.0 (/ count exception-games))]
+          (printf "     • %dx (%.1f%%) - %s\n" count percentage message)))
+      (println))
 
     ;; Winner Distribution
     (when (seq winner-distribution)
