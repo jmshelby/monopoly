@@ -214,31 +214,23 @@
 
       ;; Simple auction bidding logic
       :auction-bid
-      (let [{:keys [property highest-bid required-bid]} params
-            cash-reserve 200  ; Keep some cash on hand (reduced from 300)
+      (let [{:keys [property _highest-bid required-bid]} params
+            cash-reserve 100 ;; Keep some cash on hand
             max-affordable (max 0 (- cash cash-reserve))
             property-value (when property (:price property))
-
             ;; Determine if this property is valuable to us
             property-worth-it? (and
-                               ;; Property exists and has a price
+                                ;; Property exists and has a price
                                 property-value
-                               ;; Don't bid more than property's face value
+                                ;; Don't bid more than property's face value
                                 (<= required-bid property-value)
-                               ;; Make sure we can afford it plus reserve
-                                (>= max-affordable required-bid)
-                               ;; Only bid if we have reasonable cash (reduced threshold)
-                                (> cash 300))
-
-            ;; Calculate our maximum bid (more liberal - up to full property value)
-            max-bid (when property-value
-                      (min max-affordable property-value))]
-
-        (if (and property-worth-it?
-                 max-bid
-                 (>= max-bid required-bid))
+                                ;; Make sure we can afford it plus reserve
+                                (>= max-affordable required-bid))]
+        (if property-worth-it?
+          ;; Bid just the current asking price
           {:action :bid
-           :bid required-bid}  ; Bid exactly what's required
+           :bid required-bid}
+          ;; Not worth it for us
           {:action :decline}))
 
       ;; An acquisition of property from a debtor, when mortgaged, requires
