@@ -415,23 +415,81 @@
 
   NOTE - This does not handle correct mortgaged property rules yet"
   [game-state property]
+  (let [;; Get property definition from board
+        property-def (->> game-state :board :properties
+                          (filter #(= property (:name %)))
+                          first)
+        ;; Establish random player call ordering (exclude current player who declined)
+        current-player-id (get-in game-state [:current-turn :player])
+        auction-players (->> game-state :players
+                             (filter #(= :playing (:status %)))
+                             (remove #(= current-player-id (:id %)))
+                             (map-indexed #(assoc %2 :player-index %1))
+                             shuffle)
+        ;; Determine bid increment (default to $10 if no rules specified)
+        bid-increment (get-in game-state [:board :rules :auction-increment] 10)
+        starting-bid bid-increment]
 
-  ;; -> Establish random player call ordering
-  ;; -> Determine the raise increment for offering bids
-  ;;      - perhaps this can be defined in the "board" definition attached to the game state. Like a new :rules key, that can contain various rule configurations/options
-  ;;      - the starting price can be this increment
-  ;; -> Loop through each player, invoking their :auction-bid method
-  ;;      - params:
-  ;;        - property details (from def)
-  ;;        - highest bid
-  ;;        - highest bidder
-  ;;        - [the current required amount in order to take the lead]
-  ;;      - expected return map keys
-  ;;        - :action - [decline | bid]
-  ;;        - :bid    - [some dollar amount, gte to the required next bid amount]
-  ;;    -> As invocations are carried out:
-  ;;      - players that decline are taken out of rotation for this auction
-  )
+    ;; Start auction loop
+    (loop [active-players auction-players
+           highest-bid 0
+           highest-bidder nil
+           current-bid starting-bid]
+
+      (if (empty? active-players)
+        ;; No more bidders - auction complete
+        (if highest-bidder
+          ;; Someone won the auction
+          (-> game-state
+              ;; Add property to winner
+              (update-in [:players (:player-index highest-bidder) :properties]
+                         assoc property {:status :paid :house-count 0})
+              ;; Deduct winning bid from winner
+              (update-in [:players (:player-index highest-bidder) :cash]
+                         - highest-bid)
+              ;; Record auction transaction
+              (append-tx {:type :auction
+                          :property property
+                          :winner (:id highest-bidder)
+                          :winning-bid highest-bid
+                          :participants (map :id auction-players)}))
+          ;; No one bid - property goes to bank (no changes needed)
+          game-state)
+
+        ;; Continue auction - get next player's bid
+        (let [current-player (first active-players)
+              remaining-players (rest active-players)
+
+              ;; Invoke player's auction-bid decision
+              decision ((:function current-player)
+                        game-state
+                        :auction-bid
+                        {:property property-def
+                         :highest-bid highest-bid
+                         :highest-bidder (when highest-bidder (:id highest-bidder))
+                         :required-bid current-bid})]
+
+          (case (:action decision)
+            ;; Player declines - remove from active players
+            :decline
+            (recur remaining-players highest-bid highest-bidder current-bid)
+
+            ;; Player bids - validate and update if valid
+            :bid
+            (let [bid-amount (:bid decision)]
+              (if (and bid-amount
+                       (>= bid-amount current-bid)
+                       (>= (:cash current-player) bid-amount))
+                ;; Valid bid - update highest bid and continue
+                (recur (conj (vec remaining-players) current-player)
+                       bid-amount
+                       current-player
+                       (+ bid-amount bid-increment))
+                ;; Invalid bid - treat as decline
+                (recur remaining-players highest-bid highest-bidder current-bid)))
+
+            ;; Unknown action - treat as decline
+            (recur remaining-players highest-bid highest-bidder current-bid)))))))
 
 (defn apply-property-option
   "Given a game state, check if current player is able to buy the property
@@ -482,8 +540,7 @@
                       :price    (:price property)}))
 
       ;; Apply auction workflow
-      ;; TODO - need to implement this
-      game-state)))
+      (apply-auction-property-workflow game-state (:name property)))))
 
 
 ;; ----- Rent ------------------------
