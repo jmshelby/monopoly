@@ -31,22 +31,24 @@
 
 (defn run-simulation
   "Run a large number of game simulations using core.async pipeline for memory efficiency"
-  [num-games]
-  (println (format "Starting simulation of %d games with 4 players each..." num-games))
-  (let [start-time (System/currentTimeMillis)
-        parallelism  (+ 2 (* 2 (.. Runtime getRuntime availableProcessors)))
+  ([num-games] (run-simulation num-games 4 1500))
+  ([num-games num-players safety-threshold]
+   (println (format "Starting simulation of %d games with %d players each (safety: %d)..." 
+                    num-games num-players safety-threshold))
+   (let [start-time (System/currentTimeMillis)
+         parallelism  (+ 2 (* 2 (.. Runtime getRuntime availableProcessors)))
 
-        ;; Create channels
-        input-ch (chan 10)    ; Buffer for game numbers 
-        output-ch (chan 200)   ; Buffer for results
+         ;; Create channels
+         input-ch (chan 10)    ; Buffer for game numbers 
+         output-ch (chan 200)   ; Buffer for results
 
-        ;; Function that processes a single game
-        process-game (fn [game-num]
-                       (when (= 0 (mod game-num 100))
-                         (println (format "Completed %d/%d games..." game-num num-games)))
-                       (let [game-state (core/rand-game-end-state 4 1500)]
-                        ;; Extract minimal stats and let GC clean up the full game state
-                         (analyze-game-outcome game-state)))
+         ;; Function that processes a single game
+         process-game (fn [game-num]
+                        (when (= 0 (mod game-num 100))
+                          (println (format "Completed %d/%d games..." game-num num-games)))
+                        (let [game-state (core/rand-game-end-state num-players safety-threshold)]
+                         ;; Extract minimal stats and let GC clean up the full game state
+                          (analyze-game-outcome game-state)))
 
         ;; Set up pipeline to process games in parallel with backpressure
         pipeline-result (pipeline parallelism output-ch (map process-game) input-ch)
@@ -155,7 +157,7 @@
                :incomplete-game-breakdown incomplete-games}]
 
     (println (format "Simulation completed in %.1f seconds" (/ duration-ms 1000.0)))
-    stats))
+    stats)))
 
 (defn print-simulation-results
   "Print a human-readable summary of simulation results"
@@ -248,11 +250,107 @@
 
     (println "=== END SIMULATION RESULTS ===")))
 
+(defn print-usage
+  "Print usage information"
+  []
+  (println "Monopoly Game Simulation")
+  (println "Usage: simulation [options]")
+  (println "")
+  (println "Options:")
+  (println "  -g, --games GAMES        Number of games to simulate (default: 100)")
+  (println "  -p, --players PLAYERS    Number of players per game (default: 4)")
+  (println "  -s, --safety THRESHOLD   Safety threshold for game termination (default: 1500)")
+  (println "  -h, --help               Show this help message")
+  (println "")
+  (println "Examples:")
+  (println "  simulation                           # 100 games, 4 players, safety 1500")
+  (println "  simulation -g 1000                   # 1000 games with defaults")
+  (println "  simulation -g 500 -p 3 -s 2000      # 500 games, 3 players, safety 2000")
+  (println "  simulation --games 2000 --players 6  # 2000 games, 6 players")
+  (println ""))
+
+(defn parse-int-safely
+  "Parse integer safely, returning [success? value-or-error]"
+  [s]
+  (try
+    [true (Integer/parseInt s)]
+    (catch NumberFormatException _
+      [false (format "Invalid number: %s" s)])))
+
+(defn parse-args
+  "Parse command line arguments and return options map"
+  [args]
+  (loop [args args
+         options {:games 100 :players 4 :safety 1500}]
+    (if (empty? args)
+      options
+      (let [arg (first args)
+            remaining (rest args)]
+        (case arg
+          ("-h" "--help")
+          (assoc options :help true)
+          
+          ("-g" "--games")
+          (if (empty? remaining)
+            (assoc options :error "Missing value for --games")
+            (let [value (first remaining)
+                  [success? result] (parse-int-safely value)]
+              (if success?
+                (recur (rest remaining)
+                       (assoc options :games result))
+                (assoc options :error (format "Invalid number for --games: %s" value)))))
+          
+          ("-p" "--players")
+          (if (empty? remaining)
+            (assoc options :error "Missing value for --players")
+            (let [value (first remaining)
+                  [success? result] (parse-int-safely value)]
+              (if success?
+                (if (and (>= result 2) (<= result 8))
+                  (recur (rest remaining)
+                         (assoc options :players result))
+                  (assoc options :error (format "Players must be between 2 and 8, got: %d" result)))
+                (assoc options :error (format "Invalid number for --players: %s" value)))))
+          
+          ("-s" "--safety")
+          (if (empty? remaining)
+            (assoc options :error "Missing value for --safety")
+            (let [value (first remaining)
+                  [success? result] (parse-int-safely value)]
+              (if success?
+                (if (> result 0)
+                  (recur (rest remaining)
+                         (assoc options :safety result))
+                  (assoc options :error (format "Safety threshold must be positive, got: %d" result)))
+                (assoc options :error (format "Invalid number for --safety: %s" value)))))
+          
+          ;; Handle positional arguments (for backward compatibility)
+          (if (re-matches #"\d+" arg)
+            (let [[success? result] (parse-int-safely arg)]
+              (if success?
+                (recur remaining
+                       (assoc options :games result))
+                (assoc options :error result)))
+            (assoc options :error (format "Unknown option: %s" arg))))))))
+
 (defn -main
   "Run the simulation and print results"
   [& args]
-  (let [num-games (if (first args) 
-                    (Integer/parseInt (first args)) 
-                    100)]
-    (-> (run-simulation num-games)
-        print-simulation-results)))
+  (let [options (parse-args args)]
+    (cond
+      (:help options)
+      (print-usage)
+      
+      (:error options)
+      (do
+        (println (format "Error: %s" (:error options)))
+        (println)
+        (print-usage)
+        (System/exit 1))
+      
+      :else
+      (let [{:keys [games players safety]} options]
+        (printf "Configuration: %d games, %d players, safety threshold %d\n" games players safety)
+        (println)
+        (-> (run-simulation games players safety)
+            print-simulation-results)))))
