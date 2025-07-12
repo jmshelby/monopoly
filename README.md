@@ -90,6 +90,17 @@ Monopoly Game Engine + Pluggable Player API
 clojure -M:test
 ```
 
+### Test Coverage
+```bash
+# Generate coverage report
+./bin/coverage
+
+# View HTML report  
+open target/coverage/index.html
+```
+
+See [docs/COVERAGE.md](docs/COVERAGE.md) for detailed coverage information.
+
 ### Game Simulation
 Run parallel game simulations to analyze game mechanics and balance:
 

@@ -1,0 +1,8 @@
+#!/bin/bash
+# Generate test coverage report
+clojure -M:coverage "$@"
+echo ""
+echo "Coverage reports generated:"
+echo "  HTML: target/coverage/index.html"
+echo "  LCOV: target/coverage/lcov.info" 
+echo "  Codecov: target/coverage/codecov.json"
