@@ -509,7 +509,9 @@
   "Given a game state, check if current player is able to buy the property
   they are currently on, if so, invoke player decision logic to determine
   if they want to buy the property. Apply game state changes for either a
-  property purchase, or the result of an invoked auction workflow."
+  property purchase, or the result of an invoked auction workflow.
+  Current cell residency must be a property type, and that property must be
+  unowned."
   [{:keys [board]
     :as   game-state}]
   (let [;; Get player details

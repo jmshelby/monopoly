@@ -78,7 +78,7 @@
   [{:keys [board players
            functions]
     :as   game-state}
-   new-cell driver
+   new-cell-idx driver
    & {:keys [allowance?]
       :or   {allowance? true}}]
   (let [;; Get current player info
@@ -86,11 +86,12 @@
         player-id      (:id player)
         pidx           (:player-index player)
         player-cash    (:cash player)
-        old-cell       (:cell-residency player)
+        old-cell-idx   (:cell-residency player)
+        new-cell       (get-in board [:cells new-cell-idx])
         ;; Check for allowance (from > to)
         allowance      (get-in board [:cells 0 :allowance])
         with-allowance (when (and allowance?
-                                  (> old-cell new-cell))
+                                  (> old-cell-idx new-cell-idx))
                          (+ player-cash allowance))
         ;; Initial state update, things that have
         ;; to happen before the move effects
@@ -99,12 +100,12 @@
           ;; Move player
           ;; TODO - the true here is not great...
           true
-          (-> (assoc-in [:players pidx :cell-residency] new-cell)
+          (-> (assoc-in [:players pidx :cell-residency] new-cell-idx)
               (append-tx {:type        :move
                           :driver      driver
                           :player      player-id
-                          :before-cell old-cell
-                          :after-cell  new-cell}))
+                          :before-cell old-cell-idx
+                          :after-cell  new-cell-idx}))
           ;; Check if we've passed/landed on go, for allowance payout
           with-allowance
           (-> (assoc-in [:players pidx :cash] with-allowance)
@@ -117,8 +118,7 @@
     ;; TODO - yikes, getting messy, impl dispatch by cell type
     (cond
       ;; "Go to Jail" cell landing
-      (= :go-to-jail
-         (get-in board [:cells new-cell :type]))
+      (= :go-to-jail (:type new-cell))
       (util/send-to-jail new-state player-id [:cell :go-to-jail])
       ;; Tax
       (util/tax-owed? new-state)
@@ -135,7 +135,8 @@
       ;; Rent
       (util/rent-owed? new-state)
       (let [rent-owed (util/rent-owed? new-state)]
-        ((functions :make-requisite-payment) new-state
+        ((functions :make-requisite-payment)
+         new-state
          player-id (first rent-owed) (second rent-owed)
          (fn [gs] (-> gs
                       ;; Take from current player, give to owner
@@ -156,12 +157,18 @@
                                   :amount (second rent-owed)
                                   :reason :rent})))))
       ;; Card Draw
-      (let [cell-def (get-in board [:cells new-cell])]
-        (= :card (:type cell-def)))
+      (= :card (:type new-cell))
       (cards/apply-card-draw new-state)
-      ;; None of the above, player option
-      ;; or auction off property
-      :else (util/apply-property-option new-state))))
+      ;; Property option/auction, if we're on a property...
+      (and (= :property (:type new-cell))
+           ;; ... and it's unowned
+           (-> new-state
+               util/owned-properties
+               (get (:name new-cell))
+               not))
+      (util/apply-property-option new-state)
+      ;; None of the above, just continue
+      :else new-state)))
 
 (defn- apply-dice-roll
   "Given a game state and new dice roll, advance game according to
