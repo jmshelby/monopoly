@@ -44,11 +44,14 @@ clojure -M -m jmshelby.monopoly.simulation -g 500 -p 3 -s 2000  # 500 games, 3 p
 - Jail mechanics (go to jail, get out of jail)
 - Card system with multiple decks
 - Trading/proposal system
+- Auction system for declined property purchases
+  - Sequential bidding with configurable increments
+  - AI players with intelligent bidding strategies
+  - Complete transaction tracking and analytics
 - Game analysis and summary functions
 - Exception handling in game simulations
 
 ### In Progress
-- Auction system for declined property purchases
 - Mortgage/unmortgage functionality
 - Property acquisition workflow for mortgaged assets
 
@@ -141,6 +144,7 @@ Displays comprehensive simulation report including exception details.
 See `players/dumb.clj` for example AI implementation. Players need to implement decision functions for:
 - Property purchases
 - Trading proposals
+- Auction bidding (evaluates property value, cash reserves, and affordability)
 - Bankruptcy fund-raising
 - Building purchases
 
