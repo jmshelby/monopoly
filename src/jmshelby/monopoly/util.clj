@@ -403,7 +403,12 @@
 ;; TODO - Need to do a special transfer/acquisition workflow for mortgaged properties,
 ;;        currently we just assume it's owned outright
 (defn- apply-auction-property-workflow
-  "Given a game-state and a property name, carry out the auction workflow by sequentially invoking the 'auction-bid' player decision method, per player, until a winner is found. Starts by establishing a random order to call players in, and continues that order in a loop. When a winner is found, the game-state is updated to reflect the purchase, indicating it was purchased via auction.
+  "Given a game-state and a property name, carry out the auction workflow
+  by sequentially invoking the 'auction-bid' player decision method, per
+  player, until a winner is found. Starts by establishing a random order
+  to call players in, and continues that order in a loop. When a winner
+  is found, the game-state is updated to reflect the purchase, indicating
+  it was purchased via auction.
 
   NOTE - This does not handle correct mortgaged property rules yet"
   [game-state property]
