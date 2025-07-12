@@ -216,7 +216,6 @@
       :auction-bid
       (let [{:keys [property _highest-bid required-bid]} params
             cash-reserve 100 ;; Keep some cash on hand
-            max-affordable (max 0 (- cash cash-reserve))
             property-value (when property (:price property))
             ;; Determine if this property is valuable to us
             property-worth-it? (and
@@ -224,8 +223,8 @@
                                 property-value
                                 ;; Don't bid more than property's face value
                                 (<= required-bid property-value)
-                                ;; Make sure we can afford it plus reserve
-                                (>= max-affordable required-bid))]
+                                ;; Make sure we can afford the bid AND maintain reserve
+                                (>= cash (+ required-bid cash-reserve)))]
         (if property-worth-it?
           ;; Bid just the current asking price
           {:action :bid
