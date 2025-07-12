@@ -485,19 +485,44 @@
             ;; Player bids - validate and update if valid
             :bid
             (let [bid-amount (:bid decision)]
-              (if (and bid-amount
-                       (>= bid-amount current-bid)
-                       (>= (:cash current-player) bid-amount))
+              (cond
+                ;; Missing bid amount
+                (nil? bid-amount)
+                (throw (ex-info "Invalid auction bid: missing bid amount"
+                                {:player-id (:id current-player)
+                                 :property property
+                                 :decision decision
+                                 :required-bid current-bid}))
+
+                ;; Bid too low
+                (< bid-amount current-bid)
+                (throw (ex-info "Invalid auction bid: bid amount too low"
+                                {:player-id (:id current-player)
+                                 :property property
+                                 :bid-amount bid-amount
+                                 :required-bid current-bid}))
+
+                ;; Insufficient cash
+                (< (:cash current-player) bid-amount)
+                (throw (ex-info "Invalid auction bid: insufficient cash"
+                                {:player-id (:id current-player)
+                                 :property property
+                                 :bid-amount bid-amount
+                                 :player-cash (:cash current-player)}))
+
                 ;; Valid bid - update highest bid and continue
+                :else
                 (recur (conj (vec remaining-players) current-player)
                        bid-amount
                        current-player
-                       (+ bid-amount bid-increment))
-                ;; Invalid bid - treat as decline
-                (recur remaining-players highest-bid highest-bidder current-bid)))
+                       (+ bid-amount bid-increment))))
 
-            ;; Unknown action - treat as decline
-            (recur remaining-players highest-bid highest-bidder current-bid)))))))
+            ;; Unknown action - throw exception
+            (throw (ex-info "Invalid auction action"
+                            {:player-id (:id current-player)
+                             :property property
+                             :action (:action decision)
+                             :valid-actions [:bid :decline]}))))))))
 
 (defn apply-property-option
   "Given a game state, check if current player is able to buy the property
