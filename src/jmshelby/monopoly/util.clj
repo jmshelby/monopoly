@@ -419,11 +419,10 @@
         property-def (->> game-state :board :properties
                           (filter #(= property (:name %)))
                           first)
-        ;; Establish random player call ordering (exclude current player who declined)
+        ;; Establish random player call ordering (include ALL players, even the one who declined)
         current-player-id (get-in game-state [:current-turn :player])
         auction-players (->> game-state :players
                              (filter #(= :playing (:status %)))
-                             (remove #(= current-player-id (:id %)))
                              (map-indexed #(assoc %2 :player-index %1))
                              shuffle)
         ;; Determine bid increment (default to $10 if no rules specified)
