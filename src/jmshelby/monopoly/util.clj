@@ -428,7 +428,16 @@
                              shuffle)
         ;; Determine bid increment (default to $10 if no rules specified)
         bid-increment (get-in game-state [:board :rules :auction-increment] 10)
-        starting-bid bid-increment]
+        starting-bid bid-increment
+
+        ;; Record that auction was initiated (regardless of outcome)
+        game-state-with-auction-start
+        (append-tx game-state {:type :auction-initiated
+                              :property property
+                              :declined-by current-player-id
+                              :eligible-bidders (map :id auction-players)
+                              :starting-bid starting-bid
+                              :participant-count (count auction-players)})]
 
     ;; Start auction loop
     (loop [active-players auction-players
@@ -440,21 +449,27 @@
         ;; No more bidders - auction complete
         (if highest-bidder
           ;; Someone won the auction
-          (-> game-state
+          (-> game-state-with-auction-start
               ;; Add property to winner
               (update-in [:players (:player-index highest-bidder) :properties]
                          assoc property {:status :paid :house-count 0})
               ;; Deduct winning bid from winner
               (update-in [:players (:player-index highest-bidder) :cash]
                          - highest-bid)
-              ;; Record auction transaction
-              (append-tx {:type :auction
+              ;; Record auction completion transaction
+              (append-tx {:type :auction-completed
                           :property property
                           :winner (:id highest-bidder)
                           :winning-bid highest-bid
                           :participants (map :id auction-players)}))
-          ;; No one bid - property goes to bank (no changes needed)
-          game-state)
+          ;; No one bid - property goes to bank, record the outcome
+          (append-tx game-state-with-auction-start
+                     {:type :auction-completed
+                      :property property
+                      :winner :bank
+                      :winning-bid 0
+                      :participants (map :id auction-players)
+                      :outcome :no-bids}))
 
         ;; Continue auction - get next player's bid
         (let [current-player (first active-players)
