@@ -2,7 +2,8 @@
   (:require [jmshelby.monopoly.core :as core]
             [jmshelby.monopoly.util :as util]
             [clojure.pprint :as pprint]
-            [clojure.core.async :as async :refer [>! <! >!! <!! go go-loop chan close! pipeline thread]]))
+            [clojure.core.async :as async :refer [>! <! >!! <!! go go-loop chan close! pipeline thread]]
+            [clojure.tools.cli :as cli]))
 
 (defn analyze-game-outcome
   "Analyze a single game result and return outcome statistics"
@@ -250,105 +251,79 @@
 
     (println "=== END SIMULATION RESULTS ===")))
 
-(defn print-usage
-  "Print usage information"
-  []
-  (println "Monopoly Game Simulation")
-  (println "Usage: simulation [options]")
-  (println "")
-  (println "Options:")
-  (println "  -g, --games GAMES        Number of games to simulate (default: 100)")
-  (println "  -p, --players PLAYERS    Number of players per game (default: 4)")
-  (println "  -s, --safety THRESHOLD   Safety threshold for game termination (default: 1500)")
-  (println "  -h, --help               Show this help message")
-  (println "")
-  (println "Examples:")
-  (println "  simulation                           # 100 games, 4 players, safety 1500")
-  (println "  simulation -g 1000                   # 1000 games with defaults")
-  (println "  simulation -g 500 -p 3 -s 2000      # 500 games, 3 players, safety 2000")
-  (println "  simulation --games 2000 --players 6  # 2000 games, 6 players")
-  (println ""))
+(def cli-options
+  [["-g" "--games GAMES" "Number of games to simulate"
+    :default 100
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(> % 0) "Must be a positive number"]]
+   ["-p" "--players PLAYERS" "Number of players per game"
+    :default 4
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(and (>= % 2) (<= % 8)) "Must be between 2 and 8"]]
+   ["-s" "--safety THRESHOLD" "Safety threshold for game termination"
+    :default 1500
+    :parse-fn #(Integer/parseInt %)
+    :validate [#(> % 0) "Must be a positive number"]]
+   ["-h" "--help" "Show this help message"]])
 
-(defn parse-int-safely
-  "Parse integer safely, returning [success? value-or-error]"
-  [s]
-  (try
-    [true (Integer/parseInt s)]
-    (catch NumberFormatException _
-      [false (format "Invalid number: %s" s)])))
+(defn usage [options-summary]
+  (->> ["Monopoly Game Simulation"
+        ""
+        "Usage: simulation [options]"
+        ""
+        "Options:"
+        options-summary
+        ""
+        "Examples:"
+        "  simulation                           # 100 games, 4 players, safety 1500"
+        "  simulation -g 1000                   # 1000 games with defaults"
+        "  simulation -g 500 -p 3 -s 2000      # 500 games, 3 players, safety 2000"
+        "  simulation --games 2000 --players 6  # 2000 games, 6 players"
+        ""]
+       (clojure.string/join \newline)))
 
-(defn parse-args
-  "Parse command line arguments and return options map"
+(defn error-msg [errors]
+  (str "The following errors occurred while parsing your command:\n\n"
+       (clojure.string/join \newline errors)))
+
+(defn validate-args
+  "Validate command line arguments. Either return a map indicating the program
+  should exit (with an error message, and optional ok status), or a map
+  indicating the action the program should take and the options provided."
   [args]
-  (loop [args args
-         options {:games 100 :players 4 :safety 1500}]
-    (if (empty? args)
-      options
-      (let [arg (first args)
-            remaining (rest args)]
-        (case arg
-          ("-h" "--help")
-          (assoc options :help true)
-          
-          ("-g" "--games")
-          (if (empty? remaining)
-            (assoc options :error "Missing value for --games")
-            (let [value (first remaining)
-                  [success? result] (parse-int-safely value)]
-              (if success?
-                (recur (rest remaining)
-                       (assoc options :games result))
-                (assoc options :error (format "Invalid number for --games: %s" value)))))
-          
-          ("-p" "--players")
-          (if (empty? remaining)
-            (assoc options :error "Missing value for --players")
-            (let [value (first remaining)
-                  [success? result] (parse-int-safely value)]
-              (if success?
-                (if (and (>= result 2) (<= result 8))
-                  (recur (rest remaining)
-                         (assoc options :players result))
-                  (assoc options :error (format "Players must be between 2 and 8, got: %d" result)))
-                (assoc options :error (format "Invalid number for --players: %s" value)))))
-          
-          ("-s" "--safety")
-          (if (empty? remaining)
-            (assoc options :error "Missing value for --safety")
-            (let [value (first remaining)
-                  [success? result] (parse-int-safely value)]
-              (if success?
-                (if (> result 0)
-                  (recur (rest remaining)
-                         (assoc options :safety result))
-                  (assoc options :error (format "Safety threshold must be positive, got: %d" result)))
-                (assoc options :error (format "Invalid number for --safety: %s" value)))))
-          
-          ;; Handle positional arguments (for backward compatibility)
-          (if (re-matches #"\d+" arg)
-            (let [[success? result] (parse-int-safely arg)]
-              (if success?
-                (recur remaining
-                       (assoc options :games result))
-                (assoc options :error result)))
-            (assoc options :error (format "Unknown option: %s" arg))))))))
+  (let [{:keys [options arguments errors summary]} (cli/parse-opts args cli-options)]
+    (cond
+      (:help options) ; help => exit OK with usage summary
+      {:exit-message (usage summary) :ok? true}
+      
+      errors ; errors => exit with description of errors
+      {:exit-message (error-msg errors)}
+      
+      ;; Handle backward compatibility with positional arguments
+      (and (= 100 (:games options)) (seq arguments))
+      (let [games-arg (first arguments)]
+        (try
+          (let [games (Integer/parseInt games-arg)]
+            (if (> games 0)
+              {:action :run-simulation
+               :options (assoc options :games games)}
+              {:exit-message "Number of games must be positive"}))
+          (catch NumberFormatException _
+            {:exit-message (str "Invalid number: " games-arg)})))
+      
+      :else ; failed custom validation => exit with usage summary
+      {:action :run-simulation :options options})))
+
+(defn exit [status msg]
+  (println msg)
+  (System/exit status))
 
 (defn -main
   "Run the simulation and print results"
   [& args]
-  (let [options (parse-args args)]
-    (cond
-      (:help options)
-      (print-usage)
-      
-      (:error options)
-      (do
-        (println (format "Error: %s" (:error options)))
-        (println)
-        (print-usage)
-        (System/exit 1))
-      
-      :else
+  (let [{:keys [action options exit-message ok?]} (validate-args args)]
+    (if exit-message
+      (exit (if ok? 0 1) exit-message)
       (let [{:keys [games players safety]} options]
         (printf "Configuration: %d games, %d players, safety threshold %d\n" games players safety)
         (println)
