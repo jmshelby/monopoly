@@ -38,14 +38,14 @@
         (doseq [[[_ players tx-max] sim] sims]
           (println "  [" players "/" tx-max"/" (-> sim :transactions count) "]"
                    "->" (->> sim :players (map :prop-sell-worth))))
-        
+
         ;; Assertions to validate property sell worth calculations
         (is (= sim-count (count sims)) "Should have run the expected number of simulations")
-        
+
         (doseq [[[n players tx-max] sim] sims]
           (is (sequential? (:players sim)) (str "Simulation " n " should have players collection"))
           (is (= players (count (:players sim))) (str "Simulation " n " should have expected number of players"))
-          
+
           ;; Test that all sell worth values are non-negative integers
           (doseq [player (:players sim)]
             (is (contains? player :prop-sell-worth) 
@@ -54,7 +54,7 @@
                 (str "Player " (:id player) " sell worth should be integer"))
             (is (>= (:prop-sell-worth player) 0) 
                 (str "Player " (:id player) " sell worth should be non-negative")))
-          
+
           ;; Test that total sell worth is reasonable compared to starting cash
           (let [total-sell-worth (reduce + (map :prop-sell-worth (:players sim)))
                 starting-cash (* players 1500)]

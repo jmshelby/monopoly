@@ -171,10 +171,10 @@
                          (assoc-in [:players 1 :properties] {}))
           player-b   (get-in game-state [:players 1])
           proposal   (dumb-player/proposal? game-state player-b)]
-      
+
       ;; Should not create a proposal when player has nothing to offer
       (is (nil? proposal) "Should not create empty trade proposals")
-      
+
       ;; Verify the logic: player should have a target but no sacrifice
       (let [target-props (->> (util/owned-property-details game-state)
                               vals
@@ -186,6 +186,6 @@
             sacrifice    (dumb-player/find-proposable-properties
                            game-state player-b
                            (-> target-prop :def :price))]
-        
+
         (is (some? target-prop) "Player should have a target property to want")
         (is (empty? sacrifice) "Player should have no properties to sacrifice")))))

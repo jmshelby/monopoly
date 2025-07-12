@@ -169,7 +169,7 @@
                          (if prop-name
                            (clojure.string/replace (name prop-name) #"-" " ")
                            "unknown"))
-        
+
         ;; Look up property group by name
         get-property-group (fn [prop-name]
                             (when prop-name
@@ -177,7 +177,7 @@
                                    (filter #(= prop-name (:name %)))
                                    first
                                    :group-name)))
-        
+
         ;; Look up cell name by index
         get-cell-name (fn [cell-index]
                        (let [cell (get-in board [:cells cell-index])]
@@ -190,7 +190,7 @@
                            :card (str (clojure.string/replace (name (:name cell)) #"-" " "))
                            :property (format-property (:name cell))
                            (str "Cell " cell-index))))
-        
+
         ;; Group transactions by type and sequence for intelligent combining
         group-transactions (fn [txs]
                             (loop [remaining txs
@@ -205,7 +205,7 @@
                                 (let [tx (first remaining)
                                       tx-type (:type tx)
                                       tx-player (:player tx)
-                                      
+
                                       ;; Check if this transaction can be grouped with current group
                                       can-group? (and current-group
                                                      (= tx-type (:type (first (:transactions current-group))))
@@ -220,13 +220,13 @@
                                                            (= (:reason tx) (:reason (first (:transactions current-group)))))
                                                       ;; Group mortgage/unmortgage actions
                                                       (#{:mortgage-property :unmortgage-property} tx-type)))
-                                      
+
                                       ;; Special case: combine roll + move transactions
                                       roll-move-combo? (and (= tx-type :move)
                                                            current-group
                                                            (= :roll (:type (first (:transactions current-group))))
                                                            (= tx-player (:player (first (:transactions current-group)))))]
-                                  
+
                                   (if (or can-group? roll-move-combo?)
                                     ;; Add to current group
                                     (recur (rest remaining)
@@ -243,11 +243,11 @@
                                             :type tx-type
                                             :player tx-player}
                                            (inc transaction-idx)))))))
-        
+
         ;; Calculate total transactions to determine padding width
         total-txs (count transactions)
         pad-width (count (str total-txs))
-        
+
         ;; Create ownership tracking atom and property group mapping
         ownership-tracker (atom {}) ; {player-id #{property-names}}
         existing-monopolies (atom #{}) ; #{[player-id group-name]}
@@ -257,7 +257,7 @@
                          (map (fn [[group-name props]]
                                 [group-name (set (map :name props))]))
                          (into {}))
-        
+
         ;; Helper function to update ownership and detect NEW monopoly formation
         update-ownership-and-check-monopoly (fn [player-id property-name]
                                               (when property-name
@@ -279,7 +279,7 @@
                                                           ;; Mark this monopoly as existing for future checks
                                                           (swap! existing-monopolies conj [player-id group-name])
                                                           group-name)))))))
-        
+
         ;; Helper function to check for NEW monopolies after property transfers
         check-monopolies-for-player (fn [player-id]
                                      (let [player-props (get @ownership-tracker player-id #{})]
@@ -292,13 +292,13 @@
                                                   ;; Mark as existing for future checks
                                                   (swap! existing-monopolies conj [player-id group-name])
                                                   group-name)))))
-        
+
         ;; Helper function to process property transfers from trades/bankruptcy
         transfer-properties (fn [from-player to-player property-names]
                              (when (seq property-names)
                                (swap! ownership-tracker update from-player (fnil set/difference #{}) (set property-names))
                                (swap! ownership-tracker update to-player (fnil set/union #{}) (set property-names))))
-        
+
         ;; Helper function to add event indicators
         add-event-indicator (fn [text transaction-type first-tx]
                              (case transaction-type
@@ -306,7 +306,7 @@
                                (if (= :rent (:reason first-tx))
                                  (str "*" text "*")
                                  text)
-                               
+
                                :bankruptcy
                                (do
                                  ;; Handle property transfers from bankruptcy
@@ -316,13 +316,13 @@
                                    (when (not= :bank to-player)
                                      (transfer-properties from-player to-player properties)))
                                  (str "!!!" text "!!!"))
-                               
+
                                :purchase
                                (let [monopoly-group (update-ownership-and-check-monopoly (:player first-tx) (:property first-tx))]
                                  (if monopoly-group
                                    (str "*" text " - MONOPOLY FORMED (" (name monopoly-group) ")*")
                                    text))
-                               
+
                                :trade
                                (if (= :accept (:status first-tx))
                                  ;; Handle property transfers from trades and check for monopolies
@@ -346,7 +346,7 @@
                                              (clojure.string/join "; " monopoly-parts) ")*"))
                                        text)))
                                  text)))
-        
+
         ;; Format grouped transactions into readable strings
         format-group (fn [{:keys [transactions start-idx type player]}]
                       (let [tx-count (count transactions)
@@ -355,7 +355,7 @@
                             start-num (inc start-idx)
                             ;; Format start number with proper padding
                             tx-num (format (str "%" pad-width "d") start-num)]
-                        
+
                         (case type
                           :roll
                           (if (and (> tx-count 1) (= :move (:type (second transactions))))
@@ -380,14 +380,14 @@
                               (if is-double?
                                 (str base-text " (rolled double)")
                                 base-text)))
-                          
+
                           :move
                           (let [from-cell (:before-cell first-tx)
                                 to-cell (:after-cell first-tx)
                                 driver (:driver first-tx)]
                             (format "[%s] %s moves from %s to %s"
                                    tx-num player (get-cell-name from-cell) (get-cell-name to-cell)))
-                          
+
                           :purchase
                           (let [property (:property first-tx)
                                 price (:price first-tx)
@@ -395,7 +395,7 @@
                                                  player (format-property property) (format-money price))]
                             (format "[%s] %s"
                                    tx-num (add-event-indicator base-text :purchase first-tx)))
-                          
+
                           :purchase-house
                           (if (= tx-count 1)
                             (let [property (:property first-tx)
@@ -413,7 +413,7 @@
                                                        groups))]
                               (format "[%s] %s builds %d houses on %s for %s"
                                      tx-num player tx-count group-summary (format-money total-cost))))
-                          
+
                           :sell-house
                           (if (= tx-count 1)
                             (let [property (:property first-tx)
@@ -431,7 +431,7 @@
                                                        groups))]
                               (format "[%s] %s sells %d houses on %s for %s"
                                      tx-num player tx-count group-summary (format-money total-proceeds))))
-                          
+
                           :payment
                           (let [from (:from first-tx)
                                 to (:to first-tx)
@@ -441,21 +441,21 @@
                                            (= reason :rent)
                                            (format "%s pays %s rent to %s"
                                                   from (format-money amount) to)
-                                           
+
                                            (= reason :tax)
                                            (format "%s pays %s tax to bank"
                                                   from (format-money amount))
-                                           
+
                                            (= reason :allowance)
                                            (format "%s collects %s passing GO"
                                                   to (format-money amount))
-                                           
+
                                            :else
                                            (format "%s pays %s to %s (%s)"
                                                   from (format-money amount) to (name reason)))]
                             (format "[%s] %s"
                                    tx-num (add-event-indicator base-text :payment first-tx)))
-                          
+
                           :mortgage-property
                           (if (= tx-count 1)
                             (let [property (:property first-tx)
@@ -468,7 +468,7 @@
                                      tx-num player tx-count
                                      (clojure.string/join ", " (map format-property properties))
                                      (format-money total-proceeds))))
-                          
+
                           :bail
                           (let [means (:means first-tx)]
                             (case (first means)
@@ -480,7 +480,7 @@
                                            tx-num player)
                               (format "[%s] %s gets out of jail (%s)"
                                      tx-num player means)))
-                          
+
                           :bankruptcy
                           (let [to (:to first-tx)
                                 cash (:cash first-tx)
@@ -492,7 +492,7 @@
                                                   player to (format-money cash) (count properties)))]
                             (format "[%s] %s"
                                    tx-num (add-event-indicator base-text :bankruptcy first-tx)))
-                          
+
                           :trade
                           (let [status (:status first-tx)
                                 from (:from first-tx)
@@ -510,7 +510,7 @@
                                                   from to (name status)))]
                             ;; Process trade for monopoly detection and add indicator
                             (format "[%s] %s" tx-num (add-event-indicator base-text :trade first-tx)))
-                          
+
                           :card-draw
                           (let [card (:card first-tx)
                                 card-text (if (vector? (:text card))
@@ -518,23 +518,23 @@
                                            (:text card))]
                             (format "[%s] %s draws card: \"%s\""
                                    tx-num player card-text))
-                          
+
                           ;; Default format for unknown transaction types
                           (format "[%s] %s: %s (%s)"
                                  tx-num (or player "system") (name type) first-tx))))
-        
+
         ;; Process all transactions
         grouped-txs (group-transactions transactions)]
-    
+
     (println "=== TRANSACTION LOG ===")
     (printf "Total transactions: %d\n" (count transactions))
     (println)
-    
+
     (doseq [group grouped-txs]
       (println (format-group group)))
-    
+
     (println)
-    
+
     ;; Final game outcome summary
     (let [active-players (->> players (filter #(= :playing (:status %))))
           bankrupt-players (->> players (filter #(= :bankrupt (:status %))))]
@@ -549,7 +549,7 @@
                           (:cash winner)
                           net-worth
                           (count (:properties winner)))))
-        
+
         ;; Multiple players still active
         (> (count active-players) 1)
         (do
@@ -562,11 +562,11 @@
                               (:cash player)
                               net-worth
                               (count (:properties player)))))))
-        
+
         ;; No active players (shouldn't happen but handle it)
         :else
         (println "💥 NO ACTIVE PLAYERS - Game ended in mutual destruction!")))
-    
+
     (println)
     (println "=== END TRANSACTION LOG ===")))
 

@@ -15,11 +15,11 @@
     (println "Sims:")
     (doseq [[n sim] sims]
       (println "  -> Status: " (:status sim) " (" (-> sim :transactions count) ")"))
-    
+
     ;; Assertions to validate simulation results
     (testing "All simulations completed successfully"
       (is (= sim-count (count sims)) "Should have run the expected number of simulations"))
-    
+
     (testing "Game states have valid structure"
       (doseq [[n sim] sims]
         (is (contains? #{:complete :playing} (:status sim)) 
@@ -30,7 +30,7 @@
             (str "Simulation " n " should have players vector"))
         (is (= 4 (count (:players sim))) 
             (str "Simulation " n " should have 4 players"))))
-    
+
     (testing "Transaction counts are reasonable"
       (let [tx-counts (map #(-> % second :transactions count) sims)]
         (is (every? pos? tx-counts) "All games should have at least 1 transaction")

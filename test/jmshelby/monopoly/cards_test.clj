@@ -25,32 +25,32 @@
                                   {:boardwalk {:status :paid :house-count 2}
                                    :park-place {:status :paid :house-count 5} ; hotel
                                    :baltic-avenue {:status :paid :house-count 1}}))]
-      
+
       (testing ":house/count multiplier"
         (let [player (get-in game-state [:players 0])
               card {:card.cash/multiplier :house/count}
               multiplier (cards/get-payment-multiplier game-state player card)]
           (is (= 3 multiplier) "Should count houses (2+1, excluding hotel)")))
-      
+
       (testing ":hotel/count multiplier"
         (let [player (get-in game-state [:players 0])
               card {:card.cash/multiplier :hotel/count}
               multiplier (cards/get-payment-multiplier game-state player card)]
           (is (= 1 multiplier) "Should count properties with 5 houses (hotels)")))
-      
+
       (testing ":player/count multiplier"
         (let [player (get-in game-state [:players 0])
               card {:card.cash/multiplier :player/count}
               multiplier (cards/get-payment-multiplier game-state player card)]
           (is (= 3 multiplier) "Should count other players (4 total - 1 current = 3)")))
-      
+
       (testing ":player/count with bankrupted players"
         (let [game-with-bankrupt (assoc-in game-state [:players 1 :status] :bankrupt)
               player (get-in game-with-bankrupt [:players 0])
               card {:card.cash/multiplier :player/count}
               multiplier (cards/get-payment-multiplier game-with-bankrupt player card)]
           (is (= 2 multiplier) "Should count only active other players (3 active - 1 current = 2)")))
-      
+
       (testing "default multiplier"
         (let [player (get-in game-state [:players 0])
               card {:card.cash/multiplier :unknown}
@@ -70,7 +70,7 @@
           cash-gained (- (get-in result-state [:players 0 :cash])
                         (get-in game-state [:players 0 :cash]))]
       (is (= 30 cash-gained) "Should collect $10 × 3 other players = $30")))
-  
+
   (testing "pay card with :player/count multiplier"
     (let [game-state (core/init-game-state 3) ; 3 players total
           player (assoc (get-in game-state [:players 0]) :player-index 0)

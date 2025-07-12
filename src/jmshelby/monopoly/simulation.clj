@@ -73,7 +73,7 @@
 
         ;; Transaction count statistics for winning games
         winning-tx-counts (->> games-with-winner (map :transaction-count))
-        
+
         ;; Transaction count statistics for failsafe games
         failsafe-tx-counts (->> failsafe-games (map :transaction-count))
 
@@ -106,7 +106,7 @@
                                      :avg (double (/ (apply + winning-tx-counts) (count winning-tx-counts)))
                                      :median (nth (sort winning-tx-counts)
                                                   (int (/ (count winning-tx-counts) 2)))})
-               
+
                :failsafe-transaction-stats (when (seq failsafe-tx-counts)
                                              {:min (apply min failsafe-tx-counts)
                                               :max (apply max failsafe-tx-counts)
@@ -127,17 +127,17 @@
                 failsafe-games exception-games
                 winner-distribution winner-percentages
                 transaction-stats failsafe-transaction-stats incomplete-game-breakdown]} stats]
-    
+
     (println "\n=== MONOPOLY SIMULATION RESULTS ===")
     (println)
-    
+
     ;; Performance Summary
     (println "🚀 PERFORMANCE")
     (printf "   Total Games: %d\n" total-games)
     (printf "   Duration: %.1f seconds\n" duration-seconds)
     (printf "   Speed: %.1f games/second\n" games-per-second)
     (println)
-    
+
     ;; Game Completion Summary
     (println "🎯 GAME COMPLETION")
     (printf "   Games with Winner: %d (%.1f%%)\n" games-with-winner winner-percentage)
@@ -150,7 +150,7 @@
       (printf "   Exception Games: %d (%.1f%%)\n" 
               exception-games (* 100.0 (/ exception-games total-games))))
     (println)
-    
+
     ;; Winner Distribution
     (when (seq winner-distribution)
       (println "🏆 WINNER DISTRIBUTION")
@@ -158,7 +158,7 @@
         (let [percentage (* 100.0 (/ count games-with-winner))]
           (printf "   Player %s: %d wins (%.1f%%)\n" winner-id count percentage)))
       (println))
-    
+
     ;; Transaction Statistics
     (when transaction-stats
       (println "📊 TRANSACTION STATISTICS (Winning Games)")
@@ -167,7 +167,7 @@
       (printf "   Average: %.1f transactions\n" (:avg transaction-stats))
       (printf "   Median: %d transactions\n" (:median transaction-stats))
       (println))
-    
+
     ;; Failsafe Transaction Statistics
     (when failsafe-transaction-stats
       (println "⏱️  FAILSAFE TRANSACTION STATISTICS (Incomplete Games)")
@@ -176,7 +176,7 @@
       (printf "   Average: %.1f transactions\n" (:avg failsafe-transaction-stats))
       (printf "   Median: %d transactions\n" (:median failsafe-transaction-stats))
       (println))
-    
+
     ;; Incomplete Game Analysis
     (when (seq incomplete-game-breakdown)
       (println "❌ INCOMPLETE GAME BREAKDOWN")
@@ -185,7 +185,7 @@
           (printf "   %d active players: %d games (%.1f%%)\n" 
                   active-count game-count percentage)))
       (println))
-    
+
     (println "=== END SIMULATION RESULTS ===")))
 
 (defn -main
