@@ -104,8 +104,4 @@
 ;;    -> txs; movement of resources
 ;;      - make sure mortgaged property state transfers
 
-(comment
-
-
-
-  )
+(comment)

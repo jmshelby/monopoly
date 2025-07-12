@@ -43,13 +43,16 @@ Monopoly Game Engine + Pluggable Player API
  - Proposals
    - On player turn action
      - offer workflow
+ - Auction System
+   - Property auctions when purchase declined, or can't afford
+   - Sequential bidding with configurable increments
+   - Random player order for fairness
  ---------------------------
 #### Remaining Logic
- - Auction off property (when purchased denied/unable)
-   - [still need to figure out a good way to do this]
  - Cards
    - Deferred effects (go to nearest utility, pay 10x dice roll)
  - [Full] Player "lose" logic
+   - Bankrupt to bank auctions off properties
    - Acquisition workflow to owed party (if not bank)
      - requiring 10% payment of mortgaged properties or to instantly unmortgage property to acquire
    > [Ability to make deals when needing funds]
@@ -107,6 +110,7 @@ clojure -J-Xmx8g -M:sim 1000
 The simulation provides statistics on:
 - Game completion rates and winner distribution
 - Transaction counts and game length analysis  
+- Auction system metrics (occurrence rates, success/failure ratios, average bids)
 - Performance metrics and memory usage
 - Incomplete game breakdown (failsafe cases)
 

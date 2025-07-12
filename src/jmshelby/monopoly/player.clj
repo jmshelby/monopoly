@@ -7,7 +7,7 @@
   ;; Just need to add cash to property value
   (+ (:cash player)
      (util/player-property-sell-worth
-       game-state (:id player))))
+      game-state (:id player))))
 
 (defn- reset-player-assets
   [game-state player]
@@ -133,8 +133,10 @@
                          :properties (:properties debtor)}))))
 
 (defn- invoke-and-apply-raise-funds
-  ;; TODO - docs
-  "amount here is the outstanding amount..."
+  "Given a game state, player, and outstanding amount, invoke the player's
+  raise-funds decision logic and apply their chosen action to the game state.
+  Player can choose to sell houses or mortgage properties. Returns updated
+  game state with the applied action and corresponding transaction."
   [game-state player amount]
   ;; TODO - should we also determine which actions are currently available for the player?
   (let [player-fn (:function player)
@@ -146,13 +148,17 @@
     ;; TODO - we'll need a default that doesn't allow indecision...
     (case (:action decision)
       :sell-house        (util/apply-house-sale
-                           game-state
-                           (:property-name decision))
+                          game-state
+                          (:property-name decision))
       :mortgage-property (util/apply-property-mortgage
-                           game-state
-                           (:property-name decision)))))
+                          game-state
+                          (:property-name decision)))))
 
 (defn- apply-raise-funds-workflow
+  "Given a game state, player, and required amount, initiate the raise-funds
+  workflow where the player must liquidate assets to cover their debt.
+  Continuously invokes player decision logic until sufficient cash is raised.
+  Sets :raise-funds flag on current turn and removes it when complete."
   [game-state player amount]
   ;; Set GS to indicate this current player owes a certain amount (more than they have)
   ;;  - probably just setting a "target owed amount" on the :current-turn map
@@ -176,7 +182,7 @@
             remaining   (- amount (:cash player))
             ;; Call out to player, apply decision
             gs-next     (invoke-and-apply-raise-funds
-                          gs player remaining)
+                         gs player remaining)
             player-next (->> gs-next :players
                              (filter #(= pid (:id %)))
                              first)]

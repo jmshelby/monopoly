@@ -52,10 +52,9 @@
                   :dice-rolls []
                   ;; Opt - when needing to raise funds for a player
                   ;; TODO - not sure if this will be original/total amount, or current remaining amount...
-                  :raise-funds 999
-                  }
+                  :raise-funds 999}
 
-   ;; The current *ordered* care queue to pull from.
+;; The current *ordered* care queue to pull from.
    ;; At the beginning of the game these will be loaded at random,
    ;; when one queue is exhausted, it is randomly filled again.
    :card-queue {:chance          []
@@ -68,7 +67,6 @@
    ;;  - Each item in this list could be every unique game state
    :transactions []})
 
-
 ;; Special function to core
 (defn- move-to-cell
   "Given a game state, destination cell index, and reason/driver
@@ -78,7 +76,7 @@
   [{:keys [board players
            functions]
     :as   game-state}
-   new-cell driver
+   new-cell-idx driver
    & {:keys [allowance?]
       :or   {allowance? true}}]
   (let [;; Get current player info
@@ -86,11 +84,12 @@
         player-id      (:id player)
         pidx           (:player-index player)
         player-cash    (:cash player)
-        old-cell       (:cell-residency player)
+        old-cell-idx   (:cell-residency player)
+        new-cell       (get-in board [:cells new-cell-idx])
         ;; Check for allowance (from > to)
         allowance      (get-in board [:cells 0 :allowance])
         with-allowance (when (and allowance?
-                                  (> old-cell new-cell))
+                                  (> old-cell-idx new-cell-idx))
                          (+ player-cash allowance))
         ;; Initial state update, things that have
         ;; to happen before the move effects
@@ -99,12 +98,12 @@
           ;; Move player
           ;; TODO - the true here is not great...
           true
-          (-> (assoc-in [:players pidx :cell-residency] new-cell)
+          (-> (assoc-in [:players pidx :cell-residency] new-cell-idx)
               (append-tx {:type        :move
                           :driver      driver
                           :player      player-id
-                          :before-cell old-cell
-                          :after-cell  new-cell}))
+                          :before-cell old-cell-idx
+                          :after-cell  new-cell-idx}))
           ;; Check if we've passed/landed on go, for allowance payout
           with-allowance
           (-> (assoc-in [:players pidx :cash] with-allowance)
@@ -117,8 +116,7 @@
     ;; TODO - yikes, getting messy, impl dispatch by cell type
     (cond
       ;; "Go to Jail" cell landing
-      (= :go-to-jail
-         (get-in board [:cells new-cell :type]))
+      (= :go-to-jail (:type new-cell))
       (util/send-to-jail new-state player-id [:cell :go-to-jail])
       ;; Tax
       (util/tax-owed? new-state)
@@ -135,7 +133,8 @@
       ;; Rent
       (util/rent-owed? new-state)
       (let [rent-owed (util/rent-owed? new-state)]
-        ((functions :make-requisite-payment) new-state
+        ((functions :make-requisite-payment)
+         new-state
          player-id (first rent-owed) (second rent-owed)
          (fn [gs] (-> gs
                       ;; Take from current player, give to owner
@@ -156,12 +155,18 @@
                                   :amount (second rent-owed)
                                   :reason :rent})))))
       ;; Card Draw
-      (let [cell-def (get-in board [:cells new-cell])]
-        (= :card (:type cell-def)))
+      (= :card (:type new-cell))
       (cards/apply-card-draw new-state)
-      ;; None of the above, player option
-      ;; or auction off property
-      :else (util/apply-property-option new-state))))
+      ;; Property option/auction, if we're on a property...
+      (and (= :property (:type new-cell))
+           ;; ... and it's unowned
+           (-> new-state
+               util/owned-properties
+               (get (:name new-cell))
+               not))
+      (util/apply-property-option new-state)
+      ;; None of the above, just continue
+      :else new-state)))
 
 (defn- apply-dice-roll
   "Given a game state and new dice roll, advance game according to
@@ -259,34 +264,34 @@
                               ;;         - if they haven't rolled yet
                               ;;         - if they rolled a double last
                               ;;         - [others?]
-                              :done
-                              (if jail-spell
+                             :done
+                             (if jail-spell
                                 ;; Jail actions
-                                [;; Attempt double roll
-                                 (when (nil? last-roll)
-                                   :jail/roll)
+                               [;; Attempt double roll
+                                (when (nil? last-roll)
+                                  :jail/roll)
                                  ;; Pay bail
-                                 (let [bail (->> game-state :board :cells
-                                                 (filter #(= :jail (:type %)))
-                                                 first :bail)]
+                                (let [bail (->> game-state :board :cells
+                                                (filter #(= :jail (:type %)))
+                                                first :bail)]
                                    ;; TODO - Need to restrict this if they just landed in jail
-                                   (when (>= cash bail)
-                                     :jail/bail))
+                                  (when (>= cash bail)
+                                    :jail/bail))
                                  ;; Bail with "get out of jail free" card
-                                 (when (util/has-bail-card? player)
-                                   :jail/bail-card)]
+                                (when (util/has-bail-card? player)
+                                  :jail/bail-card)]
 
                                 ;; Regular dice rolls
-                                (when can-roll? :roll))
+                               (when can-roll? :roll))
 
                               ;; House building
-                              (when can-build? :buy-house)
+                             (when can-build? :buy-house)
 
                               ;; Trade Proposals
                               ;; TODO - the function here can-propose? doesn't do anything yet,
                               ;;        so we just need to validate after the fact
-                              (when (trade/can-propose? game-state player-id)
-                                :trade-proposal))
+                             (when (trade/can-propose? game-state player-id)
+                               :trade-proposal))
 
                             flatten
                             (filter identity)
@@ -308,15 +313,15 @@
                               (apply-dice-roll (roll-dice 2)))
           ;; Buy house(s)
           :buy-house      (util/apply-house-purchase
-                            game-state
-                            (:property-name decision))
+                           game-state
+                           (:property-name decision))
           ;; Proposing a trade
           ;; TODO - Call trade/validate-proposal from here first
           ;;        (but then what to do if invalid?)
           :trade-proposal (trade/apply-proposal
-                            game-state
+                           game-state
                             ;; Convenience, attach :from-player for them
-                            (assoc decision :trade/from-player player-id))
+                           (assoc decision :trade/from-player player-id))
 
           ;; TODO - Sell house(s)
           ;; TODO - Mortgage/un-mortgage
@@ -392,8 +397,8 @@
                                      :last-transaction (last (:transactions state))
                                      :current-player (get-in state [:current-turn :player])
                                      :player-cash (->> state :players
-                                                      (map #(vector (:id %) (select-keys % [:cash :status])))
-                                                      (into {}))}
+                                                       (map #(vector (:id %) (select-keys % [:cash :status])))
+                                                       (into {}))}
                                     ;; Include ex-info data if available
                                     (when (instance? clojure.lang.ExceptionInfo e)
                                       {:ex-data (ex-data e)}))})))]
@@ -416,7 +421,6 @@
            ;; Continue game
            :else
            (recur state (inc iteration-count))))))))
-
 
 (comment
 
@@ -450,8 +454,6 @@
                                   players)))]
     [players iterations appended])
 
-
-
   (def sim
     (rand-game-end-state 4))
 
@@ -475,7 +477,5 @@
        ;; (filter #(= :payment (:type %)))
        ;; (remove #(= :bank (:from %)))
        )
-
-
-  ;;
+;;
   )

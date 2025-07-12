@@ -69,79 +69,78 @@
 
         (testing "- face value"
           (is (= 350 (test-it
-                       {:park-place :paid}
-                       {:properties #{:park-place}}))
+                      {:park-place :paid}
+                      {:properties #{:park-place}}))
               "1 Prop -> property price")
           (is (= 150 (test-it
-                       {:water-works :paid}
-                       {:properties #{:water-works}}))
+                      {:water-works :paid}
+                      {:properties #{:water-works}}))
               "1 Prop -> property price")
           (is (= 160 (test-it
-                       {:virginia-ave :paid}
-                       {:properties #{:virginia-ave}}))
+                      {:virginia-ave :paid}
+                      {:properties #{:virginia-ave}}))
               "1 Prop -> property price")
           (is (= 460 (test-it
-                       {:virginia-ave :paid
-                        :pacific-ave  :paid}
-                       {:properties #{:virginia-ave
-                                      :pacific-ave}}))
+                      {:virginia-ave :paid
+                       :pacific-ave  :paid}
+                      {:properties #{:virginia-ave
+                                     :pacific-ave}}))
               "2 Prop -> property price sum")
           (is (= 460 (test-it
-                       {:virginia-ave :paid
-                        :pacific-ave  :paid
+                      {:virginia-ave :paid
+                       :pacific-ave  :paid
                         ;; Other owned
-                        :boardwalk    :paid}
-                       {:properties #{:virginia-ave
-                                      :pacific-ave}}))
+                       :boardwalk    :paid}
+                      {:properties #{:virginia-ave
+                                     :pacific-ave}}))
               "2 Prop -> property price sum")
 
           (testing "- mortgaged"
 
             (is (= 75 (test-it
-                        {:water-works :mortgaged}
-                        {:properties #{:water-works}}))
+                       {:water-works :mortgaged}
+                       {:properties #{:water-works}}))
                 "1 Mort Prop -> mortgage price")
             (is (= 130 (test-it
-                         {:atlantic-ave :mortgaged}
-                         {:properties #{:atlantic-ave}}))
+                        {:atlantic-ave :mortgaged}
+                        {:properties #{:atlantic-ave}}))
                 "1 Mort Prop -> mortgage price")
 
             (is (= 230 (test-it
-                         {:virginia-ave :mortgaged
-                          :pacific-ave  :mortgaged
+                        {:virginia-ave :mortgaged
+                         :pacific-ave  :mortgaged
                           ;; Other owned
-                          :boardwalk    :paid}
-                         {:properties #{:virginia-ave
-                                        :pacific-ave}}))
+                         :boardwalk    :paid}
+                        {:properties #{:virginia-ave
+                                       :pacific-ave}}))
                 "2 Mort Prop -> mortgage price sum"))))
 
       (testing "- mixed"
         (is (= 1448 (test-it
-                      {:virginia-ave :mortgaged
-                       :pacific-ave  :mortgaged
-                       :boardwalk    :paid}
-                      {:cash  1398
-                       :cards #{{:deck :chance}}}))
-            "cash + cards -> sum")
-        (is (= 298 (test-it
                      {:virginia-ave :mortgaged
                       :pacific-ave  :mortgaged
                       :boardwalk    :paid}
-                     {:cash       68
-                      :properties #{:virginia-ave
-                                    :pacific-ave}}))
+                     {:cash  1398
+                      :cards #{{:deck :chance}}}))
+            "cash + cards -> sum")
+        (is (= 298 (test-it
+                    {:virginia-ave :mortgaged
+                     :pacific-ave  :mortgaged
+                     :boardwalk    :paid}
+                    {:cash       68
+                     :properties #{:virginia-ave
+                                   :pacific-ave}}))
             "cash + props -> sum")
         (is (= 648 (test-it
-                     {:virginia-ave :paid
-                      :pacific-ave  :mortgaged
-                      :boardwalk    :mortgaged}
-                     {:cash       188
-                      :cards      #{{:deck :chance}
-                                    {:deck :lucky}}
-                      :properties #{:virginia-ave
-                                    :boardwalk}}))
+                    {:virginia-ave :paid
+                     :pacific-ave  :mortgaged
+                     :boardwalk    :mortgaged}
+                    {:cash       188
+                     :cards      #{{:deck :chance}
+                                   {:deck :lucky}}
+                     :properties #{:virginia-ave
+                                   :boardwalk}}))
             "cash + cards + props -> sum")))))
-
 
 ;; TODO - Could probably add a couple of cases from above
 (deftest proposal-benefit
@@ -150,15 +149,15 @@
     (testing "fn proposal-benefit"
 
       (is (= 7/4 (test-it
-                   {:trade/to-player   "A"
-                    :trade/from-player "C"
-                    :trade/asking      {:cash 180}
-                    :trade/offering    {:cash 315}})))
+                  {:trade/to-player   "A"
+                   :trade/from-player "C"
+                   :trade/asking      {:cash 180}
+                   :trade/offering    {:cash 315}})))
       (is (= 11/50 (test-it
-                     {:trade/to-player   "A"
-                      :trade/from-player "C"
-                      :trade/asking      {:cards #{{:deck :chance}}}
-                      :trade/offering    {:cash 11}}))))))
+                    {:trade/to-player   "A"
+                     :trade/from-player "C"
+                     :trade/asking      {:cards #{{:deck :chance}}}
+                     :trade/offering    {:cash 11}}))))))
 
 (deftest empty-offers-prevention
   (testing "proposal? should not create empty offers"
@@ -171,10 +170,10 @@
                          (assoc-in [:players 1 :properties] {}))
           player-b   (get-in game-state [:players 1])
           proposal   (dumb-player/proposal? game-state player-b)]
-      
+
       ;; Should not create a proposal when player has nothing to offer
       (is (nil? proposal) "Should not create empty trade proposals")
-      
+
       ;; Verify the logic: player should have a target but no sacrifice
       (let [target-props (->> (util/owned-property-details game-state)
                               vals
@@ -184,8 +183,8 @@
                               (remove #(:group-monopoly? %)))
             target-prop  (first target-props)
             sacrifice    (dumb-player/find-proposable-properties
-                           game-state player-b
-                           (-> target-prop :def :price))]
-        
+                          game-state player-b
+                          (-> target-prop :def :price))]
+
         (is (some? target-prop) "Player should have a target property to want")
         (is (empty? sacrifice) "Player should have no properties to sacrifice")))))

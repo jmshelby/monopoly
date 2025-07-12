@@ -37,7 +37,6 @@
   [n]
   (vec (repeatedly n #(inc (rand-int 6)))))
 
-
 ;; ======= Definition Derivations ==============
 
 (defn *street-group-counts
@@ -68,7 +67,6 @@
        first
        :cell-index))
 
-
 ;; ======= Board Logistics =====================
 
 (defn next-cell
@@ -78,7 +76,6 @@
   ;; Modulo after adding dice sum to current spot
   (mod (+ n idx)
        (-> board :cells count)))
-
 
 ;; ======= Transaction Management ==============
 
@@ -94,13 +91,12 @@
                          (nil? tx)        []
                          :else
                          (throw (ex-info
-                                  "Appending a tx requires a map or collection of maps"
-                                  {:type-given (type tx)})))))
+                                 "Appending a tx requires a map or collection of maps"
+                                 {:type-given (type tx)})))))
              vec)]
     ;; For now we have to ensure we are concat'ing a vector with a vector...
     ;; TODO - Not sure where it's changing, is this fine to keep this way?
     (update game-state :transactions (comp vec concat) prepped)))
-
 
 ;; ======= Player Management ===================
 
@@ -159,7 +155,6 @@
       ;; Get/Set next player ID
       (assoc-in [:current-turn :player]
                 (-> game-state next-player :id))))
-
 
 ;; ======= Jail Life Cycle =====================
 
@@ -251,15 +246,15 @@
           ;; Force bail payment, and move
           (<= 3 attempt)
           (make-requisite-payment
-            game-state player-id :bank bail
-            #(-> %
-                 (dissoc-in [:players pidx :jail-spell])
+           game-state player-id :bank bail
+           #(-> %
+                (dissoc-in [:players pidx :jail-spell])
                  ;; TODO - The "roll" transaction should happen here,
                  ;;        but the apply-dice-roll is doing that for us ...
-                 (append-tx {:type   :bail
-                             :player player-id
-                             :means  [:cash bail]})
-                 (apply-dice-roll new-roll)))
+                (append-tx {:type   :bail
+                            :player player-id
+                            :means  [:cash bail]})
+                (apply-dice-roll new-roll)))
 
           ;; Not a double, register roll
           :else
@@ -300,7 +295,6 @@
                         :means  [:card (:deck card)]
                         :card   card}))))))
 
-
 ;; ======= Taxes ===============================
 
 (defn tax-owed?
@@ -316,7 +310,6 @@
     ;; Only return if tax is actually owed
     (when (= :tax (:type current-cell))
       (:cost current-cell))))
-
 
 ;; ======= Property Management =================
 
@@ -340,43 +333,43 @@
    (*owned-property-details game-state
                             (:players game-state)))
   ([{:keys [board]}
-   players]
-  (let [;; Prep static aggs
-        street-group->count
-        (street-group-counts board)
+    players]
+   (let [;; Prep static aggs
+         street-group->count
+         (street-group-counts board)
         ;; First pass, basic assembly of info
-        props (mapcat (fn [player]
-                        (map (fn [[prop-name owner-state]]
-                               [prop-name
-                                (assoc owner-state
-                                       :owner (:id player)
+         props (mapcat (fn [player]
+                         (map (fn [[prop-name owner-state]]
+                                [prop-name
+                                 (assoc owner-state
+                                        :owner (:id player)
                                        ;; TODO - Performance: cache key by property names for this
-                                       :def (->> board :properties
-                                                 (filter #(= prop-name (:name %)))
-                                                 first))])
-                             (:properties player)))
-                      players)]
+                                        :def (->> board :properties
+                                                  (filter #(= prop-name (:name %)))
+                                                  first))])
+                              (:properties player)))
+                       players)]
     ;; Derive/Attach monopoly status to each street type
-    (->> props
-         (map (fn [[prop-name deets]]
-                (let [type-owned        (->> props (map second)
-                                             (filter #(= (:owner %) (:owner deets) ))
-                                             (map :def)
-                                             (filter #(= (:type %) (-> deets :def :type) )))
-                      type-owned-count  (count type-owned)
-                      group-owned-count (->> type-owned
-                                             (filter #(= (:group-name %) (-> deets :def :group-name)))
-                                             count)]
-                  [prop-name
-                   (assoc deets
-                          :type-owned-count type-owned-count
-                          :group-owned-count group-owned-count
-                          :group-monopoly?
-                          (= group-owned-count
+     (->> props
+          (map (fn [[prop-name deets]]
+                 (let [type-owned        (->> props (map second)
+                                              (filter #(= (:owner %) (:owner deets)))
+                                              (map :def)
+                                              (filter #(= (:type %) (-> deets :def :type))))
+                       type-owned-count  (count type-owned)
+                       group-owned-count (->> type-owned
+                                              (filter #(= (:group-name %) (-> deets :def :group-name)))
+                                              count)]
+                   [prop-name
+                    (assoc deets
+                           :type-owned-count type-owned-count
+                           :group-owned-count group-owned-count
+                           :group-monopoly?
+                           (= group-owned-count
                              ;; Number required for a monopoly, by this group
                              ;; TODO - this assumes that only one type of prop has a group name
-                             (street-group->count (-> deets :def :group-name))))])))
-         (into {})))))
+                              (street-group->count (-> deets :def :group-name))))])))
+          (into {})))))
 
 (def owned-property-details
   ;; LRU cache with max 1000 entries to prevent memory leaks
@@ -407,11 +400,137 @@
                   (throw (ex-info "Unknown property status" {:owned-property prop})))))
          (apply +))))
 
+;; TODO - Need to do a special transfer/acquisition workflow for mortgaged properties,
+;;        currently we just assume it's owned outright
+(defn- apply-auction-property-workflow
+  "Given a game-state and a property name, carry out the auction workflow
+  by sequentially invoking the 'auction-bid' player decision method, per
+  player, until a winner is found. Starts by establishing a random order
+  to call players in, and continues that order in a loop. When a winner
+  is found, the game-state is updated to reflect the purchase, indicating
+  it was purchased via auction.
+
+  NOTE - This does not handle correct mortgaged property rules yet"
+  [game-state property]
+  (let [;; Get property definition from board
+        property-def (->> game-state :board :properties
+                          (filter #(= property (:name %)))
+                          first)
+        ;; Establish random player call ordering (include ALL players, even the one who declined)
+        current-player-id (get-in game-state [:current-turn :player])
+        auction-players (->> game-state :players
+                             (filter #(= :playing (:status %)))
+                             (map-indexed #(assoc %2 :player-index %1))
+                             shuffle)
+        ;; Determine bid increment (default to $10 if no rules specified)
+        bid-increment (get-in game-state [:board :rules :auction-increment] 10)
+        starting-bid bid-increment
+
+        ;; Record that auction was initiated (regardless of outcome)
+        game-state-with-auction-start
+        (append-tx game-state {:type :auction-initiated
+                               :property property
+                               :declined-by current-player-id
+                               :eligible-bidders (map :id auction-players)
+                               :starting-bid starting-bid
+                               :participant-count (count auction-players)})]
+
+    ;; Start auction loop
+    (loop [active-players auction-players
+           highest-bid 0
+           highest-bidder nil
+           current-bid starting-bid]
+
+      (if (empty? active-players)
+        ;; No more bidders - auction complete
+        (if highest-bidder
+          ;; Someone won the auction
+          (-> game-state-with-auction-start
+              ;; Add property to winner
+              (update-in [:players (:player-index highest-bidder) :properties]
+                         assoc property {:status :paid :house-count 0})
+              ;; Deduct winning bid from winner
+              (update-in [:players (:player-index highest-bidder) :cash]
+                         - highest-bid)
+              ;; Record auction completion transaction
+              (append-tx {:type :auction-completed
+                          :property property
+                          :winner (:id highest-bidder)
+                          :winning-bid highest-bid
+                          :participants (map :id auction-players)}))
+          ;; No one bid - auction passed, record the passed outcome
+          (append-tx game-state-with-auction-start
+                     {:type :auction-passed
+                      :property property
+                      :participants (map :id auction-players)}))
+
+        ;; Continue auction - get next player's bid
+        (let [current-player (first active-players)
+              remaining-players (rest active-players)
+
+              ;; Invoke player's auction-bid decision
+              decision ((:function current-player)
+                        game-state
+                        :auction-bid
+                        {:property property-def
+                         :highest-bid highest-bid
+                         :highest-bidder (when highest-bidder (:id highest-bidder))
+                         :required-bid current-bid})]
+
+          (case (:action decision)
+            ;; Player declines - remove from active players
+            :decline
+            (recur remaining-players highest-bid highest-bidder current-bid)
+
+            ;; Player bids - validate and update if valid
+            :bid
+            (let [bid-amount (:bid decision)]
+              (cond
+                ;; Missing bid amount
+                (nil? bid-amount)
+                (throw (ex-info "Invalid auction bid: missing bid amount"
+                                {:player-id (:id current-player)
+                                 :property property
+                                 :decision decision
+                                 :required-bid current-bid}))
+
+                ;; Bid too low
+                (< bid-amount current-bid)
+                (throw (ex-info "Invalid auction bid: bid amount too low"
+                                {:player-id (:id current-player)
+                                 :property property
+                                 :bid-amount bid-amount
+                                 :required-bid current-bid}))
+
+                ;; Insufficient cash
+                (< (:cash current-player) bid-amount)
+                (throw (ex-info "Invalid auction bid: insufficient cash"
+                                {:player-id (:id current-player)
+                                 :property property
+                                 :bid-amount bid-amount
+                                 :player-cash (:cash current-player)}))
+
+                ;; Valid bid - update highest bid and continue
+                :else
+                (recur (conj (vec remaining-players) current-player)
+                       bid-amount
+                       current-player
+                       (+ bid-amount bid-increment))))
+
+            ;; Unknown action - throw exception
+            (throw (ex-info "Invalid auction action"
+                            {:player-id (:id current-player)
+                             :property property
+                             :action (:action decision)
+                             :valid-actions [:bid :decline]}))))))))
+
 (defn apply-property-option
   "Given a game state, check if current player is able to buy the property
   they are currently on, if so, invoke player decision logic to determine
   if they want to buy the property. Apply game state changes for either a
-  property purchase, or the result of an invoked auction workflow."
+  property purchase, or the result of an invoked auction workflow.
+  Current cell residency must be a property type, and that property must be
+  unowned."
   [{:keys [board]
     :as   game-state}]
   (let [;; Get player details
@@ -420,23 +539,32 @@
                 cell-residency]
          :as   player} (current-player game-state)
         current-cell   (get-in board [:cells cell-residency])
+        owned          (owned-property-details game-state)
         ;; Get the definition of the current cell *if* it's a property
         property       (and (-> current-cell :type (= :property))
                             (->> board :properties
                                  (filter #(= (:name %) (:name current-cell)))
-                                 first))
-        taken          (owned-properties game-state)]
+                                 first))]
+
+    ;; Make sure this is a property
+    (when-not property
+      (throw (ex-info "Can't apply property option, to a non-property cell"
+                      {:cell current-cell})))
+
+    ;; Make sure it's unowned
+    (when (owned (:name property))
+      (throw (ex-info "Can't apply property option, to an owned property"
+                      (let [state (owned (:name property))]
+                        {:property (:def state)
+                         :state (dissoc state :def)}))))
+
     ;; Either process initial property purchase, or auction off
     (if (and
-          ;; We're on an actual property
-          property
-          ;; It's unowned
-          (not (taken (:name property)))
-          ;; Player has enough money
-          (> cash (:price property))
+         ;; Player has enough money
+         (> cash (:price property))
           ;; Player wants to buy it...
           ;; [invoke player for option decision]
-          (= :buy (:action (function game-state :property-option {:property property}))))
+         (= :buy (:action (function game-state :property-option {:property property}))))
 
       ;; Apply the purchase
       (-> game-state
@@ -449,16 +577,14 @@
           (update-in [:players player-index :cash]
                      - (:price property))
           ;; Track transaction
+          ;; TODO - maybe add an indicator that this was a purchase via direct landing on? (vs auction or other acquisition)
           (append-tx {:type     :purchase
                       :player   (:id player)
                       :property (:name property)
                       :price    (:price property)}))
 
       ;; Apply auction workflow
-      ;; TODO - need to implement this
-      ;; TODO - need also add another condition that it's unowned
-      game-state)))
-
+      (apply-auction-property-workflow game-state (:name property)))))
 
 ;; ----- Rent ------------------------
 
@@ -531,18 +657,17 @@
     ;; Only return if rent is actually owed
     (when (and
             ;; ..is on an owned property
-            owned-prop
+           owned-prop
             ;; ..is paid, not morgaged
-            (= :paid (:status owned-prop))
+           (= :paid (:status owned-prop))
             ;; ..is owned by someone else
-            (not= (:owner owned-prop)
-                  (:id player)))
+           (not= (:owner owned-prop)
+                 (:id player)))
       ;; Return the owner ID and rent amount owed
       [(:owner owned-prop)
        (calculate-rent (:name on-prop)
                        owned-props
                        (-> current-turn :dice-rolls last))])))
-
 
 ;; ----- Building Management ---------
 

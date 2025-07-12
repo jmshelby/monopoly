@@ -8,7 +8,9 @@
       "Bash(sed:*)",
       "Bash(find:*)",
       "Bash(./bin/test)",
-      "Bash(gh issue:*)"
+      "Bash(gh issue:*)",
+      "Bash(clj-kondo:*)",
+      "Bash(gh pr create:*)"
     ],
     "deny": []
   }

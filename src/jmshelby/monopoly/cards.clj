@@ -30,9 +30,9 @@
   [game-state cards]
   ;; Simple reduce over our single card fn
   (reduce
-    add-to-deck-queue
-    game-state
-    cards))
+   add-to-deck-queue
+   game-state
+   cards))
 
 (defn- shuffle-deck
   "Given a game state, and a deck name, replinish the
@@ -187,8 +187,8 @@
        (map-indexed vector)
        (some (fn [[idx cell]]
                (when
-                   (and (= name (:name cell))
-                        (= :property (:type cell)))
+                (and (= name (:name cell))
+                     (= :property (:type cell)))
                  idx)))))
 
 (defn- get-next-property-type

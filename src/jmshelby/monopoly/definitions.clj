@@ -524,13 +524,9 @@
        frequencies
        (map (fn [[k v]] [(if (vector? k) (apply str k) k) v]))
        ;; (map first)
-       (sort-by second)
-       )
+       (sort-by second))
 
   (->> board
        :cards
        (map :card/effect)
-       frequencies
-       )
-
-  )
+       frequencies))
