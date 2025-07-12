@@ -7,7 +7,7 @@
   ;; Just need to add cash to property value
   (+ (:cash player)
      (util/player-property-sell-worth
-       game-state (:id player))))
+      game-state (:id player))))
 
 (defn- reset-player-assets
   [game-state player]
@@ -148,11 +148,11 @@
     ;; TODO - we'll need a default that doesn't allow indecision...
     (case (:action decision)
       :sell-house        (util/apply-house-sale
-                           game-state
-                           (:property-name decision))
+                          game-state
+                          (:property-name decision))
       :mortgage-property (util/apply-property-mortgage
-                           game-state
-                           (:property-name decision)))))
+                          game-state
+                          (:property-name decision)))))
 
 (defn- apply-raise-funds-workflow
   "Given a game state, player, and required amount, initiate the raise-funds
@@ -182,7 +182,7 @@
             remaining   (- amount (:cash player))
             ;; Call out to player, apply decision
             gs-next     (invoke-and-apply-raise-funds
-                          gs player remaining)
+                         gs player remaining)
             player-next (->> gs-next :players
                              (filter #(= pid (:id %)))
                              first)]

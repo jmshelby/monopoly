@@ -31,10 +31,10 @@
   (let [;; Get player indexes
         {pidx-proposer
          :player-index} (util/player-by-id
-                          game-state (:trade/from-player proposal))
+                         game-state (:trade/from-player proposal))
         {pidx-acceptor
          :player-index} (util/player-by-id
-                          game-state (:trade/to-player proposal))
+                         game-state (:trade/to-player proposal))
         ;; Pull out both sides of the proposal and ensure
         ;; all resource keys are available with empty values
         stub-defaults   (fn [p] (merge {:cash       0
@@ -118,15 +118,15 @@
     ;; Validation
     ;; TODO - maybe we just assume it's valid and the caller can validate first...
     (when-not
-        (and
+     (and
           ;; The current player is offering
           ;; TODO - Should *we* really care about this?
-          (= (:id from-player)
-             (:trade/from-player proposal))
+      (= (:id from-player)
+         (:trade/from-player proposal))
           ;; Offerred player has resources
-          (validate-side to-player asking)
+      (validate-side to-player asking)
           ;; Offering player has resources
-          (validate-side from-player offering))
+      (validate-side from-player offering))
       (throw (ex-info "Invalid trade proposal"
                       {:checks     {;; The current player is offering
                                     :current-player-offering?
@@ -175,9 +175,9 @@
         others (util/other-players game-state player-id)]
     (and
       ;; Game is still active
-      (= (:playing (:status game-state)))
+     (= (:playing (:status game-state)))
       ;; ...
-      )
+     )
 
     ;; OR
     ;; - If you own some property, with no houses
@@ -187,5 +187,4 @@
     ;; OR
     ;; ??
     )
-  true
-  )
+  true)

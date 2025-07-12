@@ -37,7 +37,6 @@
   [n]
   (vec (repeatedly n #(inc (rand-int 6)))))
 
-
 ;; ======= Definition Derivations ==============
 
 (defn *street-group-counts
@@ -68,7 +67,6 @@
        first
        :cell-index))
 
-
 ;; ======= Board Logistics =====================
 
 (defn next-cell
@@ -78,7 +76,6 @@
   ;; Modulo after adding dice sum to current spot
   (mod (+ n idx)
        (-> board :cells count)))
-
 
 ;; ======= Transaction Management ==============
 
@@ -94,13 +91,12 @@
                          (nil? tx)        []
                          :else
                          (throw (ex-info
-                                  "Appending a tx requires a map or collection of maps"
-                                  {:type-given (type tx)})))))
+                                 "Appending a tx requires a map or collection of maps"
+                                 {:type-given (type tx)})))))
              vec)]
     ;; For now we have to ensure we are concat'ing a vector with a vector...
     ;; TODO - Not sure where it's changing, is this fine to keep this way?
     (update game-state :transactions (comp vec concat) prepped)))
-
 
 ;; ======= Player Management ===================
 
@@ -159,7 +155,6 @@
       ;; Get/Set next player ID
       (assoc-in [:current-turn :player]
                 (-> game-state next-player :id))))
-
 
 ;; ======= Jail Life Cycle =====================
 
@@ -251,15 +246,15 @@
           ;; Force bail payment, and move
           (<= 3 attempt)
           (make-requisite-payment
-            game-state player-id :bank bail
-            #(-> %
-                 (dissoc-in [:players pidx :jail-spell])
+           game-state player-id :bank bail
+           #(-> %
+                (dissoc-in [:players pidx :jail-spell])
                  ;; TODO - The "roll" transaction should happen here,
                  ;;        but the apply-dice-roll is doing that for us ...
-                 (append-tx {:type   :bail
-                             :player player-id
-                             :means  [:cash bail]})
-                 (apply-dice-roll new-roll)))
+                (append-tx {:type   :bail
+                            :player player-id
+                            :means  [:cash bail]})
+                (apply-dice-roll new-roll)))
 
           ;; Not a double, register roll
           :else
@@ -300,7 +295,6 @@
                         :means  [:card (:deck card)]
                         :card   card}))))))
 
-
 ;; ======= Taxes ===============================
 
 (defn tax-owed?
@@ -316,7 +310,6 @@
     ;; Only return if tax is actually owed
     (when (= :tax (:type current-cell))
       (:cost current-cell))))
-
 
 ;; ======= Property Management =================
 
@@ -340,43 +333,43 @@
    (*owned-property-details game-state
                             (:players game-state)))
   ([{:keys [board]}
-   players]
-  (let [;; Prep static aggs
-        street-group->count
-        (street-group-counts board)
+    players]
+   (let [;; Prep static aggs
+         street-group->count
+         (street-group-counts board)
         ;; First pass, basic assembly of info
-        props (mapcat (fn [player]
-                        (map (fn [[prop-name owner-state]]
-                               [prop-name
-                                (assoc owner-state
-                                       :owner (:id player)
+         props (mapcat (fn [player]
+                         (map (fn [[prop-name owner-state]]
+                                [prop-name
+                                 (assoc owner-state
+                                        :owner (:id player)
                                        ;; TODO - Performance: cache key by property names for this
-                                       :def (->> board :properties
-                                                 (filter #(= prop-name (:name %)))
-                                                 first))])
-                             (:properties player)))
-                      players)]
+                                        :def (->> board :properties
+                                                  (filter #(= prop-name (:name %)))
+                                                  first))])
+                              (:properties player)))
+                       players)]
     ;; Derive/Attach monopoly status to each street type
-    (->> props
-         (map (fn [[prop-name deets]]
-                (let [type-owned        (->> props (map second)
-                                             (filter #(= (:owner %) (:owner deets) ))
-                                             (map :def)
-                                             (filter #(= (:type %) (-> deets :def :type) )))
-                      type-owned-count  (count type-owned)
-                      group-owned-count (->> type-owned
-                                             (filter #(= (:group-name %) (-> deets :def :group-name)))
-                                             count)]
-                  [prop-name
-                   (assoc deets
-                          :type-owned-count type-owned-count
-                          :group-owned-count group-owned-count
-                          :group-monopoly?
-                          (= group-owned-count
+     (->> props
+          (map (fn [[prop-name deets]]
+                 (let [type-owned        (->> props (map second)
+                                              (filter #(= (:owner %) (:owner deets)))
+                                              (map :def)
+                                              (filter #(= (:type %) (-> deets :def :type))))
+                       type-owned-count  (count type-owned)
+                       group-owned-count (->> type-owned
+                                              (filter #(= (:group-name %) (-> deets :def :group-name)))
+                                              count)]
+                   [prop-name
+                    (assoc deets
+                           :type-owned-count type-owned-count
+                           :group-owned-count group-owned-count
+                           :group-monopoly?
+                           (= group-owned-count
                              ;; Number required for a monopoly, by this group
                              ;; TODO - this assumes that only one type of prop has a group name
-                             (street-group->count (-> deets :def :group-name))))])))
-         (into {})))))
+                              (street-group->count (-> deets :def :group-name))))])))
+          (into {})))))
 
 (def owned-property-details
   ;; LRU cache with max 1000 entries to prevent memory leaks
@@ -407,7 +400,6 @@
                   (throw (ex-info "Unknown property status" {:owned-property prop})))))
          (apply +))))
 
-
 ;; TODO - Need to do a special transfer/acquisition workflow for mortgaged properties,
 ;;        currently we just assume it's owned outright
 (defn- apply-auction-property-workflow
@@ -432,11 +424,11 @@
         ;; Record that auction was initiated (regardless of outcome)
         game-state-with-auction-start
         (append-tx game-state {:type :auction-initiated
-                              :property property
-                              :declined-by current-player-id
-                              :eligible-bidders (map :id auction-players)
-                              :starting-bid starting-bid
-                              :participant-count (count auction-players)})]
+                               :property property
+                               :declined-by current-player-id
+                               :eligible-bidders (map :id auction-players)
+                               :starting-bid starting-bid
+                               :participant-count (count auction-players)})]
 
     ;; Start auction loop
     (loop [active-players auction-players
@@ -567,7 +559,6 @@
       ;; Apply auction workflow
       (apply-auction-property-workflow game-state (:name property)))))
 
-
 ;; ----- Rent ------------------------
 
 (defmulti calculate-rent
@@ -639,18 +630,17 @@
     ;; Only return if rent is actually owed
     (when (and
             ;; ..is on an owned property
-            owned-prop
+           owned-prop
             ;; ..is paid, not morgaged
-            (= :paid (:status owned-prop))
+           (= :paid (:status owned-prop))
             ;; ..is owned by someone else
-            (not= (:owner owned-prop)
-                  (:id player)))
+           (not= (:owner owned-prop)
+                 (:id player)))
       ;; Return the owner ID and rent amount owed
       [(:owner owned-prop)
        (calculate-rent (:name on-prop)
                        owned-props
                        (-> current-turn :dice-rolls last))])))
-
 
 ;; ----- Building Management ---------
 

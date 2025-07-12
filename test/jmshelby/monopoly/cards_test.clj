@@ -21,10 +21,10 @@
   (testing "get-payment-multiplier function"
     (let [game-state (-> (core/init-game-state 4)
                         ;; Give player some properties with houses
-                        (assoc-in [:players 0 :properties]
-                                  {:boardwalk {:status :paid :house-count 2}
-                                   :park-place {:status :paid :house-count 5} ; hotel
-                                   :baltic-avenue {:status :paid :house-count 1}}))]
+                         (assoc-in [:players 0 :properties]
+                                   {:boardwalk {:status :paid :house-count 2}
+                                    :park-place {:status :paid :house-count 5} ; hotel
+                                    :baltic-avenue {:status :paid :house-count 1}}))]
 
       (testing ":house/count multiplier"
         (let [player (get-in game-state [:players 0])
@@ -62,26 +62,26 @@
     (let [game-state (core/init-game-state 4)
           player (assoc (get-in game-state [:players 0]) :player-index 0)
           birthday-card {:text "It's your birthday! Collect $10 from each player"
-                        :deck :community-chest
-                        :card/effect :collect
-                        :card.collect/cash 10
-                        :card.cash/multiplier :player/count}
+                         :deck :community-chest
+                         :card/effect :collect
+                         :card.collect/cash 10
+                         :card.cash/multiplier :player/count}
           result-state (cards/apply-card-effect game-state player birthday-card)
           cash-gained (- (get-in result-state [:players 0 :cash])
-                        (get-in game-state [:players 0 :cash]))]
+                         (get-in game-state [:players 0 :cash]))]
       (is (= 30 cash-gained) "Should collect $10 × 3 other players = $30")))
 
   (testing "pay card with :player/count multiplier"
     (let [game-state (core/init-game-state 3) ; 3 players total
           player (assoc (get-in game-state [:players 0]) :player-index 0)
           pay-card {:text "Pay each player $25"
-                   :deck :chance
-                   :card/effect :pay
-                   :card.pay/cash 25
-                   :card.cash/multiplier :player/count}
+                    :deck :chance
+                    :card/effect :pay
+                    :card.pay/cash 25
+                    :card.cash/multiplier :player/count}
           result-state (cards/apply-card-effect game-state player pay-card)
           cash-lost (- (get-in game-state [:players 0 :cash])
-                      (get-in result-state [:players 0 :cash]))]
+                       (get-in result-state [:players 0 :cash]))]
       (is (= 50 cash-lost) "Should pay $25 × 2 other players = $50"))))
 
 (deftest draw
@@ -112,8 +112,7 @@
 
 (comment
 
-
-  ;; Setup game
+;; Setup game
   (-> (core/init-game-state 4)
       ;; with current player landing on chance
       (update-in [:current-turn :dice-rolls] conj [3 4])
@@ -124,7 +123,4 @@
                   :deck           :chance
                   :card/effect    :move,
                   :card.move/cell [:back 3]}])
-      (cards/apply-card-draw)
-      )
-
-  )
+      (cards/apply-card-draw)))

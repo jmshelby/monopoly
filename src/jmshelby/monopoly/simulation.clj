@@ -12,7 +12,7 @@
         transactions (:transactions game-state)
         tx-count (count transactions)
         winner-id (when (= 1 (count active-players)) (:id (first active-players)))
-        
+
         ;; Auction analysis
         auction-initiated-txs (->> transactions (filter #(= :auction-initiated (:type %))))
         auction-completed-txs (->> transactions (filter #(= :auction-completed (:type %))))
@@ -24,9 +24,9 @@
      :failed-to-complete (= :playing (:status game-state))
      :hit-failsafe (boolean (:failsafe-stop game-state))
      :had-exception (boolean (:exception game-state))
-     :exception-message (when (:exception game-state) 
+     :exception-message (when (:exception game-state)
                           (get-in game-state [:exception :message]))
-     
+
      ;; Auction statistics
      :auction-initiated-count (count auction-initiated-txs)
      :auction-completed-count (count auction-completed-txs)
@@ -39,7 +39,7 @@
   "Run a large number of game simulations using core.async pipeline for memory efficiency"
   ([num-games] (run-simulation num-games 4 1500))
   ([num-games num-players safety-threshold]
-   (println (format "Starting simulation of %d games with %d players each (safety: %d)..." 
+   (println (format "Starting simulation of %d games with %d players each (safety: %d)..."
                     num-games num-players safety-threshold))
    (let [start-time (System/currentTimeMillis)
          parallelism  (+ 2 (* 2 (.. Runtime getRuntime availableProcessors)))
@@ -57,133 +57,133 @@
                           (analyze-game-outcome game-state)))
 
         ;; Set up pipeline to process games in parallel with backpressure
-        pipeline-result (pipeline parallelism output-ch (map process-game) input-ch)
+         pipeline-result (pipeline parallelism output-ch (map process-game) input-ch)
 
         ;; Start feeding game numbers to input channel
-        feeder (go
-                 (doseq [game-num (range num-games)]
-                   (>! input-ch game-num))
-                 (close! input-ch))
+         feeder (go
+                  (doseq [game-num (range num-games)]
+                    (>! input-ch game-num))
+                  (close! input-ch))
 
         ;; Collect results from output channel
-        collector (go-loop [results []]
-                    (if-let [result (<! output-ch)]
-                      (recur (conj results result))
-                      results))
+         collector (go-loop [results []]
+                     (if-let [result (<! output-ch)]
+                       (recur (conj results result))
+                       results))
 
         ;; Wait for all processing to complete and collect results
-        results (time (<!! collector))
+         results (time (<!! collector))
 
-        end-time (System/currentTimeMillis)
-        duration-ms (- end-time start-time)
+         end-time (System/currentTimeMillis)
+         duration-ms (- end-time start-time)
 
         ;; Calculate statistics
-        games-with-winner (->> results (filter :has-winner))
-        games-without-winner (->> results (remove :has-winner))
-        failsafe-games (->> results (filter :hit-failsafe))
-        exception-games (->> results (filter :had-exception))
-        
+         games-with-winner (->> results (filter :has-winner))
+         games-without-winner (->> results (remove :has-winner))
+         failsafe-games (->> results (filter :hit-failsafe))
+         exception-games (->> results (filter :had-exception))
+
         ;; Exception message statistics
-        exception-messages (->> exception-games
-                               (map :exception-message)
-                               (filter some?)
-                               frequencies
-                               (sort-by second >))
+         exception-messages (->> exception-games
+                                 (map :exception-message)
+                                 (filter some?)
+                                 frequencies
+                                 (sort-by second >))
 
         ;; Winner statistics
-        winner-stats (->> games-with-winner
-                          (group-by :winner-id)
-                          (map (fn [[winner-id games]]
-                                 [winner-id (count games)]))
-                          (sort-by second >))
+         winner-stats (->> games-with-winner
+                           (group-by :winner-id)
+                           (map (fn [[winner-id games]]
+                                  [winner-id (count games)]))
+                           (sort-by second >))
 
         ;; Transaction count statistics for winning games
-        winning-tx-counts (->> games-with-winner (map :transaction-count))
+         winning-tx-counts (->> games-with-winner (map :transaction-count))
 
         ;; Transaction count statistics for failsafe games
-        failsafe-tx-counts (->> failsafe-games (map :transaction-count))
+         failsafe-tx-counts (->> failsafe-games (map :transaction-count))
 
         ;; Auction statistics
-        games-with-auctions (->> results (filter :has-auctions))
-        total-auctions-initiated (apply + (map :auction-initiated-count results))
-        total-auctions-completed (apply + (map :auction-completed-count results))
-        total-purchases (apply + (map :purchase-count results))
-        auction-initiated-counts (->> results (map :auction-initiated-count))
-        auction-completed-counts (->> results (map :auction-completed-count))
-        sample-auction-initiations (->> games-with-auctions
-                                       (take 5)
-                                       (mapcat :auction-initiated-transactions)
-                                       (take 10))
-        sample-auction-completions (->> games-with-auctions
-                                       (take 5)
-                                       (mapcat :auction-completed-transactions)
-                                       (take 10))
+         games-with-auctions (->> results (filter :has-auctions))
+         total-auctions-initiated (apply + (map :auction-initiated-count results))
+         total-auctions-completed (apply + (map :auction-completed-count results))
+         total-purchases (apply + (map :purchase-count results))
+         auction-initiated-counts (->> results (map :auction-initiated-count))
+         auction-completed-counts (->> results (map :auction-completed-count))
+         sample-auction-initiations (->> games-with-auctions
+                                         (take 5)
+                                         (mapcat :auction-initiated-transactions)
+                                         (take 10))
+         sample-auction-completions (->> games-with-auctions
+                                         (take 5)
+                                         (mapcat :auction-completed-transactions)
+                                         (take 10))
 
         ;; Incomplete game analysis
-        incomplete-games (->> games-without-winner
-                              (group-by :active-player-count)
-                              (map (fn [[player-count games]]
-                                     [player-count (count games)]))
-                              (sort-by first))
+         incomplete-games (->> games-without-winner
+                               (group-by :active-player-count)
+                               (map (fn [[player-count games]]
+                                      [player-count (count games)]))
+                               (sort-by first))
 
-        stats {:total-games num-games
-               :duration-seconds (/ duration-ms 1000.0)
-               :games-per-second (/ num-games (/ duration-ms 1000.0))
+         stats {:total-games num-games
+                :duration-seconds (/ duration-ms 1000.0)
+                :games-per-second (/ num-games (/ duration-ms 1000.0))
 
-               :games-with-winner (count games-with-winner)
-               :games-without-winner (count games-without-winner)
-               :winner-percentage (* 100.0 (/ (count games-with-winner) num-games))
+                :games-with-winner (count games-with-winner)
+                :games-without-winner (count games-without-winner)
+                :winner-percentage (* 100.0 (/ (count games-with-winner) num-games))
 
-               :failsafe-games (count failsafe-games)
-               :exception-games (count exception-games)
-               :exception-messages exception-messages
+                :failsafe-games (count failsafe-games)
+                :exception-games (count exception-games)
+                :exception-messages exception-messages
 
-               :winner-distribution winner-stats
-               :winner-percentages (->> winner-stats
-                                        (map (fn [[winner-id count]]
-                                               [winner-id (* 100.0 (/ count (count games-with-winner)))])))
+                :winner-distribution winner-stats
+                :winner-percentages (->> winner-stats
+                                         (map (fn [[winner-id count]]
+                                                [winner-id (* 100.0 (/ count (count games-with-winner)))])))
 
-               :transaction-stats (when (seq winning-tx-counts)
-                                    {:min (apply min winning-tx-counts)
-                                     :max (apply max winning-tx-counts)
-                                     :avg (double (/ (apply + winning-tx-counts) (count winning-tx-counts)))
-                                     :median (nth (sort winning-tx-counts)
-                                                  (int (/ (count winning-tx-counts) 2)))})
+                :transaction-stats (when (seq winning-tx-counts)
+                                     {:min (apply min winning-tx-counts)
+                                      :max (apply max winning-tx-counts)
+                                      :avg (double (/ (apply + winning-tx-counts) (count winning-tx-counts)))
+                                      :median (nth (sort winning-tx-counts)
+                                                   (int (/ (count winning-tx-counts) 2)))})
 
-               :failsafe-transaction-stats (when (seq failsafe-tx-counts)
-                                             {:min (apply min failsafe-tx-counts)
-                                              :max (apply max failsafe-tx-counts)
-                                              :avg (double (/ (apply + failsafe-tx-counts) (count failsafe-tx-counts)))
-                                              :median (nth (sort failsafe-tx-counts)
-                                                          (int (/ (count failsafe-tx-counts) 2)))})
+                :failsafe-transaction-stats (when (seq failsafe-tx-counts)
+                                              {:min (apply min failsafe-tx-counts)
+                                               :max (apply max failsafe-tx-counts)
+                                               :avg (double (/ (apply + failsafe-tx-counts) (count failsafe-tx-counts)))
+                                               :median (nth (sort failsafe-tx-counts)
+                                                            (int (/ (count failsafe-tx-counts) 2)))})
 
                ;; Auction statistics
-               :games-with-auctions (count games-with-auctions)
-               :auction-occurrence-rate (* 100.0 (/ (count games-with-auctions) num-games))
-               :total-auctions-initiated total-auctions-initiated
-               :total-auctions-completed total-auctions-completed
-               :total-purchases total-purchases
-               :avg-auctions-initiated-per-game (double (/ total-auctions-initiated num-games))
-               :avg-auctions-completed-per-game (double (/ total-auctions-completed num-games))
-               :auction-completion-rate (if (> total-auctions-initiated 0)
-                                        (* 100.0 (/ total-auctions-completed total-auctions-initiated))
-                                        0.0)
-               :auction-to-purchase-ratio (if (> total-purchases 0)
-                                          (double (/ total-auctions-initiated total-purchases))
-                                          0.0)
-               :auction-initiated-stats (when (seq auction-initiated-counts)
-                                        {:min (apply min auction-initiated-counts)
-                                         :max (apply max auction-initiated-counts)
-                                         :avg (double (/ (apply + auction-initiated-counts) (count auction-initiated-counts)))
-                                         :median (nth (sort auction-initiated-counts)
-                                                    (int (/ (count auction-initiated-counts) 2)))})
-               :sample-auction-initiations sample-auction-initiations
-               :sample-auction-completions sample-auction-completions
+                :games-with-auctions (count games-with-auctions)
+                :auction-occurrence-rate (* 100.0 (/ (count games-with-auctions) num-games))
+                :total-auctions-initiated total-auctions-initiated
+                :total-auctions-completed total-auctions-completed
+                :total-purchases total-purchases
+                :avg-auctions-initiated-per-game (double (/ total-auctions-initiated num-games))
+                :avg-auctions-completed-per-game (double (/ total-auctions-completed num-games))
+                :auction-completion-rate (if (> total-auctions-initiated 0)
+                                           (* 100.0 (/ total-auctions-completed total-auctions-initiated))
+                                           0.0)
+                :auction-to-purchase-ratio (if (> total-purchases 0)
+                                             (double (/ total-auctions-initiated total-purchases))
+                                             0.0)
+                :auction-initiated-stats (when (seq auction-initiated-counts)
+                                           {:min (apply min auction-initiated-counts)
+                                            :max (apply max auction-initiated-counts)
+                                            :avg (double (/ (apply + auction-initiated-counts) (count auction-initiated-counts)))
+                                            :median (nth (sort auction-initiated-counts)
+                                                         (int (/ (count auction-initiated-counts) 2)))})
+                :sample-auction-initiations sample-auction-initiations
+                :sample-auction-completions sample-auction-completions
 
-               :incomplete-game-breakdown incomplete-games}]
+                :incomplete-game-breakdown incomplete-games}]
 
-    (println (format "Simulation completed in %.1f seconds" (/ duration-ms 1000.0)))
-    stats)))
+     (println (format "Simulation completed in %.1f seconds" (/ duration-ms 1000.0)))
+     stats)))
 
 (defn print-simulation-results
   "Print a human-readable summary of simulation results"
@@ -211,20 +211,20 @@
     ;; Game Completion Summary
     (println "🎯 GAME COMPLETION")
     (printf "   Games with Winner: %d (%.1f%%)\n" games-with-winner winner-percentage)
-    (printf "   Games without Winner: %d (%.1f%%)\n" 
+    (printf "   Games without Winner: %d (%.1f%%)\n"
             games-without-winner (- 100 winner-percentage))
     (when (> failsafe-games 0)
-      (printf "   Failsafe Stops: %d (%.1f%%)\n" 
+      (printf "   Failsafe Stops: %d (%.1f%%)\n"
               failsafe-games (* 100.0 (/ failsafe-games total-games))))
     (when (> exception-games 0)
-      (printf "   Exception Games: %d (%.1f%%)\n" 
+      (printf "   Exception Games: %d (%.1f%%)\n"
               exception-games (* 100.0 (/ exception-games total-games))))
     (println)
-    
+
     ;; Exception Details - only show if there are exceptions
     (when (and (> exception-games 0) (seq exception-messages))
       (println "💥 EXCEPTION DETAILS")
-      (printf "   Games with Exceptions: %d (%.1f%%)\n" 
+      (printf "   Games with Exceptions: %d (%.1f%%)\n"
               exception-games (* 100.0 (/ exception-games total-games)))
       (println "   Exception Messages:")
       (doseq [[message count] exception-messages]
@@ -261,13 +261,13 @@
     (printf "   Auction to Purchase Ratio: %.4f\n" auction-to-purchase-ratio)
     (when auction-initiated-stats
       (printf "   Auction Initiated Stats - Min: %d, Max: %d, Avg: %.1f, Median: %d\n"
-              (:min auction-initiated-stats) (:max auction-initiated-stats) 
+              (:min auction-initiated-stats) (:max auction-initiated-stats)
               (:avg auction-initiated-stats) (:median auction-initiated-stats)))
     (when (seq sample-auction-initiations)
       (println "   Sample Auction Initiations:")
       (doseq [auction (take 5 sample-auction-initiations)]
         (printf "     %s: Declined by %s, Bidders: %s, Starting bid: $%d\n"
-                (:property auction) (:declined-by auction) 
+                (:property auction) (:declined-by auction)
                 (clojure.string/join ", " (:eligible-bidders auction))
                 (:starting-bid auction))))
     (when (seq sample-auction-completions)
@@ -294,7 +294,7 @@
       (println "❌ INCOMPLETE GAME BREAKDOWN")
       (doseq [[active-count game-count] incomplete-game-breakdown]
         (let [percentage (* 100.0 (/ game-count total-games))]
-          (printf "   %d active players: %d games (%.1f%%)\n" 
+          (printf "   %d active players: %d games (%.1f%%)\n"
                   active-count game-count percentage)))
       (println))
 
@@ -344,10 +344,10 @@
     (cond
       (:help options) ; help => exit OK with usage summary
       {:exit-message (usage summary) :ok? true}
-      
+
       errors ; errors => exit with description of errors
       {:exit-message (error-msg errors)}
-      
+
       ;; Handle backward compatibility with positional arguments
       (and (= 100 (:games options)) (seq arguments))
       (let [games-arg (first arguments)]
@@ -359,7 +359,7 @@
               {:exit-message "Number of games must be positive"}))
           (catch NumberFormatException _
             {:exit-message (str "Invalid number: " games-arg)})))
-      
+
       :else ; failed custom validation => exit with usage summary
       {:action :run-simulation :options options})))
 

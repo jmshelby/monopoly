@@ -177,8 +177,8 @@
       (let [;; Get props we can offer
             ;; _         (println (:id player) ": Going after prop: " target-prop)
             sacrifice (find-proposable-properties
-                        game-state player
-                        (-> target-prop :def :price))]
+                       game-state player
+                       (-> target-prop :def :price))]
 
         ;; Only create an offer if we have something to sacrifice
         (when (seq sacrifice)
@@ -218,25 +218,25 @@
             cash-reserve 200  ; Keep some cash on hand (reduced from 300)
             max-affordable (max 0 (- cash cash-reserve))
             property-value (when property (:price property))
-            
+
             ;; Determine if this property is valuable to us
-            property-worth-it? (and 
+            property-worth-it? (and
                                ;; Property exists and has a price
-                               property-value
+                                property-value
                                ;; Don't bid more than property's face value
-                               (<= required-bid property-value)
+                                (<= required-bid property-value)
                                ;; Make sure we can afford it plus reserve
-                               (>= max-affordable required-bid)
+                                (>= max-affordable required-bid)
                                ;; Only bid if we have reasonable cash (reduced threshold)
-                               (> cash 300))
-            
+                                (> cash 300))
+
             ;; Calculate our maximum bid (more liberal - up to full property value)
             max-bid (when property-value
                       (min max-affordable property-value))]
-        
-        (if (and property-worth-it? 
-                max-bid
-                (>= max-bid required-bid))
+
+        (if (and property-worth-it?
+                 max-bid
+                 (>= max-bid required-bid))
           {:action :bid
            :bid required-bid}  ; Bid exactly what's required
           {:action :decline}))
@@ -285,9 +285,7 @@
                           {:player-id my-id
                            :amount-needed (:amount params)}))))
 
-
-
-      ;; A trade proposal offered to us
+;; A trade proposal offered to us
       :trade-proposal
       ;; Real simple, no worry about our state or the other player's state.
       ;;   - Accept if offerred resources value (taking mortgaged into account)

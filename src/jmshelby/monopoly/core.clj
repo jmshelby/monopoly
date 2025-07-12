@@ -52,10 +52,9 @@
                   :dice-rolls []
                   ;; Opt - when needing to raise funds for a player
                   ;; TODO - not sure if this will be original/total amount, or current remaining amount...
-                  :raise-funds 999
-                  }
+                  :raise-funds 999}
 
-   ;; The current *ordered* care queue to pull from.
+;; The current *ordered* care queue to pull from.
    ;; At the beginning of the game these will be loaded at random,
    ;; when one queue is exhausted, it is randomly filled again.
    :card-queue {:chance          []
@@ -67,7 +66,6 @@
    ;;  - This is a lot like datomic...
    ;;  - Each item in this list could be every unique game state
    :transactions []})
-
 
 ;; Special function to core
 (defn- move-to-cell
@@ -266,34 +264,34 @@
                               ;;         - if they haven't rolled yet
                               ;;         - if they rolled a double last
                               ;;         - [others?]
-                              :done
-                              (if jail-spell
+                             :done
+                             (if jail-spell
                                 ;; Jail actions
-                                [;; Attempt double roll
-                                 (when (nil? last-roll)
-                                   :jail/roll)
+                               [;; Attempt double roll
+                                (when (nil? last-roll)
+                                  :jail/roll)
                                  ;; Pay bail
-                                 (let [bail (->> game-state :board :cells
-                                                 (filter #(= :jail (:type %)))
-                                                 first :bail)]
+                                (let [bail (->> game-state :board :cells
+                                                (filter #(= :jail (:type %)))
+                                                first :bail)]
                                    ;; TODO - Need to restrict this if they just landed in jail
-                                   (when (>= cash bail)
-                                     :jail/bail))
+                                  (when (>= cash bail)
+                                    :jail/bail))
                                  ;; Bail with "get out of jail free" card
-                                 (when (util/has-bail-card? player)
-                                   :jail/bail-card)]
+                                (when (util/has-bail-card? player)
+                                  :jail/bail-card)]
 
                                 ;; Regular dice rolls
-                                (when can-roll? :roll))
+                               (when can-roll? :roll))
 
                               ;; House building
-                              (when can-build? :buy-house)
+                             (when can-build? :buy-house)
 
                               ;; Trade Proposals
                               ;; TODO - the function here can-propose? doesn't do anything yet,
                               ;;        so we just need to validate after the fact
-                              (when (trade/can-propose? game-state player-id)
-                                :trade-proposal))
+                             (when (trade/can-propose? game-state player-id)
+                               :trade-proposal))
 
                             flatten
                             (filter identity)
@@ -315,15 +313,15 @@
                               (apply-dice-roll (roll-dice 2)))
           ;; Buy house(s)
           :buy-house      (util/apply-house-purchase
-                            game-state
-                            (:property-name decision))
+                           game-state
+                           (:property-name decision))
           ;; Proposing a trade
           ;; TODO - Call trade/validate-proposal from here first
           ;;        (but then what to do if invalid?)
           :trade-proposal (trade/apply-proposal
-                            game-state
+                           game-state
                             ;; Convenience, attach :from-player for them
-                            (assoc decision :trade/from-player player-id))
+                           (assoc decision :trade/from-player player-id))
 
           ;; TODO - Sell house(s)
           ;; TODO - Mortgage/un-mortgage
@@ -399,8 +397,8 @@
                                      :last-transaction (last (:transactions state))
                                      :current-player (get-in state [:current-turn :player])
                                      :player-cash (->> state :players
-                                                      (map #(vector (:id %) (select-keys % [:cash :status])))
-                                                      (into {}))}
+                                                       (map #(vector (:id %) (select-keys % [:cash :status])))
+                                                       (into {}))}
                                     ;; Include ex-info data if available
                                     (when (instance? clojure.lang.ExceptionInfo e)
                                       {:ex-data (ex-data e)}))})))]
@@ -423,7 +421,6 @@
            ;; Continue game
            :else
            (recur state (inc iteration-count))))))))
-
 
 (comment
 
@@ -457,8 +454,6 @@
                                   players)))]
     [players iterations appended])
 
-
-
   (def sim
     (rand-game-end-state 4))
 
@@ -482,7 +477,5 @@
        ;; (filter #(= :payment (:type %)))
        ;; (remove #(= :bank (:from %)))
        )
-
-
-  ;;
+;;
   )
