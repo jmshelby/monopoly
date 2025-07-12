@@ -453,14 +453,11 @@
                           :winner (:id highest-bidder)
                           :winning-bid highest-bid
                           :participants (map :id auction-players)}))
-          ;; No one bid - property goes to bank, record the outcome
+          ;; No one bid - auction passed, record the passed outcome
           (append-tx game-state-with-auction-start
-                     {:type :auction-completed
+                     {:type :auction-passed
                       :property property
-                      :winner :bank
-                      :winning-bid 0
-                      :participants (map :id auction-players)
-                      :outcome :no-bids}))
+                      :participants (map :id auction-players)}))
 
         ;; Continue auction - get next player's bid
         (let [current-player (first active-players)

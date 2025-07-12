@@ -21,6 +21,11 @@
         ;; Transaction analysis
         payments (->> transactions (filter #(= :payment (:type %))))
         bankruptcies (->> transactions (filter #(= :bankruptcy (:type %))))
+        
+        ;; Auction analysis
+        auction-initiated (->> transactions (filter #(= :auction-initiated (:type %))))
+        auction-completed (->> transactions (filter #(= :auction-completed (:type %))))
+        auction-passed (->> transactions (filter #(= :auction-passed (:type %))))
 
         ;; Money flow analysis
         bank-payments (->> payments (filter #(or (= :bank (:from %)) (= :bank (:to %)))))
@@ -151,6 +156,20 @@
      {:total-formed (->> monopolies-by-player vals (map count) (apply + 0))
       :by-player monopolies-by-player
       :formations monopoly-formations}
+
+     :auctions
+     {:total-initiated (count auction-initiated)
+      :total-completed (count auction-completed)
+      :total-passed (count auction-passed)
+      :completion-rate (if (> (count auction-initiated) 0)
+                         (* 100.0 (/ (count auction-completed) (count auction-initiated)))
+                         0.0)
+      :passed-rate (if (> (count auction-initiated) 0)
+                     (* 100.0 (/ (count auction-passed) (count auction-initiated)))
+                     0.0)
+      :initiated-transactions auction-initiated
+      :completed-transactions auction-completed
+      :passed-transactions auction-passed}
 
      :inconsistencies inconsistencies
 
@@ -519,6 +538,32 @@
                              (format "[%s] %s draws card: \"%s\""
                                      tx-num player card-text))
 
+                           :auction-initiated
+                           (let [property (:property first-tx)
+                                 declined-by (:declined-by first-tx)
+                                 starting-bid (:starting-bid first-tx)
+                                 participant-count (:participant-count first-tx)]
+                             (format "[%s] Auction started for %s (declined by %s, starting bid: %s, %d participants)"
+                                     tx-num (format-property property) declined-by 
+                                     (format-money starting-bid) participant-count))
+
+                           :auction-completed
+                           (let [property (:property first-tx)
+                                 winner (:winner first-tx)
+                                 winning-bid (:winning-bid first-tx)
+                                 participants (:participants first-tx)]
+                             (format "[%s] Auction completed: %s wins %s for %s (participants: %s)"
+                                     tx-num winner (format-property property) 
+                                     (format-money winning-bid)
+                                     (clojure.string/join ", " participants)))
+
+                           :auction-passed
+                           (let [property (:property first-tx)
+                                 participants (:participants first-tx)]
+                             (format "[%s] Auction passed: No bids for %s (participants: %s)"
+                                     tx-num (format-property property)
+                                     (clojure.string/join ", " participants)))
+
                           ;; Default format for unknown transaction types
                            (format "[%s] %s: %s (%s)"
                                    tx-num (or player "system") (name type) first-tx))))
@@ -681,6 +726,27 @@
                       (name (:type formation)))))))
       (println "   🚫 No monopolies formed - this explains the game stall!"))
     (println)
+
+    ;; Auction Analysis
+    (let [{:keys [total-initiated total-completed total-passed completion-rate passed-rate]} (:auctions summary)]
+      (when (> total-initiated 0)
+        (println "🏛️ AUCTION ANALYSIS")
+        (printf "   Total Auctions Initiated: %d\n" total-initiated)
+        (printf "   Auctions Completed: %d (%.1f%%)\n" total-completed completion-rate)
+        (printf "   Auctions Passed: %d (%.1f%%)\n" total-passed passed-rate)
+        (when (> total-completed 0)
+          (let [completed-txs (:completed-transactions (:auctions summary))]
+            (printf "   Average Winning Bid: $%d\n" 
+                    (int (/ (apply + (map :winning-bid completed-txs)) total-completed)))))
+        (when (> total-passed 0)
+          (let [passed-txs (:passed-transactions (:auctions summary))
+                sample-passed (take 3 passed-txs)]
+            (println "   Sample Passed Auctions:")
+            (doseq [auction sample-passed]
+              (printf "     %s (participants: %s)\n" 
+                      (clojure.string/replace (name (:property auction)) #"-" " ")
+                      (clojure.string/join ", " (:participants auction))))))
+        (println)))
 
     ;; Bankruptcies
     (when (seq bankruptcies)
