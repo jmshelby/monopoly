@@ -10,7 +10,11 @@
       "Bash(./bin/test)",
       "Bash(gh issue:*)",
       "Bash(clj-kondo:*)",
-      "Bash(gh pr create:*)"
+      "Bash(gh pr create:*)",
+      "Bash(rm:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }
