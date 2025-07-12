@@ -16,7 +16,8 @@
       "Bash(git rm:*)",
       "Bash(git push:*)",
       "Bash(chmod:*)",
-      "Bash(./bin/coverage)"
+      "Bash(./bin/coverage)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }
