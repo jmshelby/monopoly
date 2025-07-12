@@ -518,23 +518,32 @@
                 cell-residency]
          :as   player} (current-player game-state)
         current-cell   (get-in board [:cells cell-residency])
+        owned          (owned-property-details game-state)
         ;; Get the definition of the current cell *if* it's a property
         property       (and (-> current-cell :type (= :property))
                             (->> board :properties
                                  (filter #(= (:name %) (:name current-cell)))
-                                 first))
-        taken          (owned-properties game-state)]
+                                 first))]
+
+    ;; Make sure this is a property
+    (when-not property
+      (throw (ex-info "Can't apply property option, to a non-property cell"
+                      {:cell current-cell})))
+
+    ;; Make sure it's unowned
+    (when (owned (:name property))
+      (throw (ex-info "Can't apply property option, to an owned property"
+                      (let [state (owned (:name property))]
+                        {:property (:def state)
+                         :state (dissoc state :def)}))))
+
     ;; Either process initial property purchase, or auction off
     (if (and
-          ;; We're on an actual property
-          property
-          ;; It's unowned
-          (not (taken (:name property)))
-          ;; Player has enough money
-          (> cash (:price property))
+         ;; Player has enough money
+         (> cash (:price property))
           ;; Player wants to buy it...
           ;; [invoke player for option decision]
-          (= :buy (:action (function game-state :property-option {:property property}))))
+         (= :buy (:action (function game-state :property-option {:property property}))))
 
       ;; Apply the purchase
       (-> game-state
