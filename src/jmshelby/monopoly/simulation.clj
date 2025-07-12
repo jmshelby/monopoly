@@ -8,15 +8,26 @@
   "Analyze a single game result and return outcome statistics"
   [game-state]
   (let [active-players (->> game-state :players (filter #(= :playing (:status %))))
-        tx-count (count (:transactions game-state))
-        winner-id (when (= 1 (count active-players)) (:id (first active-players)))]
+        transactions (:transactions game-state)
+        tx-count (count transactions)
+        winner-id (when (= 1 (count active-players)) (:id (first active-players)))
+        
+        ;; Auction analysis
+        auction-txs (->> transactions (filter #(= :auction (:type %))))
+        purchase-txs (->> transactions (filter #(= :purchase (:type %))))]
     {:has-winner (= 1 (count active-players))
      :winner-id winner-id
      :transaction-count tx-count
      :active-player-count (count active-players)
      :failed-to-complete (= :playing (:status game-state))
      :hit-failsafe (boolean (:failsafe-stop game-state))
-     :had-exception (boolean (:exception game-state))}))
+     :had-exception (boolean (:exception game-state))
+     
+     ;; Auction statistics
+     :auction-count (count auction-txs)
+     :purchase-count (count purchase-txs)
+     :has-auctions (> (count auction-txs) 0)
+     :auction-transactions auction-txs}))
 
 (defn run-simulation
   "Run a large number of game simulations using core.async pipeline for memory efficiency"
@@ -77,6 +88,16 @@
         ;; Transaction count statistics for failsafe games
         failsafe-tx-counts (->> failsafe-games (map :transaction-count))
 
+        ;; Auction statistics
+        games-with-auctions (->> results (filter :has-auctions))
+        total-auctions (apply + (map :auction-count results))
+        total-purchases (apply + (map :purchase-count results))
+        auction-counts (->> results (map :auction-count))
+        sample-auctions (->> games-with-auctions
+                           (take 5)
+                           (mapcat :auction-transactions)
+                           (take 10))
+
         ;; Incomplete game analysis
         incomplete-games (->> games-without-winner
                               (group-by :active-player-count)
@@ -114,6 +135,23 @@
                                               :median (nth (sort failsafe-tx-counts)
                                                           (int (/ (count failsafe-tx-counts) 2)))})
 
+               ;; Auction statistics
+               :games-with-auctions (count games-with-auctions)
+               :auction-occurrence-rate (* 100.0 (/ (count games-with-auctions) num-games))
+               :total-auctions total-auctions
+               :total-purchases total-purchases
+               :avg-auctions-per-game (double (/ total-auctions num-games))
+               :auction-to-purchase-ratio (if (> total-purchases 0)
+                                          (double (/ total-auctions total-purchases))
+                                          0.0)
+               :auction-stats (when (seq auction-counts)
+                               {:min (apply min auction-counts)
+                                :max (apply max auction-counts)
+                                :avg (double (/ (apply + auction-counts) (count auction-counts)))
+                                :median (nth (sort auction-counts)
+                                           (int (/ (count auction-counts) 2)))})
+               :sample-auctions sample-auctions
+
                :incomplete-game-breakdown incomplete-games}]
 
     (println (format "Simulation completed in %.1f seconds" (/ duration-ms 1000.0)))
@@ -126,7 +164,9 @@
                 games-with-winner games-without-winner winner-percentage
                 failsafe-games exception-games
                 winner-distribution winner-percentages
-                transaction-stats failsafe-transaction-stats incomplete-game-breakdown]} stats]
+                transaction-stats failsafe-transaction-stats incomplete-game-breakdown
+                games-with-auctions auction-occurrence-rate total-auctions total-purchases
+                avg-auctions-per-game auction-to-purchase-ratio auction-stats sample-auctions]} stats]
 
     (println "\n=== MONOPOLY SIMULATION RESULTS ===")
     (println)
@@ -167,6 +207,26 @@
       (printf "   Average: %.1f transactions\n" (:avg transaction-stats))
       (printf "   Median: %d transactions\n" (:median transaction-stats))
       (println))
+
+    ;; Auction Statistics
+    (println "🏛️ AUCTION STATISTICS")
+    (printf "   Games with Auctions: %d (%.2f%%)\n" games-with-auctions auction-occurrence-rate)
+    (printf "   Total Auctions: %d\n" total-auctions)
+    (printf "   Total Property Purchases: %d\n" total-purchases)
+    (printf "   Average Auctions per Game: %.3f\n" avg-auctions-per-game)
+    (printf "   Auction to Purchase Ratio: %.4f\n" auction-to-purchase-ratio)
+    (when auction-stats
+      (printf "   Auction Count Stats - Min: %d, Max: %d, Avg: %.1f, Median: %d\n"
+              (:min auction-stats) (:max auction-stats) (:avg auction-stats) (:median auction-stats)))
+    (when (seq sample-auctions)
+      (println "   Sample Auctions:")
+      (doseq [auction (take 5 sample-auctions)]
+        (printf "     %s: Winner %s, Bid $%d, Participants: %s\n"
+                (:property auction) (:winner auction) (:winning-bid auction)
+                (clojure.string/join ", " (:participants auction)))))
+    (when (= 0 total-auctions)
+      (println "   🤔 No auctions occurred - all properties likely purchased before cash pressure"))
+    (println)
 
     ;; Failsafe Transaction Statistics
     (when failsafe-transaction-stats
