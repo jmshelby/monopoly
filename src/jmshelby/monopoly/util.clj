@@ -669,6 +669,72 @@
                        owned-props
                        (-> current-turn :dice-rolls last))])))
 
+;; ----- Building Inventory Management ---------
+
+(defn houses-in-play
+  "Given a game-state, count total houses currently on properties"
+  [game-state]
+  (->> game-state
+       :players
+       (mapcat :properties)
+       (map second)
+       (filter #(< (:house-count % 0) 5)) ; Houses (not hotels)
+       (map :house-count)
+       (apply +)))
+
+(defn hotels-in-play
+  "Given a game-state, count total hotels currently on properties"
+  [game-state]
+  (->> game-state
+       :players
+       (mapcat :properties)
+       (map second)
+       (filter #(= (:house-count % 0) 5)) ; Hotels (5 houses = hotel)
+       count))
+
+(defn houses-available
+  "Return number of houses available from bank inventory"
+  [game-state]
+  (let [max-houses (get-in game-state [:board :rules :building-limits :houses])
+        houses-in-use (houses-in-play game-state)]
+    (- max-houses houses-in-use)))
+
+(defn hotels-available
+  "Return number of hotels available from bank inventory"
+  [game-state]
+  (let [max-hotels (get-in game-state [:board :rules :building-limits :hotels])
+        hotels-in-use (hotels-in-play game-state)]
+    (- max-hotels hotels-in-use)))
+
+(defn houses-available?
+  "Check if houses are available in bank inventory"
+  [game-state]
+  (pos? (houses-available game-state)))
+
+(defn hotels-available?
+  "Check if hotels are available in bank inventory"
+  [game-state]
+  (pos? (hotels-available game-state)))
+
+(defn can-build-house-inventory?
+  "Check if building a house is possible given current inventory constraints"
+  [game-state property-name]
+  (let [player (current-player game-state)
+        prop-state (get-in player [:properties property-name])
+        current-houses (:house-count prop-state 0)]
+    (cond
+      ; Building 5th house (hotel) - need hotel available and 4 houses to return
+      (= current-houses 4)
+      (hotels-available? game-state)
+      
+      ; Building 1st-4th house - need house available
+      (< current-houses 4)
+      (houses-available? game-state)
+      
+      ; Already has hotel
+      :else false)))
+
+
 ;; ----- Building Management ---------
 
 ;; - Of the (a) paid (b) street properties that (c) have a monopoly,
@@ -726,7 +792,7 @@
 (defn can-buy-house?
   "Given a game-state, return wether or not the
   current player is in the position to buy a house or not [bool].
-  Considers all game rules, along with current liquid cash.
+  Considers all game rules, building inventory, and current liquid cash.
 
   Optionally provide a property ID/name, to determine if a house
   can be purchased on that property, by the current player."
@@ -742,10 +808,11 @@
          cheapest          (->> potential
                                 (sort-by #(nth % 2))
                                 first)]
-     ;; Do they have purchase potential, and can they
-     ;; afford the cheapest single potential purchase?
+     ;; Do they have purchase potential, can they afford it,
+     ;; and is there inventory available?
      (and (< 0 (count potential))
-          (>= cash (nth cheapest 2)))))
+          (>= cash (nth cheapest 2))
+          (can-build-house-inventory? game-state (second cheapest)))))
   ;; 2-Arity, check single property
   ;; TODO - There's a lot of duplication in these impls
   ([game-state prop-name]
@@ -759,10 +826,11 @@
          single-prop       (->> potential
                                 (filter #(= prop-name (second %)))
                                 first)]
-     ;; Can they build on this single property,
-     ;; and can they afford it?
+     ;; Can they build on this single property, can they afford it,
+     ;; and is there inventory available?
      (and single-prop
-          (>= cash (nth single-prop 2))))))
+          (>= cash (nth single-prop 2))
+          (can-build-house-inventory? game-state prop-name)))))
 
 (defn- can-sell-house?
   [game-state prop-name]
@@ -805,7 +873,7 @@
 (defn apply-house-purchase
   "Given a game state and property, apply purchase of a single house
   for current player on given property. Validates and throws if house
-  purchase is not allowed by game rules."
+  purchase is not allowed by game rules or building inventory."
   [game-state property-name]
   (let [{player-id :id
          pidx      :player-index}
@@ -814,7 +882,11 @@
         property (->> game-state :board :properties
                       (filter #(= :street (:type %)))
                       (filter #(= property-name (:name %)))
-                      first)]
+                      first)
+        ;; Get current house count for this property
+        current-houses (get-in game-state [:players pidx :properties
+                                           property-name :house-count] 0)
+        building-hotel? (= current-houses 4)]
 
     ;; Validation
     ;; TODO - Should this be done by the caller?
@@ -825,7 +897,7 @@
                        :property property-name
                        ;; TODO - could be: prop not purchased; no
                        ;;        monopoly; house even distribution
-                       ;;        violation; cash; etc ...
+                       ;;        violation; cash; inventory shortage; etc ...
                        :reason   :unspecified})))
 
     ;; Apply the purchase
@@ -841,12 +913,13 @@
         (append-tx {:type     :purchase-house
                     :player   player-id
                     :property property-name
-                    :price    (:house-price property)}))))
+                    :price    (:house-price property)
+                    :building-type (if building-hotel? :hotel :house)}))))
 
 (defn apply-house-sale
   "Given a game state and a property, apply the sell of a single house for
   current player on given property. Validates and throws if house sell is
-  not allowed by game rules."
+  not allowed by game rules. Returns buildings to inventory."
   [game-state property-name]
   ;; TODO - the player in question should probably be passed as a prop
   (let [{player-id :id
@@ -857,7 +930,11 @@
                       (filter #(= :street (:type %)))
                       (filter #(= property-name (:name %)))
                       first)
-        proceeds (half (:house-price property))]
+        proceeds (half (:house-price property))
+        ;; Get current house count for this property
+        current-houses (get-in game-state [:players pidx :properties
+                                           property-name :house-count] 0)
+        selling-hotel? (= current-houses 5)]
 
     ;; Validation
     (let [valid? (can-sell-house? game-state property-name)]
@@ -868,8 +945,7 @@
                          :property property-name
                          :reason   (second valid?)}))))
 
-    ;; Apply the purchase
-    ;; TODO - when we have a bank "house inventory", return houses back to it
+    ;; Apply the sale
     (-> game-state
         ;; Dec house count in player's owned collection
         (update-in [:players pidx :properties
@@ -882,8 +958,8 @@
         (append-tx {:type     :sell-house
                     :player   player-id
                     :property property-name
-                    ;; TODO - is there a better, more consistent, key name for this?
-                    :proceeds proceeds}))))
+                    :proceeds proceeds
+                    :building-type (if selling-hotel? :hotel :house)}))))
 
 (defn apply-property-mortgage
   "Given a game-state and a property, apply the mortgaging

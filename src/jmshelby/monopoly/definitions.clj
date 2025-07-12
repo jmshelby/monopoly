@@ -496,7 +496,12 @@
                   :rent        50
                   :group-rent  100
                   :house-price 200
-                  :house-rent  [200 600 1400 1700 2000]}}})
+                  :house-rent  [200 600 1400 1700 2000]}}
+
+   ;; Game rules and limits
+   :rules {:auction-increment 10
+           :building-limits {:houses 32
+                            :hotels 12}}})
 
 (comment
 
