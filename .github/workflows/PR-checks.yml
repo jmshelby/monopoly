@@ -33,11 +33,7 @@ jobs:
       run: bin/test --profile ci --no-capture-output
     
     - name: Generate Coverage Report
-      run: |
-        echo "Starting coverage generation..."
-        clojure -M:coverage || echo "Coverage failed with exit code $?"
-        echo "Coverage generation complete"
-        ls -la target/coverage/ || echo "No coverage directory found"
+      run: clojure -M:coverage
       
     - name: Upload Coverage to Codecov
       if: always()

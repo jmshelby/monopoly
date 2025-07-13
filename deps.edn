@@ -15,6 +15,7 @@
                                    "--codecov"
                                    "--html"
                                    "--lcov"
-                                   "--summary"]}
+                                   "--summary"
+                                   "--fail-threshold" "0"]}
            ;; Simulation alias
            :sim {:main-opts ["-m" "jmshelby.monopoly.simulation"]}}}
