@@ -85,7 +85,7 @@
           player-a (util/player-by-id gs "A")
           
           ;; Trigger bankruptcy auction
-          result (#'player/auction-bankrupt-properties gs player-a)
+          result (#'player/auction-bankrupt-properties gs player-a "test-bankruptcy-123")
           transactions (:transactions result)
           auction-initiated-txs (filter #(= :auction-initiated (:type %)) transactions)]
       
@@ -209,7 +209,7 @@
           player-a (util/player-by-id gs "A")
           
           ;; Run bankruptcy auction
-          result (#'player/auction-bankrupt-properties gs player-a)
+          result (#'player/auction-bankrupt-properties gs player-a "test-bankruptcy-456")
           transactions (:transactions result)
           auction-txs (filter #(= :auction-initiated (:type %)) transactions)]
       
@@ -223,3 +223,51 @@
       ;; Verify Player A is excluded from all auctions
       (doseq [auction-tx auction-txs]
         (is (not (some #(= "A" %) (:eligible-bidders auction-tx))))))))
+
+(deftest test-bankruptcy-transaction-ordering
+  "Test that bankruptcy transaction comes before auction transactions"
+  (testing "Bankruptcy tx is recorded first, then auctions with proper linking"
+    (let [gs (-> (create-test-game-state)
+                 (assoc-in [:players 0 :properties] 
+                          {:oriental-ave {:status :paid :house-count 0}
+                           :vermont-ave {:status :paid :house-count 0}})
+                 (assoc-in [:players 0 :cash] 25)
+                 (assoc-in [:players 1 :cash] 800)
+                 (assoc-in [:players 2 :cash] 600))
+          
+          player-a (util/player-by-id gs "A")
+          
+          ;; Run full bankruptcy workflow
+          result (#'player/bankrupt-to-bank gs player-a)
+          transactions (:transactions result)
+          
+          bankruptcy-txs (filter #(= :bankruptcy (:type %)) transactions)
+          auction-initiated-txs (filter #(= :auction-initiated (:type %)) transactions)
+          auction-completed-txs (filter #(= :auction-completed (:type %)) transactions)]
+      
+      ;; Should have exactly 1 bankruptcy transaction
+      (is (= 1 (count bankruptcy-txs)))
+      
+      ;; Should have 2 auction initiations (for 2 properties)
+      (is (= 2 (count auction-initiated-txs)))
+      
+      ;; Bankruptcy transaction should be FIRST
+      (is (= :bankruptcy (:type (first transactions))))
+      
+      ;; All auction transactions should have bankruptcy context
+      (let [bankruptcy-tx (first bankruptcy-txs)
+            bankruptcy-id (:bankruptcy-id bankruptcy-tx)]
+        
+        ;; Verify bankruptcy ID exists
+        (is (string? bankruptcy-id))
+        (is (.startsWith bankruptcy-id "bankruptcy-A-"))
+        
+        ;; All auction transactions should reference this bankruptcy
+        (doseq [auction-tx (concat auction-initiated-txs auction-completed-txs)]
+          (is (= bankruptcy-id (:bankruptcy-id auction-tx)))
+          (is (true? (:bankruptcy-driven auction-tx)))))
+      
+      ;; Verify transaction order: bankruptcy first, then auctions
+      (let [tx-types (map :type transactions)]
+        (is (= :bankruptcy (first tx-types)))
+        (is (every? #{:auction-initiated :auction-completed} (rest tx-types)))))))
