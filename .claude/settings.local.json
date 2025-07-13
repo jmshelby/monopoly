@@ -24,7 +24,8 @@
       "Bash(gh run view:*)",
       "Bash(echo:*)",
       "WebFetch(domain:docs.anthropic.com)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(gh pr list:*)"
     ],
     "deny": []
   }
