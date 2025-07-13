@@ -25,6 +25,7 @@ Monopoly Game Engine + Pluggable Player API
  - Player "lose" logic
    - detect if bankrupt
    - force sell off, "raise funds" workflow
+   - **Bankruptcy to Bank**: When players owe the Bank more than they can pay, all properties are auctioned off to remaining players
    > Should you owe the Bank, instead of another player, more than you can pay (because of taxes or penalties) even by selling off buildings and mortgaging property, you must turn over all assets to the Bank. In this case, the Bank immediately sells by auction all property so taken, except buildings
  - Go to Jail
    - "go to jail" cell/spot
@@ -47,14 +48,16 @@ Monopoly Game Engine + Pluggable Player API
      - offer workflow
  - Auction System
    - Property auctions when purchase declined, or can't afford
+   - **Bankruptcy auctions**: All properties auctioned when player goes bankrupt to bank
    - Sequential bidding with configurable increments
    - Random player order for fairness
+   - Proper player context (each bidder uses their own cash/data)
  ---------------------------
 #### Remaining Logic
  - Cards
    - Deferred effects (go to nearest utility, pay 10x dice roll)
  - [Full] Player "lose" logic
-   - Bankrupt to bank auctions off properties
+   - ~~Bankrupt to bank auctions off properties~~ ✅ **COMPLETED**
    - Acquisition workflow to owed party (if not bank)
      - requiring 10% payment of mortgaged properties or to instantly unmortgage property to acquire
    > [Ability to make deals when needing funds]
@@ -75,11 +78,35 @@ Monopoly Game Engine + Pluggable Player API
 ## Known Issues
 
 #### Code Quality
+- ~~**Player Decision Interface**: Player decision functions incorrectly assumed they were always called for the current turn player, causing auction bidding errors and wrong player context usage~~ ✅ **FIXED**
 - **Parameter Passing Inconsistency**: Several utility functions in `util.clj` rely on "current player" context instead of accepting explicit player parameters. This affects:
   - `can-sell-house?` - should accept player parameter
   - `apply-house-sale` - should accept player parameter  
   - `apply-property-mortgage` - should accept player parameter
   - This creates tight coupling and makes functions less reusable/testable
+
+## Player Decision Interface
+
+The player decision system uses a consistent function signature:
+
+```clojure
+(defn decide [game-state player-id method params])
+```
+
+**Parameters:**
+- `game-state` - Complete game state
+- `player-id` - ID of the player making the decision (ensures correct player context)
+- `method` - Decision type (`:take-turn`, `:auction-bid`, `:trade-proposal`, `:raise-funds`, etc.)
+- `params` - Method-specific parameters
+
+**Key Methods:**
+- `:take-turn` - Primary turn actions (roll, buy house, trade proposal, etc.)
+- `:auction-bid` - Bidding decisions during property auctions
+- `:trade-proposal` - Accept/decline trade offers from other players
+- `:raise-funds` - Choose assets to liquidate when short on cash
+- `:property-option` - Buy/decline property after landing on it
+
+This interface ensures each player makes decisions using their own financial state and property ownership, not the current turn player's context.
 
 ## Development Commands
 
