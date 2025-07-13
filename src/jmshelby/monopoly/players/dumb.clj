@@ -204,12 +204,11 @@
 
 ;; TODO - multimethods..
 (defn decide
-  [game-state method params]
-  ;; TODO - the current player won't always be the player being called ...
+  [game-state player-id method params]
   (let [{my-id :id
          cash  :cash
          :as   player}
-        (util/current-player game-state)]
+        (util/player-by-id game-state player-id)]
     (case method
 
       ;; Simple auction bidding logic
@@ -225,6 +224,7 @@
                                 (<= required-bid property-value)
                                 ;; Make sure we can afford the bid AND maintain reserve
                                 (>= cash (+ required-bid cash-reserve)))]
+        (println (str "Player " my-id " - auction, property:" (:name property) " property-value: " property-value ", required-bid: " required-bid ", cash: " cash))
         (if property-worth-it?
           ;; Bid just the current asking price
           {:action :bid

@@ -158,6 +158,7 @@
   (let [player-fn (:function player)
         ;; Make actual call to player decision logic
         decision  (player-fn game-state
+                             (:id player)
                              :raise-funds
                              {:amount amount})]
     ;; TODO - we can probably route this through core sometime...

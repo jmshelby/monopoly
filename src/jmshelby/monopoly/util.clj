@@ -471,6 +471,7 @@
               ;; Invoke player's auction-bid decision
               decision ((:function current-player)
                         game-state
+                        (:id current-player)
                         :auction-bid
                         {:property property-def
                          :highest-bid highest-bid
@@ -564,7 +565,7 @@
          (> cash (:price property))
           ;; Player wants to buy it...
           ;; [invoke player for option decision]
-         (= :buy (:action (function game-state :property-option {:property property}))))
+         (= :buy (:action (function game-state (:id player) :property-option {:property property}))))
 
       ;; Apply the purchase
       (-> game-state
