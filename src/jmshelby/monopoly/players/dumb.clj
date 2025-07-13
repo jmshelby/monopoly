@@ -276,7 +276,7 @@
                           {:player-id my-id
                            :amount-needed (:amount params)}))))
 
-;; A trade proposal offered to us
+      ;; A trade proposal offered to us
       :trade-proposal
       ;; Real simple, no worry about our state or the other player's state.
       ;;   - Accept if offerred resources value (taking mortgaged into account)
