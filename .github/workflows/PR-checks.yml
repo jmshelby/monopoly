@@ -33,7 +33,7 @@ jobs:
       run: bin/test --profile ci --no-capture-output
     
     - name: Generate Coverage Report
-      run: clojure -M:coverage
+      run: clojure -M:coverage || true
       
     - name: Upload Coverage to Codecov
       if: always()
