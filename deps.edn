@@ -6,5 +6,19 @@
  :aliases {:test {:extra-paths ["test"]
                   :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
                   :main-opts   ["-m" "kaocha.runner"]}
+           ;; Test coverage
+           :coverage {:extra-paths ["test"]
+                      :extra-deps {cloverage/cloverage {:mvn/version "1.2.4"}}
+                      :main-opts  ["-m" "cloverage.coverage" 
+                                   "--src-ns-path" "src"
+                                   "--test-ns-path" "test"
+                                   "--ns-regex" "jmshelby.monopoly.*"
+                                   "--ns-exclude-regex" ".*test.*"
+                                   "--codecov"
+                                   "--html"
+                                   "--lcov"
+                                   "--summary"
+                                   "--fail-threshold" "0"
+                                   "--low-watermark" "0"]}
            ;; Simulation alias
            :sim {:main-opts ["-m" "jmshelby.monopoly.simulation"]}}}

@@ -16,6 +16,8 @@ Monopoly Game Engine + Pluggable Player API
      - railroad: rent based on # owned
  - House Buying
    - Require "even" and distributed house building
+   - Limited house/hotel inventory (32 houses, 12 hotels)
+   - Hotel exchange mechanics (5th house becomes hotel, returns 4 houses to bank)
  - Sell House
    - On "raise funds" workflow
  - Mortgage Property
@@ -65,10 +67,6 @@ Monopoly Game Engine + Pluggable Player API
      > If you are the new owner, you may lift the mortgage at once if you wish by paying off the mortgage plus 10% interest to the Bank. If the mortgage is not lifted at once, you must pay the Bank 10% interest when you buy the property and if you lift the mortgage later you must pay the Bank an additional 10% interest as well as the amount of the mortgage
    - Counter-offer workflow
  - Obscure Rules
-   - Limited house/hotel inventory
-     - The bank only has a finite number of houses and hotels, players are limited by this amount. In the event there are no houses, and a player wants to buy a house, they need to wait for someone to sell a house before they can buy any.
-     * in real life play this could result in contention that requires an action with limited numbers of inventory .... not sure how that would work here ...
-     > BUILDING SHORTAGES: When the Bank has no houses to sell, players wishing to build must wait for some player to return or sell histher houses to the Bank before building. If there are a limited number of houses and hotels available and two or more players wish to buy more than the Bank has, the houses or hotels must be sold at auction to the highest bidder.
    > "INCOME TAX": If you land here you have two options: You may estimate your tax at $900 and pay the Bank, or you may pay 10% of your total worth to the Bank. Your total worth is all your cash on hand, printed prices of mortgaged and unmortgaged properties and cost price of all buildings you own. You must decide which option you will take before you add up your total worth.
      - ?? Which version of the game has these rules ??
 
@@ -89,6 +87,17 @@ Monopoly Game Engine + Pluggable Player API
 ```bash
 clojure -M:test
 ```
+
+### Test Coverage
+```bash
+# Generate coverage report
+./bin/coverage
+
+# View HTML report  
+open target/coverage/index.html
+```
+
+See [docs/COVERAGE.md](docs/COVERAGE.md) for detailed coverage information.
 
 ### Game Simulation
 Run parallel game simulations to analyze game mechanics and balance:

@@ -80,7 +80,8 @@
              (filter #(= :retain (:card/effect %))))
         ;; Get properties for transaction record
         properties (:properties player)]
-    ;; TODO - When we have a bank "house inventory", return houses back to it
+    ;; Buildings are automatically returned to inventory when properties are liquidated
+    ;; since we derive available inventory from current game state
     ;; TODO - Need to auction off all properties (regardless of mortgaged status).
     ;;        Once we have auction functions we can make that happen..
     (-> game-state
