@@ -224,7 +224,6 @@
                                 (<= required-bid property-value)
                                 ;; Make sure we can afford the bid AND maintain reserve
                                 (>= cash (+ required-bid cash-reserve)))]
-        (println (str "Player " my-id " - auction, property:" (:name property) " property-value: " property-value ", required-bid: " required-bid ", cash: " cash))
         (if property-worth-it?
           ;; Bid just the current asking price
           {:action :bid
