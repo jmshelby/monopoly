@@ -13,6 +13,8 @@ The code is shared publicly for:
 
 You may not use this code in your own projects without explicit written permission.
 
+To request permission to use this code, please open a GitHub issue with details about your intended use.
+
 ## Current Progress
 
 #### Finished Logic

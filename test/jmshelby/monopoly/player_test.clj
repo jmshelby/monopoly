@@ -118,7 +118,7 @@
           player-a (util/player-by-id game-state "A")]
       
       ;; Run bankruptcy auction
-      (#'player/auction-bankrupt-properties game-state player-a "test-bankruptcy-123")
+      (#'player/auction-bankrupt-properties game-state player-a)
       
       ;; Player A should not have been called for auction bidding
       ;; (they're excluded because they're bankrupt)

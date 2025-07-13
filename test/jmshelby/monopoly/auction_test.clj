@@ -85,7 +85,7 @@
           player-a (util/player-by-id gs "A")
           
           ;; Trigger bankruptcy auction
-          result (#'player/auction-bankrupt-properties gs player-a "test-bankruptcy-123")
+          result (#'player/auction-bankrupt-properties gs player-a)
           transactions (:transactions result)
           auction-initiated-txs (filter #(= :auction-initiated (:type %)) transactions)]
       
@@ -209,7 +209,7 @@
           player-a (util/player-by-id gs "A")
           
           ;; Run bankruptcy auction
-          result (#'player/auction-bankrupt-properties gs player-a "test-bankruptcy-456")
+          result (#'player/auction-bankrupt-properties gs player-a)
           transactions (:transactions result)
           auction-txs (filter #(= :auction-initiated (:type %)) transactions)]
       
@@ -255,17 +255,8 @@
       (is (= :bankruptcy (:type (first transactions))))
       
       ;; All auction transactions should have bankruptcy context
-      (let [bankruptcy-tx (first bankruptcy-txs)
-            bankruptcy-id (:bankruptcy-id bankruptcy-tx)]
-        
-        ;; Verify bankruptcy ID exists
-        (is (string? bankruptcy-id))
-        (is (.startsWith bankruptcy-id "bankruptcy-A-"))
-        
-        ;; All auction transactions should reference this bankruptcy
-        (doseq [auction-tx (concat auction-initiated-txs auction-completed-txs)]
-          (is (= bankruptcy-id (:bankruptcy-id auction-tx)))
-          (is (true? (:bankruptcy-driven auction-tx)))))
+      (doseq [auction-tx (concat auction-initiated-txs auction-completed-txs)]
+        (is (true? (:bankruptcy-driven auction-tx))))
       
       ;; Verify transaction order: bankruptcy first, then auctions
       (let [tx-types (map :type transactions)]

@@ -72,7 +72,7 @@
 
 (defn- auction-bankrupt-properties
   "Auction off all properties owned by a bankrupt player"
-  [game-state player bankruptcy-id]
+  [game-state player]
   (let [properties (keys (:properties player))
         ;; First set the bankrupt player's status so they're excluded from auctions
         gs-with-bankrupt-status (assoc-in game-state [:players (:player-index player) :status] :bankrupt)]
@@ -81,7 +81,7 @@
               (let [updated-gs (update-in gs [:players (:player-index player) :properties]
                                           dissoc property-name)]
                 ;; Then run auction for the property with bankruptcy context
-                (util/apply-auction-property-workflow-with-context updated-gs property-name bankruptcy-id)))
+                (util/apply-auction-property-workflow-with-context updated-gs property-name)))
             gs-with-bankrupt-status
             properties)))
 
@@ -94,22 +94,19 @@
              ;; TODO - wait ... aren't all cards in a player's inventory, by definition, "retained"?
              (filter #(= :retain (:card/effect %))))
         ;; Get properties for transaction record
-        properties (:properties player)
-        ;; Generate a unique bankruptcy ID to link related transactions
-        bankruptcy-id (str "bankruptcy-" (:id player) "-" (System/currentTimeMillis))]
+        properties (:properties player)]
     ;; Buildings are automatically returned to inventory when properties are liquidated
     ;; since we derive available inventory from current game state
     (-> game-state
         ;; FIRST: Record bankruptcy transaction to establish context
-        (util/append-tx {:type         :bankruptcy
-                         :bankruptcy-id bankruptcy-id
-                         :player       (:id player)
-                         :to           :bank
-                         :cash         (:cash player)
-                         :cards        retain-cards
-                         :properties   properties})
+        (util/append-tx {:type       :bankruptcy
+                         :player     (:id player)
+                         :to         :bank
+                         :cash       (:cash player)
+                         :cards      retain-cards
+                         :properties properties})
         ;; THEN: Auction off all properties (with bankruptcy context)
-        (auction-bankrupt-properties player bankruptcy-id)
+        (auction-bankrupt-properties player)
         ;; Put retained cards back into their decks (bottom)
         (cards/add-to-deck-queues retain-cards))))
 

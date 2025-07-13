@@ -527,7 +527,7 @@
 
 (defn apply-auction-property-workflow-with-context
   "Same as apply-auction-property-workflow but adds bankruptcy context to transactions"
-  [game-state property bankruptcy-id]
+  [game-state property]
   (let [;; Get property definition from board
         property-def (->> game-state :board :properties
                           (filter #(= property (:name %)))
@@ -550,7 +550,6 @@
                                :eligible-bidders (map :id auction-players)
                                :starting-bid starting-bid
                                :participant-count (count auction-players)
-                               :bankruptcy-id bankruptcy-id
                                :bankruptcy-driven true})]
 
     ;; Start auction loop (same logic as original function)
@@ -576,14 +575,12 @@
                           :winner (:id highest-bidder)
                           :winning-bid highest-bid
                           :participants (map :id auction-players)
-                          :bankruptcy-id bankruptcy-id
                           :bankruptcy-driven true}))
           ;; No one bid - auction passed (with bankruptcy context)
           (append-tx game-state-with-auction-start
                      {:type :auction-passed
                       :property property
                       :participants (map :id auction-players)
-                      :bankruptcy-id bankruptcy-id
                       :bankruptcy-driven true}))
 
         ;; Continue auction - get next player's bid
