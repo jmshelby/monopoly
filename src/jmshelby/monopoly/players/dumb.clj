@@ -359,6 +359,46 @@
            ;; Property ID/Name, tuple 2 pos
            (second cheapest))}
 
+        ;; Consider unmortgaging properties if we have excess cash
+        (and (-> params :actions-available :unmortgage-property)
+             (> cash 300)) ;; Only if we have plenty of cash
+        {:action :unmortgage-property
+         :property-name
+         (let [owned-props (->> (util/owned-property-details game-state)
+                                vals
+                                (filter #(= my-id (:owner %)))
+                                (filter #(= :mortgaged (:status %)))
+                                (sort-by #(-> % :def :mortgage)) ;; Cheapest first
+                                first)]
+           (-> owned-props :def :name))}
+
+        ;; Consider selling houses if we're getting low on cash (but not in raise-funds)
+        (and (-> params :actions-available :sell-house)
+             (< cash 100))
+        {:action :sell-house
+         :property-name
+         (let [owned-props (->> (util/owned-property-details game-state)
+                                vals
+                                (filter #(= my-id (:owner %)))
+                                (filter #(> (:house-count %) 0))
+                                (sort-by :house-count) ;; Sell from properties with fewer houses first
+                                first)]
+           (-> owned-props :def :name))}
+
+        ;; Consider mortgaging properties if we're low on cash
+        (and (-> params :actions-available :mortgage-property)
+             (< cash 50))
+        {:action :mortgage-property
+         :property-name
+         (let [owned-props (->> (util/owned-property-details game-state)
+                                vals
+                                (filter #(= my-id (:owner %)))
+                                (filter #(= :paid (:status %)))
+                                (filter #(= 0 (:house-count %)))
+                                (sort-by #(-> % :def :mortgage) <) ;; Mortgage least valuable first
+                                first)]
+           (-> owned-props :def :name))}
+
         ;; No other options, end turn
         ;; TODO - soon, "done" might not be available in all cases
         :else {:action :done}))))

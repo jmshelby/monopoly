@@ -287,6 +287,16 @@
                               ;; House building
                              (when can-build? :buy-house)
 
+                              ;; House selling
+                             (when (util/can-sell-any-house? game-state)
+                               :sell-house)
+
+                              ;; Property mortgage/unmortgage
+                             (when (util/can-mortgage-any-property? game-state)
+                               :mortgage-property)
+                             (when (util/can-unmortgage-any-property? game-state)
+                               :unmortgage-property)
+
                               ;; Trade Proposals
                               ;; TODO - the function here can-propose? doesn't do anything yet,
                               ;;        so we just need to validate after the fact
@@ -323,8 +333,18 @@
                             ;; Convenience, attach :from-player for them
                            (assoc decision :trade/from-player player-id))
 
-          ;; TODO - Sell house(s)
-          ;; TODO - Mortgage/un-mortgage
+          ;; Sell house(s)
+          :sell-house (util/apply-house-sale
+                       game-state
+                       (:property-name decision))
+
+          ;; Mortgage/unmortgage properties
+          :mortgage-property (util/apply-property-mortgage
+                              game-state
+                              (:property-name decision))
+          :unmortgage-property (util/apply-property-unmortgage
+                                game-state
+                                (:property-name decision))
 
           ;; JAIL
           ;; TODO - looks like any jail action can be routed to this one fn
