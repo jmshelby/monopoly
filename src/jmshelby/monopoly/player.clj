@@ -73,14 +73,16 @@
 (defn- auction-bankrupt-properties
   "Auction off all properties owned by a bankrupt player"
   [game-state player]
-  (let [properties (keys (:properties player))]
+  (let [properties (keys (:properties player))
+        ;; First set the bankrupt player's status so they're excluded from auctions
+        gs-with-bankrupt-status (assoc-in game-state [:players (:player-index player) :status] :bankrupt)]
     (reduce (fn [gs property-name]
-              ;; First remove the property from the bankrupt player
+              ;; Remove the property from the bankrupt player
               (let [updated-gs (update-in gs [:players (:player-index player) :properties]
                                           dissoc property-name)]
                 ;; Then run auction for the property
                 (util/apply-auction-property-workflow updated-gs property-name)))
-            game-state
+            gs-with-bankrupt-status
             properties)))
 
 (defn- bankrupt-to-bank
