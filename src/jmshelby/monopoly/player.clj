@@ -70,6 +70,19 @@
                    ;; into player's own property state map
                    conj prop-states))))
 
+(defn- auction-bankrupt-properties
+  "Auction off all properties owned by a bankrupt player"
+  [game-state player]
+  (let [properties (keys (:properties player))]
+    (reduce (fn [gs property-name]
+              ;; First remove the property from the bankrupt player
+              (let [updated-gs (update-in gs [:players (:player-index player) :properties]
+                                          dissoc property-name)]
+                ;; Then run auction for the property
+                (util/apply-auction-property-workflow updated-gs property-name)))
+            game-state
+            properties)))
+
 (defn- bankrupt-to-bank
   [game-state player]
   (let [;; Get retained cards
@@ -82,9 +95,9 @@
         properties (:properties player)]
     ;; Buildings are automatically returned to inventory when properties are liquidated
     ;; since we derive available inventory from current game state
-    ;; TODO - Need to auction off all properties (regardless of mortgaged status).
-    ;;        Once we have auction functions we can make that happen..
     (-> game-state
+        ;; Auction off all properties (regardless of mortgaged status)
+        (auction-bankrupt-properties player)
         ;; Put retained cards back into their decks (bottom)
         (cards/add-to-deck-queues retain-cards)
         ;; Record bankruptcy transaction

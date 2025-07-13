@@ -402,7 +402,7 @@
 
 ;; TODO - Need to do a special transfer/acquisition workflow for mortgaged properties,
 ;;        currently we just assume it's owned outright
-(defn- apply-auction-property-workflow
+(defn apply-auction-property-workflow
   "Given a game-state and a property name, carry out the auction workflow
   by sequentially invoking the 'auction-bid' player decision method, per
   player, until a winner is found. Starts by establishing a random order
