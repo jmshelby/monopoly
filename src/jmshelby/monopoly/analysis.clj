@@ -541,10 +541,16 @@
                            :auction-initiated
                            (let [property (:property first-tx)
                                  declined-by (:declined-by first-tx)
+                                 bankrupted-by (:bankrupted-by first-tx)
+                                 reason (:reason first-tx)
                                  starting-bid (:starting-bid first-tx)
-                                 participant-count (:participant-count first-tx)]
-                             (format "[%s] Auction started for %s (declined by %s, starting bid: %s, %d participants)"
-                                     tx-num (format-property property) declined-by 
+                                 participant-count (:participant-count first-tx)
+                                 cause-text (cond
+                                             declined-by (format "declined by %s" declined-by)
+                                             bankrupted-by (format "bankruptcy of %s" bankrupted-by)
+                                             :else "unknown cause")]
+                             (format "[%s] Auction started for %s (%s, starting bid: %s, %d participants)"
+                                     tx-num (format-property property) cause-text
                                      (format-money starting-bid) participant-count))
 
                            :auction-completed
