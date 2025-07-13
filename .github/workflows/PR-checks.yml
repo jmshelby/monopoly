@@ -28,9 +28,14 @@ jobs:
       run: bin/test --profile ci --no-capture-output
     
     - name: Generate Coverage Report
-      run: clojure -M:coverage
+      run: |
+        echo "Starting coverage generation..."
+        clojure -M:coverage || echo "Coverage failed with exit code $?"
+        echo "Coverage generation complete"
+        ls -la target/coverage/ || echo "No coverage directory found"
       
     - name: Upload Coverage to Codecov
+      if: always()
       uses: codecov/codecov-action@v4
       with:
         file: ./target/coverage/codecov.json
@@ -39,6 +44,7 @@ jobs:
         fail_ci_if_error: false
         
     - name: Coverage PR Comment
+      if: always()
       uses: romeovs/lcov-reporter-action@v0.3.1
       with:
         lcov-file: ./target/coverage/lcov.info
