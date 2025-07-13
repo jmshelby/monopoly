@@ -48,7 +48,7 @@ Monopoly Game Engine + Pluggable Player API
      - offer workflow
  - Auction System
    - Property auctions when purchase declined, or can't afford
-   - **Bankruptcy auctions**: All properties auctioned when player goes bankrupt to bank
+   - Bankruptcy auctions: All properties auctioned when player goes bankrupt to bank
    - Sequential bidding with configurable increments
    - Random player order for fairness
    - Proper player context (each bidder uses their own cash/data)
@@ -57,7 +57,6 @@ Monopoly Game Engine + Pluggable Player API
  - Cards
    - Deferred effects (go to nearest utility, pay 10x dice roll)
  - [Full] Player "lose" logic
-   - ~~Bankrupt to bank auctions off properties~~ ✅ **COMPLETED**
    - Acquisition workflow to owed party (if not bank)
      - requiring 10% payment of mortgaged properties or to instantly unmortgage property to acquire
    > [Ability to make deals when needing funds]
