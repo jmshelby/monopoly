@@ -624,8 +624,8 @@
 (defn print-game-summary
   "Print a human-readable summary of the game analysis from summarize-game."
   [summary]
-  (let [{:keys [summary transaction-breakdown player-outcomes bankruptcies monopolies inconsistencies winner]} summary
-        {:keys [game-status total-turns total-transactions players economics]} summary
+  (let [{summary-data :summary :keys [transaction-breakdown player-outcomes bankruptcies monopolies inconsistencies winner]} summary
+        {:keys [game-status total-turns total-transactions players economics]} summary-data
         ;; Monopoly earning potential (based on typical Monopoly rent values)
         monopoly-power {"brown" "$"           ; Mediterranean/Baltic - lowest
                         "light-blue" "$"      ; Oriental/Vermont/Connecticut - low
