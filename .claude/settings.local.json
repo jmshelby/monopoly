@@ -17,7 +17,11 @@
       "Bash(git push:*)",
       "Bash(chmod:*)",
       "Bash(./bin/coverage)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(git commit:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(echo:*)"
     ],
     "deny": []
   }
