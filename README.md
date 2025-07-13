@@ -78,7 +78,6 @@ Monopoly Game Engine + Pluggable Player API
 ## Known Issues
 
 #### Code Quality
-- ~~**Player Decision Interface**: Player decision functions incorrectly assumed they were always called for the current turn player, causing auction bidding errors and wrong player context usage~~ ✅ **FIXED**
 - **Parameter Passing Inconsistency**: Several utility functions in `util.clj` rely on "current player" context instead of accepting explicit player parameters. This affects:
   - `can-sell-house?` - should accept player parameter
   - `apply-house-sale` - should accept player parameter  
