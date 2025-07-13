@@ -254,11 +254,39 @@
       ;; Bankruptcy transaction should be FIRST
       (is (= :bankruptcy (:type (first transactions))))
       
-      ;; All auction transactions should have bankruptcy context
+      ;; All auction transactions should have bankruptcy reason
       (doseq [auction-tx (concat auction-initiated-txs auction-completed-txs)]
-        (is (true? (:bankruptcy-driven auction-tx))))
+        (is (= :bankruptcy (:reason auction-tx))))
       
       ;; Verify transaction order: bankruptcy first, then auctions
       (let [tx-types (map :type transactions)]
         (is (= :bankruptcy (first tx-types)))
         (is (every? #{:auction-initiated :auction-completed} (rest tx-types)))))))
+
+(deftest test-auction-reasons
+  "Test that auction transactions have correct reason values"
+  (testing "Regular auctions have :property-declined reason, bankruptcy auctions have :bankruptcy reason"
+    (let [gs (create-test-game-state)
+          
+          ;; Test regular property auction
+          regular-result (util/apply-auction-property-workflow gs "boardwalk")
+          regular-txs (:transactions regular-result)
+          regular-auction-txs (filter #(= :auction-initiated (:type %)) regular-txs)
+          
+          ;; Test bankruptcy auction  
+          bankruptcy-gs (-> gs
+                           (assoc-in [:players 0 :properties] 
+                                    {:park-place {:status :paid :house-count 0}})
+                           (assoc-in [:players 0 :cash] 0))
+          player-a (util/player-by-id bankruptcy-gs "A")
+          bankruptcy-result (#'player/auction-bankrupt-properties bankruptcy-gs player-a)
+          bankruptcy-txs (:transactions bankruptcy-result)
+          bankruptcy-auction-txs (filter #(= :auction-initiated (:type %)) bankruptcy-txs)]
+      
+      ;; Regular auction should have :property-declined reason
+      (is (= 1 (count regular-auction-txs)))
+      (is (= :property-declined (:reason (first regular-auction-txs))))
+      
+      ;; Bankruptcy auction should have :bankruptcy reason
+      (is (= 1 (count bankruptcy-auction-txs)))
+      (is (= :bankruptcy (:reason (first bankruptcy-auction-txs)))))))

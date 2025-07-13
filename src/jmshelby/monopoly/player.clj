@@ -81,7 +81,7 @@
               (let [updated-gs (update-in gs [:players (:player-index player) :properties]
                                           dissoc property-name)]
                 ;; Then run auction for the property with bankruptcy context
-                (util/apply-auction-property-workflow-with-context updated-gs property-name)))
+                (util/apply-auction-property-workflow updated-gs property-name :tx-context {:reason :bankruptcy})))
             gs-with-bankrupt-status
             properties)))
 

@@ -436,7 +436,8 @@
 
   (-> sim
       analysis/summarize-game
-      analysis/print-game-summary)
+      analysis/print-game-summary
+      )
 
   ;; Print detailed transaction log
   (analysis/print-transaction-log sim)

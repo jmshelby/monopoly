@@ -17,6 +17,10 @@
         auction-initiated-txs (->> transactions (filter #(= :auction-initiated (:type %))))
         auction-completed-txs (->> transactions (filter #(= :auction-completed (:type %))))
         auction-passed-txs (->> transactions (filter #(= :auction-passed (:type %))))
+        
+        ;; Auction reason breakdown
+        property-declined-auctions (->> auction-initiated-txs (filter #(= :property-declined (:reason %))))
+        bankruptcy-auctions (->> auction-initiated-txs (filter #(= :bankruptcy (:reason %))))
         purchase-txs (->> transactions (filter #(= :purchase (:type %))))]
     {:has-winner (= 1 (count active-players))
      :winner-id winner-id
@@ -36,7 +40,13 @@
      :has-auctions (> (count auction-initiated-txs) 0)
      :auction-initiated-transactions auction-initiated-txs
      :auction-completed-transactions auction-completed-txs
-     :auction-passed-transactions auction-passed-txs}))
+     :auction-passed-transactions auction-passed-txs
+     
+     ;; Auction reason breakdown
+     :property-declined-auction-count (count property-declined-auctions)
+     :bankruptcy-auction-count (count bankruptcy-auctions)
+     :property-declined-auctions property-declined-auctions
+     :bankruptcy-auctions bankruptcy-auctions}))
 
 (defn run-simulation
   "Run a large number of game simulations using core.async pipeline for memory efficiency"
@@ -115,6 +125,12 @@
          auction-initiated-counts (->> results (map :auction-initiated-count))
          auction-completed-counts (->> results (map :auction-completed-count))
          auction-passed-counts (->> results (map :auction-passed-count))
+         
+         ;; Auction reason statistics  
+         total-property-declined-auctions (apply + (map :property-declined-auction-count results))
+         total-bankruptcy-auctions (apply + (map :bankruptcy-auction-count results))
+         games-with-property-declined-auctions (->> results (filter #(> (:property-declined-auction-count %) 0)))
+         games-with-bankruptcy-auctions (->> results (filter #(> (:bankruptcy-auction-count %) 0)))
          sample-auction-initiations (->> games-with-auctions
                                          (take 5)
                                          (mapcat :auction-initiated-transactions)
@@ -185,6 +201,16 @@
                 :auction-to-purchase-ratio (if (> total-purchases 0)
                                              (double (/ total-auctions-initiated total-purchases))
                                              0.0)
+                                             
+                ;; Auction reason breakdown
+                :property-declined-auction-occurrence-rate (* 100.0 (/ (count games-with-property-declined-auctions) num-games))
+                :bankruptcy-auction-occurrence-rate (* 100.0 (/ (count games-with-bankruptcy-auctions) num-games))
+                :property-declined-to-bankruptcy-auction-ratio (if (> total-bankruptcy-auctions 0)
+                                                                 (double (/ total-property-declined-auctions total-bankruptcy-auctions))
+                                                                 0.0)
+                :total-property-declined-auctions total-property-declined-auctions
+                :total-bankruptcy-auctions total-bankruptcy-auctions
+                                             
                 :auction-initiated-stats (when (seq auction-initiated-counts)
                                            {:min (apply min auction-initiated-counts)
                                             :max (apply max auction-initiated-counts)
@@ -211,6 +237,8 @@
                 games-with-auctions auction-occurrence-rate total-auctions-initiated total-auctions-completed
                 total-auctions-passed total-purchases avg-auctions-initiated-per-game avg-auctions-completed-per-game
                 avg-auctions-passed-per-game auction-completion-rate auction-passed-rate auction-to-purchase-ratio
+                property-declined-auction-occurrence-rate bankruptcy-auction-occurrence-rate
+                property-declined-to-bankruptcy-auction-ratio total-property-declined-auctions total-bankruptcy-auctions
                 auction-initiated-stats sample-auction-initiations sample-auction-completions sample-auction-passed]} stats]
 
     (println "\n=== MONOPOLY SIMULATION RESULTS ===")
@@ -277,6 +305,18 @@
     (printf "   Average Auctions Completed per Game: %.3f\n" avg-auctions-completed-per-game)
     (printf "   Average Auctions Passed per Game: %.3f\n" avg-auctions-passed-per-game)
     (printf "   Auction to Purchase Ratio: %.4f\n" auction-to-purchase-ratio)
+    
+    ;; Auction reason breakdown
+    (printf "   Property Declined Auctions: %d (%.1f%% occurrence)\n" 
+            total-property-declined-auctions 
+            property-declined-auction-occurrence-rate)
+    (printf "   Bankruptcy Auctions: %d (%.1f%% occurrence)\n" 
+            total-bankruptcy-auctions 
+            bankruptcy-auction-occurrence-rate)
+    (when (> total-bankruptcy-auctions 0)
+      (printf "   Property Declined to Bankruptcy Ratio: %.2f\n" 
+              property-declined-to-bankruptcy-auction-ratio))
+    
     (when auction-initiated-stats
       (printf "   Auction Initiated Stats - Min: %d, Max: %d, Avg: %.1f, Median: %d\n"
               (:min auction-initiated-stats) (:max auction-initiated-stats)
