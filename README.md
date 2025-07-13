@@ -85,29 +85,6 @@ Monopoly Game Engine + Pluggable Player API
   - `apply-property-mortgage` - should accept player parameter
   - This creates tight coupling and makes functions less reusable/testable
 
-## Player Decision Interface
-
-The player decision system uses a consistent function signature:
-
-```clojure
-(defn decide [game-state player-id method params])
-```
-
-**Parameters:**
-- `game-state` - Complete game state
-- `player-id` - ID of the player making the decision (ensures correct player context)
-- `method` - Decision type (`:take-turn`, `:auction-bid`, `:trade-proposal`, `:raise-funds`, etc.)
-- `params` - Method-specific parameters
-
-**Key Methods:**
-- `:take-turn` - Primary turn actions (roll, buy house, trade proposal, etc.)
-- `:auction-bid` - Bidding decisions during property auctions
-- `:trade-proposal` - Accept/decline trade offers from other players
-- `:raise-funds` - Choose assets to liquidate when short on cash
-- `:property-option` - Buy/decline property after landing on it
-
-This interface ensures each player makes decisions using their own financial state and property ownership, not the current turn player's context.
-
 ## Development Commands
 
 ### Running Tests
