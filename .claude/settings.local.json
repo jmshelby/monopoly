@@ -23,13 +23,10 @@
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
       "Bash(echo:*)",
-<<<<<<< Updated upstream
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(git checkout:*)",
-      "Bash(gh pr list:*)"
-=======
+      "Bash(gh pr list:*)",
       "Bash(git rebase:*)"
->>>>>>> Stashed changes
     ],
     "deny": []
   }
