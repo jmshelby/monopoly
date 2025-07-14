@@ -845,7 +845,7 @@
           (>= cash (nth single-prop 2))
           (can-build-house-inventory? game-state prop-name)))))
 
-(defn- can-sell-house?
+(defn can-sell-house?
   [game-state prop-name]
   ;; TODO - the player in question should probably be passed as a prop
   (let [{player-id :id}

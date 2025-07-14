@@ -371,24 +371,24 @@
                                               (>= cash unmortgage-cost)))
                                    (sort-by #(-> % :def :mortgage)) ;; Cheapest first
                                    first)]
-          (if unmortgage-prop
+          (when unmortgage-prop
             {:action :unmortgage-property
-             :property-name (-> unmortgage-prop :def :name)}
-            {:action :done}))
+             :property-name (-> unmortgage-prop :def :name)}))
 
         ;; Consider selling houses if we're getting low on cash (but not in raise-funds)
         (and (-> params :actions-available :sell-house)
              (< cash 100))
-        (let [house-prop (->> (util/owned-property-details game-state)
-                              vals
-                              (filter #(= my-id (:owner %)))
-                              (filter #(> (:house-count %) 0))
-                              (sort-by :house-count) ;; Sell from properties with fewer houses first
-                              first)]
-          (if house-prop
+        ;; Find the first property where we can actually sell a house
+        (let [player (util/player-by-id game-state my-id)
+              sellable-prop (->> (:properties player)
+                                 keys
+                                 (filter #(> (get-in player [:properties % :house-count] 0) 0))
+                                 ;; Filter to only properties where we can actually sell houses
+                                 (filter #(first (util/can-sell-house? game-state %)))
+                                 first)]
+          (when sellable-prop
             {:action :sell-house
-             :property-name (-> house-prop :def :name)}
-            {:action :done}))
+             :property-name sellable-prop}))
 
         ;; Consider mortgaging properties if we're low on cash
         (and (-> params :actions-available :mortgage-property)
@@ -400,10 +400,9 @@
                                  (filter #(= 0 (:house-count %)))
                                  (sort-by #(-> % :def :mortgage) <) ;; Mortgage least valuable first
                                  first)]
-          (if mortgage-prop
+          (when mortgage-prop
             {:action :mortgage-property
-             :property-name (-> mortgage-prop :def :name)}
-            {:action :done}))
+             :property-name (-> mortgage-prop :def :name)}))
 
         ;; No other options, end turn
         ;; TODO - soon, "done" might not be available in all cases
