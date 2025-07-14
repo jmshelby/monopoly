@@ -1099,7 +1099,7 @@
                          (filter #(and (= :paid (:status (second %)))
                                        (= 0 (get (second %) :house-count 0))))
                          (map first))]
-    (seq owned-props)))
+    (boolean (seq owned-props))))
 
 (defn can-unmortgage-any-property?
   "Check if current player can unmortgage any of their properties."

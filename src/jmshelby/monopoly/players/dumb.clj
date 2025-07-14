@@ -362,42 +362,48 @@
         ;; Consider unmortgaging properties if we have excess cash
         (and (-> params :actions-available :unmortgage-property)
              (> cash 300)) ;; Only if we have plenty of cash
-        {:action :unmortgage-property
-         :property-name
-         (let [owned-props (->> (util/owned-property-details game-state)
-                                vals
-                                (filter #(= my-id (:owner %)))
-                                (filter #(= :mortgaged (:status %)))
-                                (sort-by #(-> % :def :mortgage)) ;; Cheapest first
-                                first)]
-           (-> owned-props :def :name))}
+        (let [unmortgage-prop (->> (util/owned-property-details game-state)
+                                   vals
+                                   (filter #(= my-id (:owner %)))
+                                   (filter #(= :mortgaged (:status %)))
+                                   (filter #(let [property (-> % :def)
+                                                  unmortgage-cost (-> property :mortgage (* 1.1) Math/ceil int)]
+                                              (>= cash unmortgage-cost)))
+                                   (sort-by #(-> % :def :mortgage)) ;; Cheapest first
+                                   first)]
+          (if unmortgage-prop
+            {:action :unmortgage-property
+             :property-name (-> unmortgage-prop :def :name)}
+            {:action :done}))
 
         ;; Consider selling houses if we're getting low on cash (but not in raise-funds)
         (and (-> params :actions-available :sell-house)
              (< cash 100))
-        {:action :sell-house
-         :property-name
-         (let [owned-props (->> (util/owned-property-details game-state)
-                                vals
-                                (filter #(= my-id (:owner %)))
-                                (filter #(> (:house-count %) 0))
-                                (sort-by :house-count) ;; Sell from properties with fewer houses first
-                                first)]
-           (-> owned-props :def :name))}
+        (let [house-prop (->> (util/owned-property-details game-state)
+                              vals
+                              (filter #(= my-id (:owner %)))
+                              (filter #(> (:house-count %) 0))
+                              (sort-by :house-count) ;; Sell from properties with fewer houses first
+                              first)]
+          (if house-prop
+            {:action :sell-house
+             :property-name (-> house-prop :def :name)}
+            {:action :done}))
 
         ;; Consider mortgaging properties if we're low on cash
         (and (-> params :actions-available :mortgage-property)
              (< cash 50))
-        {:action :mortgage-property
-         :property-name
-         (let [owned-props (->> (util/owned-property-details game-state)
-                                vals
-                                (filter #(= my-id (:owner %)))
-                                (filter #(= :paid (:status %)))
-                                (filter #(= 0 (:house-count %)))
-                                (sort-by #(-> % :def :mortgage) <) ;; Mortgage least valuable first
-                                first)]
-           (-> owned-props :def :name))}
+        (let [mortgage-prop (->> (util/owned-property-details game-state)
+                                 vals
+                                 (filter #(= my-id (:owner %)))
+                                 (filter #(= :paid (:status %)))
+                                 (filter #(= 0 (:house-count %)))
+                                 (sort-by #(-> % :def :mortgage) <) ;; Mortgage least valuable first
+                                 first)]
+          (if mortgage-prop
+            {:action :mortgage-property
+             :property-name (-> mortgage-prop :def :name)}
+            {:action :done}))
 
         ;; No other options, end turn
         ;; TODO - soon, "done" might not be available in all cases
