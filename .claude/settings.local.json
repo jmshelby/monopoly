@@ -1,4 +1,5 @@
 {
+  "includeCoAuthoredBy": false,
   "permissions": {
     "allow": [
       "mcp__ide__getDiagnostics",
@@ -21,7 +22,10 @@
       "Bash(git commit:*)",
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(git checkout:*)",
+      "Bash(gh pr list:*)"
     ],
     "deny": []
   }

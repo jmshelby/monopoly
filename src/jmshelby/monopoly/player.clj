@@ -70,6 +70,21 @@
                    ;; into player's own property state map
                    conj prop-states))))
 
+(defn- auction-bankrupt-properties
+  "Auction off all properties owned by a bankrupt player"
+  [game-state player]
+  (let [properties (keys (:properties player))
+        ;; First set the bankrupt player's status so they're excluded from auctions
+        gs-with-bankrupt-status (assoc-in game-state [:players (:player-index player) :status] :bankrupt)]
+    (reduce (fn [gs property-name]
+              ;; Remove the property from the bankrupt player
+              (let [updated-gs (update-in gs [:players (:player-index player) :properties]
+                                          dissoc property-name)]
+                ;; Then run auction for the property with bankruptcy context
+                (util/apply-auction-property-workflow updated-gs property-name :tx-context {:reason :bankruptcy})))
+            gs-with-bankrupt-status
+            properties)))
+
 (defn- bankrupt-to-bank
   [game-state player]
   (let [;; Get retained cards
@@ -82,19 +97,18 @@
         properties (:properties player)]
     ;; Buildings are automatically returned to inventory when properties are liquidated
     ;; since we derive available inventory from current game state
-    ;; TODO - Need to auction off all properties (regardless of mortgaged status).
-    ;;        Once we have auction functions we can make that happen..
     (-> game-state
-        ;; Put retained cards back into their decks (bottom)
-        (cards/add-to-deck-queues retain-cards)
-        ;; Record bankruptcy transaction
-        ;; TODO - need to think about a better tx structure for bankruptcy type
+        ;; FIRST: Record bankruptcy transaction to establish context
         (util/append-tx {:type       :bankruptcy
                          :player     (:id player)
                          :to         :bank
                          :cash       (:cash player)
                          :cards      retain-cards
-                         :properties properties}))))
+                         :properties properties})
+        ;; THEN: Auction off all properties (with bankruptcy context)
+        (auction-bankrupt-properties player)
+        ;; Put retained cards back into their decks (bottom)
+        (cards/add-to-deck-queues retain-cards))))
 
 (defn- bankrupt-to-player
   [game-state debtor debtee]
@@ -143,6 +157,7 @@
   (let [player-fn (:function player)
         ;; Make actual call to player decision logic
         decision  (player-fn game-state
+                             (:id player)
                              :raise-funds
                              {:amount amount})]
     ;; TODO - we can probably route this through core sometime...

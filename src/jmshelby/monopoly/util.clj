@@ -402,16 +402,19 @@
 
 ;; TODO - Need to do a special transfer/acquisition workflow for mortgaged properties,
 ;;        currently we just assume it's owned outright
-(defn- apply-auction-property-workflow
-  "Given a game-state and a property name, carry out the auction workflow
-  by sequentially invoking the 'auction-bid' player decision method, per
-  player, until a winner is found. Starts by establishing a random order
-  to call players in, and continues that order in a loop. When a winner
-  is found, the game-state is updated to reflect the purchase, indicating
-  it was purchased via auction.
+(defn apply-auction-property-workflow
+  "Given a game-state, property name, and optional transaction context,
+  carry out the auction workflow by sequentially invoking the 'auction-bid'
+  player decision method, per player, until a winner is found. Starts by
+  establishing a random order to call players in, and continues that order
+  in a loop. When a winner is found, the game-state is updated to reflect
+  the purchase, indicating it was purchased via auction.
+
+  tx-context is a map that will be merged into all auction transactions.
+  Common usage: {:reason :property-declined} or {:reason :bankruptcy}
 
   NOTE - This does not handle correct mortgaged property rules yet"
-  [game-state property]
+  [game-state property & {:keys [tx-context] :or {tx-context {:reason :property-declined}}}]
   (let [;; Get property definition from board
         property-def (->> game-state :board :properties
                           (filter #(= property (:name %)))
@@ -427,13 +430,20 @@
         starting-bid bid-increment
 
         ;; Record that auction was initiated (regardless of outcome)
+        base-auction-tx {:type :auction-initiated
+                         :property property
+                         :eligible-bidders (map :id auction-players)
+                         :starting-bid starting-bid
+                         :participant-count (count auction-players)}
+        auction-initiation-tx (if (= :bankruptcy (:reason tx-context))
+                                (merge base-auction-tx
+                                       {:bankrupted-by current-player-id}
+                                       tx-context)
+                                (merge base-auction-tx
+                                       {:declined-by current-player-id}
+                                       tx-context))
         game-state-with-auction-start
-        (append-tx game-state {:type :auction-initiated
-                               :property property
-                               :declined-by current-player-id
-                               :eligible-bidders (map :id auction-players)
-                               :starting-bid starting-bid
-                               :participant-count (count auction-players)})]
+        (append-tx game-state auction-initiation-tx)]
 
     ;; Start auction loop
     (loop [active-players auction-players
@@ -453,16 +463,18 @@
               (update-in [:players (:player-index highest-bidder) :cash]
                          - highest-bid)
               ;; Record auction completion transaction
-              (append-tx {:type :auction-completed
-                          :property property
-                          :winner (:id highest-bidder)
-                          :winning-bid highest-bid
-                          :participants (map :id auction-players)}))
+              (append-tx (merge {:type :auction-completed
+                                 :property property
+                                 :winner (:id highest-bidder)
+                                 :winning-bid highest-bid
+                                 :participants (map :id auction-players)}
+                                tx-context)))
           ;; No one bid - auction passed, record the passed outcome
           (append-tx game-state-with-auction-start
-                     {:type :auction-passed
-                      :property property
-                      :participants (map :id auction-players)}))
+                     (merge {:type :auction-passed
+                             :property property
+                             :participants (map :id auction-players)}
+                            tx-context)))
 
         ;; Continue auction - get next player's bid
         (let [current-player (first active-players)
@@ -471,6 +483,7 @@
               ;; Invoke player's auction-bid decision
               decision ((:function current-player)
                         game-state
+                        (:id current-player)
                         :auction-bid
                         {:property property-def
                          :highest-bid highest-bid
@@ -564,7 +577,7 @@
          (> cash (:price property))
           ;; Player wants to buy it...
           ;; [invoke player for option decision]
-         (= :buy (:action (function game-state :property-option {:property property}))))
+         (= :buy (:action (function game-state (:id player) :property-option {:property property}))))
 
       ;; Apply the purchase
       (-> game-state

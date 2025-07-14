@@ -299,7 +299,7 @@
 
             ;; Start right away by invoking players turn
             ;; method, to get next response/decision
-            decision (function game-state :take-turn {:actions-available actions})]
+            decision (function game-state player-id :take-turn {:actions-available actions})]
 
         ;; TODO - Detect if player is stuck in loop?
         ;; TODO - Player is taking too long?
@@ -436,12 +436,30 @@
 
   (-> sim
       analysis/summarize-game
-      analysis/print-game-summary)
+      analysis/print-game-summary
+      )
 
   ;; Print detailed transaction log
   (analysis/print-transaction-log sim)
 
   sim
+
+  (def sim
+    (time
+     (loop [idx 0]
+       (println "==============================================")
+       (let [sim (rand-game-end-state 4 1500)
+             has-it? (fn [txs]
+                       (->> txs
+                            (some (fn [tx]
+                                    (and (= :bankruptcy (:type tx))
+                                         (= :bank (:to tx)))))))]
+         (if (has-it? (:transactions sim))
+           (do
+             (println "Found bankrupt to bank in: " idx "games")
+             sim)
+           (recur (inc idx)))))))
+
 
   (let [players    (+ 2 (rand-int 5))
         iterations (+ 20 (rand-int 500))

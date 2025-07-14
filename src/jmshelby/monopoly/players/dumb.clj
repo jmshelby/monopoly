@@ -204,12 +204,11 @@
 
 ;; TODO - multimethods..
 (defn decide
-  [game-state method params]
-  ;; TODO - the current player won't always be the player being called ...
+  [game-state player-id method params]
   (let [{my-id :id
          cash  :cash
          :as   player}
-        (util/current-player game-state)]
+        (util/player-by-id game-state player-id)]
     (case method
 
       ;; Simple auction bidding logic
@@ -276,7 +275,7 @@
                           {:player-id my-id
                            :amount-needed (:amount params)}))))
 
-;; A trade proposal offered to us
+      ;; A trade proposal offered to us
       :trade-proposal
       ;; Real simple, no worry about our state or the other player's state.
       ;;   - Accept if offerred resources value (taking mortgaged into account)

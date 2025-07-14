@@ -1,6 +1,20 @@
 # Monopoly
 Monopoly Game Engine + Pluggable Player API
 
+## License
+
+This project is **not licensed** for use, modification, or distribution.
+All rights are reserved under copyright law.
+
+The code is shared publicly for:
+- Educational viewing
+- Portfolio demonstration
+- Learning purposes only
+
+You may not use this code in your own projects without explicit written permission.
+
+To request permission to use this code, please open a GitHub issue with details about your intended use.
+
 ## Current Progress
 
 #### Finished Logic
@@ -25,6 +39,7 @@ Monopoly Game Engine + Pluggable Player API
  - Player "lose" logic
    - detect if bankrupt
    - force sell off, "raise funds" workflow
+   - Bankruptcy to Bank: When players owe the Bank more than they can pay, all properties are auctioned off to remaining players
    > Should you owe the Bank, instead of another player, more than you can pay (because of taxes or penalties) even by selling off buildings and mortgaging property, you must turn over all assets to the Bank. In this case, the Bank immediately sells by auction all property so taken, except buildings
  - Go to Jail
    - "go to jail" cell/spot
@@ -47,14 +62,15 @@ Monopoly Game Engine + Pluggable Player API
      - offer workflow
  - Auction System
    - Property auctions when purchase declined, or can't afford
+   - Bankruptcy auctions: All properties auctioned when player goes bankrupt to bank
    - Sequential bidding with configurable increments
    - Random player order for fairness
+   - Proper player context (each bidder uses their own cash/data)
  ---------------------------
 #### Remaining Logic
  - Cards
    - Deferred effects (go to nearest utility, pay 10x dice roll)
  - [Full] Player "lose" logic
-   - Bankrupt to bank auctions off properties
    - Acquisition workflow to owed party (if not bank)
      - requiring 10% payment of mortgaged properties or to instantly unmortgage property to acquire
    > [Ability to make deals when needing funds]

@@ -541,10 +541,16 @@
                            :auction-initiated
                            (let [property (:property first-tx)
                                  declined-by (:declined-by first-tx)
+                                 bankrupted-by (:bankrupted-by first-tx)
+                                 reason (:reason first-tx)
                                  starting-bid (:starting-bid first-tx)
-                                 participant-count (:participant-count first-tx)]
-                             (format "[%s] Auction started for %s (declined by %s, starting bid: %s, %d participants)"
-                                     tx-num (format-property property) declined-by 
+                                 participant-count (:participant-count first-tx)
+                                 cause-text (cond
+                                             declined-by (format "declined by %s" declined-by)
+                                             bankrupted-by (format "bankruptcy of %s" bankrupted-by)
+                                             :else "unknown cause")]
+                             (format "[%s] Auction started for %s (%s, starting bid: %s, %d participants)"
+                                     tx-num (format-property property) cause-text
                                      (format-money starting-bid) participant-count))
 
                            :auction-completed
@@ -618,8 +624,8 @@
 (defn print-game-summary
   "Print a human-readable summary of the game analysis from summarize-game."
   [summary]
-  (let [{:keys [summary transaction-breakdown player-outcomes bankruptcies monopolies inconsistencies winner]} summary
-        {:keys [game-status total-turns total-transactions players economics]} summary
+  (let [{summary-data :summary :keys [transaction-breakdown player-outcomes bankruptcies monopolies inconsistencies winner]} summary
+        {:keys [game-status total-turns total-transactions players economics]} summary-data
         ;; Monopoly earning potential (based on typical Monopoly rent values)
         monopoly-power {"brown" "$"           ; Mediterranean/Baltic - lowest
                         "light-blue" "$"      ; Oriental/Vermont/Connecticut - low

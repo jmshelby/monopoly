@@ -145,7 +145,7 @@
           game-state   (append-tx game-state :proposal proposal)
           ;; Dispatch trade-proposal to other player's decision logic
           to-player-fn (:function to-player)
-          decision     (to-player-fn game-state :trade-proposal proposal)]
+          decision     (to-player-fn game-state (:id to-player) :trade-proposal proposal)]
 
       ;; TODO - Implement "counter proposal" logic
       ;; TODO - Somehow need to prevent endless proposal loops from happening
