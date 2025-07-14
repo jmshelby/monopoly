@@ -313,7 +313,13 @@
                                   (->> owned-props
                                        (filter #(= :paid (:status %)))
                                        (filter #(= 0 (:house-count %)))
-                                       (sort-by #(-> % :def :mortgage) <)))]
+                                       (sort-by #(-> % :def :mortgage) <)))
+            ;; Pre-compute sellable house candidates using owned-props data  
+            sellable-house-candidates (when (-> params :actions-available :sell-house)
+                                        (->> owned-props
+                                             (filter #(> (:house-count %) 0))
+                                             (filter #(first (util/can-sell-house? game-state (-> % :def :name))))
+                                             (map #(-> % :def :name))))]
         (cond
 
           ;; First, check if we can roll, and do it
@@ -377,19 +383,10 @@
            :property-name (-> unmortgage-candidates first :def :name)}
 
           ;; Consider selling houses if we're getting low on cash (but not in raise-funds)
-          (and (-> params :actions-available :sell-house)
+          (and sellable-house-candidates
                (< cash 100))
-          ;; Find the first property where we can actually sell a house
-          (let [player (util/player-by-id game-state my-id)
-                sellable-prop (->> (:properties player)
-                                   keys
-                                   (filter #(> (get-in player [:properties % :house-count] 0) 0))
-                                   ;; Filter to only properties where we can actually sell houses
-                                   (filter #(first (util/can-sell-house? game-state %)))
-                                   first)]
-            (when sellable-prop
-              {:action :sell-house
-               :property-name sellable-prop}))
+          {:action :sell-house
+           :property-name (first sellable-house-candidates)}
 
           ;; Consider mortgaging properties if we're low on cash
           (and mortgage-candidates
