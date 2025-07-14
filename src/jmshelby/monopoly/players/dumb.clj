@@ -293,10 +293,27 @@
 
       ;; Turn Logic...
       :take-turn
-      ;; Cache property lookups to avoid multiple expensive calls
+      ;; Cache property lookups and pre-compute action candidates
       (let [owned-props (->> (util/owned-property-details game-state)
                              vals
-                             (filter #(= my-id (:owner %))))]
+                             (filter #(= my-id (:owner %))))
+            ;; Pre-compute candidates for each action type
+            house-candidates (when (-> params :actions-available :buy-house)
+                               (->> owned-props
+                                    util/potential-house-purchases
+                                    (sort-by #(nth % 2))))
+            unmortgage-candidates (when (-> params :actions-available :unmortgage-property)
+                                    (->> owned-props
+                                         (filter #(= :mortgaged (:status %)))
+                                         (filter #(let [property (-> % :def)
+                                                        unmortgage-cost (-> property :mortgage (* 1.1) Math/ceil int)]
+                                                    (>= cash unmortgage-cost)))
+                                         (sort-by #(-> % :def :mortgage))))
+            mortgage-candidates (when (-> params :actions-available :mortgage-property)
+                                  (->> owned-props
+                                       (filter #(= :paid (:status %)))
+                                       (filter #(= 0 (:house-count %)))
+                                       (sort-by #(-> % :def :mortgage) <)))]
         (cond
 
           ;; First, check if we can roll, and do it
@@ -348,31 +365,16 @@
 
           ;; Next, if we can buy a house,
           ;; and have more than $40 left (yes very dumb, and arbitrary)
-          (and (-> params :actions-available :buy-house)
+          (and house-candidates
                (> cash 40))
           {:action :buy-house
-           :property-name
-           (let [potential (->> owned-props
-                                util/potential-house-purchases)
-                 cheapest  (->> potential
-                                (sort-by #(nth % 2))
-                                first)]
-             ;; Property ID/Name, tuple 2 pos
-             (second cheapest))}
+           :property-name (-> house-candidates first second)}
 
           ;; Consider unmortgaging properties if we have excess cash
-          (and (-> params :actions-available :unmortgage-property)
+          (and unmortgage-candidates
                (> cash 300)) ;; Only if we have plenty of cash
-          (let [unmortgage-prop (->> owned-props
-                                     (filter #(= :mortgaged (:status %)))
-                                     (filter #(let [property (-> % :def)
-                                                    unmortgage-cost (-> property :mortgage (* 1.1) Math/ceil int)]
-                                                (>= cash unmortgage-cost)))
-                                     (sort-by #(-> % :def :mortgage)) ;; Cheapest first
-                                     first)]
-            (when unmortgage-prop
-              {:action :unmortgage-property
-               :property-name (-> unmortgage-prop :def :name)}))
+          {:action :unmortgage-property
+           :property-name (-> unmortgage-candidates first :def :name)}
 
           ;; Consider selling houses if we're getting low on cash (but not in raise-funds)
           (and (-> params :actions-available :sell-house)
@@ -390,16 +392,10 @@
                :property-name sellable-prop}))
 
           ;; Consider mortgaging properties if we're low on cash
-          (and (-> params :actions-available :mortgage-property)
+          (and mortgage-candidates
                (< cash 50))
-          (let [mortgage-prop (->> owned-props
-                                   (filter #(= :paid (:status %)))
-                                   (filter #(= 0 (:house-count %)))
-                                   (sort-by #(-> % :def :mortgage) <) ;; Mortgage least valuable first
-                                   first)]
-            (when mortgage-prop
-              {:action :mortgage-property
-               :property-name (-> mortgage-prop :def :name)}))
+          {:action :mortgage-property
+           :property-name (-> mortgage-candidates first :def :name)}
 
           ;; No other options, end turn
           ;; TODO - soon, "done" might not be available in all cases
