@@ -41,20 +41,24 @@
 ;; ======= New Property Management Integration Tests ===================
 
 (deftest sell-house-action-integration-test
-  (testing "sell-house action works through advance-board"
+  (testing "sell-house action integrates with core game engine"
+    ;; Test the action dispatch logic from advance-board without relying on dumb player
     (let [initial-state (-> (c/init-game-state 2)
                             ;; Give current player monopoly with houses
                             (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 2})
                             (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2})
                             (assoc-in [:players 0 :cash] 1000)
-                            ;; Use a custom player function that always sells houses
+                            ;; Replace default player function with test-specific one
                             (assoc-in [:players 0 :function] 
                                       (fn [game-state player-id method params]
                                         (case method
                                           :take-turn (if (-> params :actions-available :sell-house)
                                                        {:action :sell-house :property-name :mediterranean-ave}
                                                        {:action :done})
-                                          {:action :decline}))))
+                                          {:action :decline})))
+                            (assoc-in [:players 1 :function] 
+                                      (fn [game-state player-id method params]
+                                        {:action :done})))
           result-state (c/advance-board initial-state)
           player (u/current-player result-state)]
       ;; House should be sold
@@ -62,6 +66,22 @@
       ;; Cash should increase
       (is (> (:cash player) 1000))
       ;; Should have transaction
+      (is (some #(= :sell-house (:type %)) (:transactions result-state)))))
+  
+  (testing "sell-house action dispatch works correctly"
+    ;; Test that the core action dispatch recognizes :sell-house
+    (let [game-state (-> (c/init-game-state 2)
+                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 2})
+                         (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2})
+                         (assoc-in [:players 0 :cash] 1000))
+          ;; Simulate what advance-board does for :sell-house action
+          decision {:action :sell-house :property-name :mediterranean-ave}
+          ;; This is the core logic from advance-board case :sell-house
+          result-state (u/apply-house-sale game-state (:property-name decision))
+          player (u/current-player result-state)]
+      ;; Verify the action was applied correctly
+      (is (= 1 (get-in player [:properties :mediterranean-ave :house-count])))
+      (is (= 1025 (:cash player))) ; 1000 + 25 from house sale
       (is (some #(= :sell-house (:type %)) (:transactions result-state))))))
 
 (deftest mortgage-unmortgage-action-cycle-test
