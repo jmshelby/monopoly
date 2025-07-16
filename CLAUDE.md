@@ -48,12 +48,18 @@ clojure -M -m jmshelby.monopoly.simulation -g 500 -p 3 -s 2000  # 500 games, 3 p
   - Sequential bidding with configurable increments
   - AI players with intelligent bidding strategies
   - Complete transaction tracking and analytics
+- **Proactive Property Management** (NEW)
+  - House selling during player turns (with even distribution validation)
+  - Property mortgaging for strategic cash flow
+  - Property unmortgaging to complete monopolies
+  - Comprehensive test coverage (42 tests)
+  - Performance-optimized AI integration
 - Game analysis and summary functions
 - Exception handling in game simulations
 
 ### In Progress
-- Mortgage/unmortgage functionality
 - Property acquisition workflow for mortgaged assets
+- Advanced AI strategies for proactive property management
 
 ### Future Features
 - HTTP interface for remote players
@@ -95,7 +101,7 @@ Returns game state after a specific number of iterations (for testing).
 - **Input**: Current game state
 - **Output**: Updated game state after one player action
 - **Key logic**: Game completion checks, player AI decision calls, action dispatch, turn management
-- **Action types**: `:done`, `:roll`, `:buy-house`, `:trade-proposal`, jail actions
+- **Action types**: `:done`, `:roll`, `:buy-house`, `:sell-house`, `:mortgage-property`, `:unmortgage-property`, `:trade-proposal`, jail actions
 
 #### `move-to-cell` (lines 73-166)
 Moves current player to specific cell and applies all effects.
@@ -145,8 +151,14 @@ See `players/dumb.clj` for example AI implementation. Players need to implement 
 - Property purchases
 - Trading proposals
 - Auction bidding (evaluates property value, cash reserves, and affordability)
-- Bankruptcy fund-raising
+- Bankruptcy fund-raising (house selling, property mortgaging)
 - Building purchases
+- **Proactive property management** (house selling, mortgaging, unmortgaging)
+
+### Performance Notes
+- Dumb player includes caching optimizations for property lookups
+- Pre-computes action candidates to reduce decision overhead
+- Proactive selling/mortgaging currently commented out in normal turns (retained for bankruptcy)
 
 ## Code Style Guidelines
 
