@@ -865,7 +865,7 @@
                            (filter #(= (-> % :def :group-name)
                                        (-> single-prop :def :group-name)))
                            (map :house-count)
-                           (apply max 0)))] ; Use max with default 0
+                           (apply max)))]
     ;; Itemized validation
     (cond
       ;; Ensure property ownership
