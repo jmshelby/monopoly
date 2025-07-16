@@ -456,14 +456,33 @@
 
   (-> sim
       analysis/summarize-game
-      analysis/print-game-summary
-      )
+      analysis/print-game-summary)
 
-  ;; Print detailed transaction log
+;; Print detailed transaction log
   (analysis/print-transaction-log sim)
 
   sim
 
+  ;; Find an auction for one player
+  (def sim
+    (time
+     (loop [idx 0]
+       (println "==============================================")
+       (let [sim (rand-game-end-state 4 1500)
+             has-it? (fn [txs]
+                       (->> txs
+                            (some (fn [tx]
+                                    (and (= :auction-initiated (:type tx))
+                                         (= 1 (count (:eligible-bidders tx))))))))]
+         (if (has-it? (:transactions sim))
+           (do
+             (println "Found single player auction in: " idx "games")
+             sim)
+           (recur (inc idx)))))))
+
+  (println "hi")
+
+  ;; Find the first bankupt to bank tx
   (def sim
     (time
      (loop [idx 0]
@@ -479,7 +498,6 @@
              (println "Found bankrupt to bank in: " idx "games")
              sim)
            (recur (inc idx)))))))
-
 
   (let [players    (+ 2 (rand-int 5))
         iterations (+ 20 (rand-int 500))
