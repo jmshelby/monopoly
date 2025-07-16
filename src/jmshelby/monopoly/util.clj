@@ -493,7 +493,28 @@
           (case (:action decision)
             ;; Player declines - remove from active players
             :decline
-            (recur remaining-players highest-bid highest-bidder current-bid)
+            (if (= 1 (count remaining-players))
+              ;; Only one player left after this decline
+              (if highest-bidder
+                ;; Someone has already bid - they win with their highest bid
+                (-> game-state-with-auction-start
+                    ;; Add property to winner
+                    (update-in [:players (:player-index highest-bidder) :properties]
+                               assoc property {:status :paid :house-count 0})
+                    ;; Deduct winning bid from winner
+                    (update-in [:players (:player-index highest-bidder) :cash]
+                               - highest-bid)
+                    ;; Record auction completion transaction
+                    (append-tx (merge {:type :auction-completed
+                                       :property property
+                                       :winner (:id highest-bidder)
+                                       :winning-bid highest-bid
+                                       :participants (map :id auction-players)}
+                                      tx-context)))
+                ;; No one has bid yet - the remaining player gets to bid at starting price
+                (recur remaining-players highest-bid highest-bidder current-bid))
+              ;; Multiple players still active - continue auction
+              (recur remaining-players highest-bid highest-bidder current-bid))
 
             ;; Player bids - validate and update if valid
             :bid
@@ -523,12 +544,29 @@
                                  :bid-amount bid-amount
                                  :player-cash (:cash current-player)}))
 
-                ;; Valid bid - update highest bid and continue
+                ;; Valid bid - check if this player is the only one left
                 :else
-                (recur (conj (vec remaining-players) current-player)
-                       bid-amount
-                       current-player
-                       (+ bid-amount bid-increment))))
+                (if (empty? remaining-players)
+                  ;; This player is the only one left - they win immediately with their bid
+                  (-> game-state-with-auction-start
+                      ;; Add property to winner
+                      (update-in [:players (:player-index current-player) :properties]
+                                 assoc property {:status :paid :house-count 0})
+                      ;; Deduct winning bid from winner
+                      (update-in [:players (:player-index current-player) :cash]
+                                 - bid-amount)
+                      ;; Record auction completion transaction
+                      (append-tx (merge {:type :auction-completed
+                                         :property property
+                                         :winner (:id current-player)
+                                         :winning-bid bid-amount
+                                         :participants (map :id auction-players)}
+                                        tx-context)))
+                  ;; Multiple players still active - continue auction
+                  (recur (conj (vec remaining-players) current-player)
+                         bid-amount
+                         current-player
+                         (+ bid-amount bid-increment)))))
 
             ;; Unknown action - throw exception
             (throw (ex-info "Invalid auction action"
