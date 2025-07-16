@@ -293,72 +293,113 @@
 
       ;; Turn Logic...
       :take-turn
-      (cond
+      ;; Cache property lookups and pre-compute action candidates
+      (let [owned-props (->> (util/owned-property-details game-state)
+                             vals
+                             (filter #(= my-id (:owner %))))
+            ;; Pre-compute candidates for each action type
+            house-candidates (when (-> params :actions-available :buy-house)
+                               (->> owned-props
+                                    util/potential-house-purchases
+                                    (sort-by #(nth % 2))))
+            unmortgage-candidates (when (-> params :actions-available :unmortgage-property)
+                                    (->> owned-props
+                                         (filter #(= :mortgaged (:status %)))
+                                         (filter #(let [property (-> % :def)
+                                                        unmortgage-cost (-> property :mortgage (* 1.1) Math/ceil int)]
+                                                    (>= cash unmortgage-cost)))
+                                         (sort-by #(-> % :def :mortgage))))
+            ;; Pre-compute properties that we could mortgage, if needed
+            ;; NOTE - commenting this out now, need to determine if it's necessary
+            ;; mortgage-candidates (when (-> params :actions-available :mortgage-property)
+            ;;                       (->> owned-props
+            ;;                            (filter #(= :paid (:status %)))
+            ;;                            (filter #(= 0 (:house-count %)))
+            ;;                            (sort-by #(-> % :def :mortgage) <)))
+            ;; Pre-compute sellable house candidates using owned-props data
+            ;; NOTE - commenting this out now, need to determine if it's necessary
+            ;; sellable-house-candidates (when (-> params :actions-available :sell-house)
+            ;;                             (->> owned-props
+            ;;                                  (filter #(> (:house-count %) 0))
+            ;;                                  (filter #(first (util/can-sell-house? game-state (-> % :def :name))))
+            ;;                                  (map #(-> % :def :name))))
+            ]
+        (cond
 
-        ;; First, check if we can roll, and do it
-        (-> params :actions-available :roll)
-        {:action :roll}
+          ;; First, check if we can roll, and do it
+          (-> params :actions-available :roll)
+          {:action :roll}
 
-        ;; Check to see if we can AND should make an offer
-        ;; TODO - This could return random results and should
-        ;;        be called only once per decision
-        (and (-> params :actions-available :trade-proposal)
-             (proposal? game-state player))
+          ;; Check to see if we can AND should make an offer
+          ;; TODO - This could return random results and should
+          ;;        be called only once per decision
+          (and (-> params :actions-available :trade-proposal)
+               (proposal? game-state player))
 
-        ;; When we're ready to send a proposal
-        ;; {:action                   :trade-proposal
-        ;;  :trade/to-player "A"
-        ;;  ;; Note - You'd never have :cash in both asking+offering
-        ;;  ;;        I guess you _could_, but there'd be no point, so we should restrict it
-        ;;  ;; Note - You'd never have :cards in both asking+offering (in standard rules board)
-        ;;  ;; Note - You can (and often will) have properties in both asking+offering
-        ;;  ;; Note - A single player _could_ have 2 get out of jail free cards and offer them
-        ;;  :trade/asking    {;; Cash dollar amount > 0
-        ;;                    :cash       123
-        ;;                    ;; Full card definitions
-        ;;                    :cards      #{}
-        ;;                    ;; Just names of properties
-        ;;                    :properties #{}}
-        ;;  :trade/offering  {:cash       123
-        ;;                    :cards      #{}
-        ;;                    :properties #{}}}
+          ;; When we're ready to send a proposal
+          ;; {:action                   :trade-proposal
+          ;;  :trade/to-player "A"
+          ;;  ;; Note - You'd never have :cash in both asking+offering
+          ;;  ;;        I guess you _could_, but there'd be no point, so we should restrict it
+          ;;  ;; Note - You'd never have :cards in both asking+offering (in standard rules board)
+          ;;  ;; Note - You can (and often will) have properties in both asking+offering
+          ;;  ;; Note - A single player _could_ have 2 get out of jail free cards and offer them
+          ;;  :trade/asking    {;; Cash dollar amount > 0
+          ;;                    :cash       123
+          ;;                    ;; Full card definitions
+          ;;                    :cards      #{}
+          ;;                    ;; Just names of properties
+          ;;                    :properties #{}}
+          ;;  :trade/offering  {:cash       123
+          ;;                    :cards      #{}
+          ;;                    :properties #{}}}
 
-        (into {:action :trade-proposal}
-              (proposal? game-state player))
+          (into {:action :trade-proposal}
+                (proposal? game-state player))
 
-        ;; OR, if we are in jail and have a free out card
-        ;; THEN use it
-        (-> params :actions-available :jail/bail-card)
-        {:action :jail/bail-card}
+          ;; OR, if we are in jail and have a free out card
+          ;; THEN use it
+          (-> params :actions-available :jail/bail-card)
+          {:action :jail/bail-card}
 
-        ;; OR, if we are in jail and can pay bail,
-        ;; AND there's more than 25% of prop for sell,
-        ;; THEN post bail
-        (and (-> params :actions-available :jail/bail)
-             (> 0.75 (percent-props-owned game-state)))
-        {:action :jail/bail}
+          ;; OR, if we are in jail and can pay bail,
+          ;; AND there's more than 25% of prop for sell,
+          ;; THEN post bail
+          (and (-> params :actions-available :jail/bail)
+               (> 0.75 (percent-props-owned game-state)))
+          {:action :jail/bail}
 
-        ;; OR, if we are in jail and can roll for doubles, do that
-        (-> params :actions-available :jail/roll)
-        {:action :jail/roll}
+          ;; OR, if we are in jail and can roll for doubles, do that
+          (-> params :actions-available :jail/roll)
+          {:action :jail/roll}
 
-        ;; Next, if we can buy a house,
-        ;; and have more than $40 left (yes very dumb, and arbitrary)
-        (and (-> params :actions-available :buy-house)
-             (> cash 40))
-        {:action :buy-house
-         :property-name
-         (let [potential (->> game-state
-                              util/owned-property-details
-                              (map second)
-                              (filter #(= my-id (:owner %)))
-                              util/potential-house-purchases)
-               cheapest  (->> potential
-                              (sort-by #(nth % 2))
-                              first)]
-           ;; Property ID/Name, tuple 2 pos
-           (second cheapest))}
+          ;; Next, if we can buy a house,
+          ;; and have more than $40 left (yes very dumb, and arbitrary)
+          (and house-candidates
+               (> cash 40))
+          {:action :buy-house
+           :property-name (-> house-candidates first second)}
 
-        ;; No other options, end turn
-        ;; TODO - soon, "done" might not be available in all cases
-        :else {:action :done}))))
+          ;; Consider unmortgaging properties if we have excess cash
+          (and unmortgage-candidates
+               (> cash 300)) ;; Only if we have plenty of cash
+          {:action :unmortgage-property
+           :property-name (-> unmortgage-candidates first :def :name)}
+
+          ;; Consider selling houses if we're getting low on cash (but not in raise-funds)
+          ;; NOTE - commenting this out now, need to determine if it's necessary
+          ;; (and sellable-house-candidates
+          ;;      (< cash 100))
+          ;; {:action :sell-house
+          ;;  :property-name (first sellable-house-candidates)}
+
+          ;; Consider mortgaging properties if we're low on cash
+          ;; NOTE - commenting this out now, need to determine if it's necessary
+          ;; (and mortgage-candidates
+          ;;      (< cash 50))
+          ;; {:action :mortgage-property
+          ;;  :property-name (-> mortgage-candidates first :def :name)}
+
+          ;; No other options, end turn
+          ;; TODO - soon, "done" might not be available in all cases
+          :else {:action :done})))))

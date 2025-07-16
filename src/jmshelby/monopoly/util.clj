@@ -845,7 +845,7 @@
           (>= cash (nth single-prop 2))
           (can-build-house-inventory? game-state prop-name)))))
 
-(defn- can-sell-house?
+(defn can-sell-house?
   [game-state prop-name]
   ;; TODO - the player in question should probably be passed as a prop
   (let [{player-id :id}
@@ -860,11 +860,12 @@
                          (filter #(= prop-name (-> % :def :name)))
                          first)
         ;; Current max houses owned in this group
-        house-max   (->> owned
-                         (filter #(= (-> % :def :group-name)
-                                     (-> single-prop :def :group-name)))
-                         (map :house-count)
-                         (apply max))]
+        house-max   (when single-prop
+                      (->> owned
+                           (filter #(= (-> % :def :group-name)
+                                       (-> single-prop :def :group-name)))
+                           (map :house-count)
+                           (apply max)))]
     ;; Itemized validation
     (cond
       ;; Ensure property ownership
@@ -1026,3 +1027,93 @@
                     :player   player-id
                     :property property-name
                     :proceeds mortgage-price}))))
+
+(defn apply-property-unmortgage
+  "Given a game-state and a property, apply the unmortgaging
+  of said property for current player. Validates and throws
+  if current player cannot perform operation."
+  [game-state property-name]
+  (let [{player-id :id
+         pidx      :player-index
+         :as       player}
+        (current-player game-state)
+        ;; Get property definition
+        property       (->> game-state :board :properties
+                            (filter #(= property-name (:name %)))
+                            first)
+        unmortgage-price (-> property :mortgage (* 1.1) Math/ceil int)
+        prop-state       (get-in player [:properties property-name])]
+
+    ;; Validate - make sure they own it
+    (when (not prop-state)
+      (throw (ex-info "Player decision not allowed"
+                      {:action   :unmortgage-property
+                       :player   player-id
+                       :property property-name
+                       :reason   :property-not-owned})))
+    ;; Validate - make sure it's currently mortgaged
+    (when (not= :mortgaged (:status prop-state))
+      (throw (ex-info "Player decision not allowed"
+                      {:action   :unmortgage-property
+                       :player   player-id
+                       :property property-name
+                       :reason   :property-not-mortgaged})))
+    ;; Validate - make sure they have enough cash
+    (when (< (:cash player) unmortgage-price)
+      (throw (ex-info "Player decision not allowed"
+                      {:action   :unmortgage-property
+                       :player   player-id
+                       :property property-name
+                       :reason   :insufficient-funds
+                       :cost     unmortgage-price
+                       :cash     (:cash player)})))
+
+    ;; Apply the unmortgage
+    (-> game-state
+        ;; Update to paid status in player state
+        (assoc-in [:players pidx :properties
+                   property-name :status]
+                  :paid)
+        ;; Deduct unmortgage cost from player
+        (update-in [:players pidx :cash]
+                   - unmortgage-price)
+        ;; Track transaction
+        (append-tx {:type     :unmortgage-property
+                    :player   player-id
+                    :property property-name
+                    :cost     unmortgage-price}))))
+
+(defn can-sell-any-house?
+  "Check if current player can sell any house on any of their properties."
+  [game-state]
+  (let [player (current-player game-state)
+        owned-props (->> (:properties player) keys)]
+    (->> owned-props
+         (some #(first (can-sell-house? game-state %)))
+         boolean)))
+
+(defn can-mortgage-any-property?
+  "Check if current player can mortgage any of their properties."
+  [game-state]
+  (let [player (current-player game-state)
+        owned-props (->> (:properties player)
+                         (filter #(and (= :paid (:status (second %)))
+                                       (= 0 (get (second %) :house-count 0))))
+                         (map first))]
+    (boolean (seq owned-props))))
+
+(defn can-unmortgage-any-property?
+  "Check if current player can unmortgage any of their properties."
+  [game-state]
+  (let [player (current-player game-state)
+        mortgaged-props (->> (:properties player)
+                             (filter #(= :mortgaged (:status (second %))))
+                             (map first))]
+    (->> mortgaged-props
+         (some (fn [prop-name]
+                 (let [property (->> game-state :board :properties
+                                     (filter #(= prop-name (:name %)))
+                                     first)
+                       unmortgage-cost (-> property :mortgage (* 1.1) Math/ceil int)]
+                   (>= (:cash player) unmortgage-cost))))
+         boolean)))

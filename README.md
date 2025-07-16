@@ -34,8 +34,12 @@ To request permission to use this code, please open a GitHub issue with details 
    - Hotel exchange mechanics (5th house becomes hotel, returns 4 houses to bank)
  - Sell House
    - On "raise funds" workflow
+   - On player turn action (proactive property management)
  - Mortgage Property
-   - on "raise funds" workflow
+   - On "raise funds" workflow
+   - On player turn action (proactive property management)
+ - Unmortgage Property
+   - On player turn action (strategic monopoly completion)
  - Player "lose" logic
    - detect if bankrupt
    - force sell off, "raise funds" workflow
@@ -74,10 +78,6 @@ To request permission to use this code, please open a GitHub issue with details 
    - Acquisition workflow to owed party (if not bank)
      - requiring 10% payment of mortgaged properties or to instantly unmortgage property to acquire
    > [Ability to make deals when needing funds]
- - Mortgage/Un-mortgage
-   - On player turn action
- - Sell House
-   - On player turn action
  - Proposals
    - Mortgaged property requirements
      > If you are the new owner, you may lift the mortgage at once if you wish by paying off the mortgage plus 10% interest to the Bank. If the mortgage is not lifted at once, you must pay the Bank 10% interest when you buy the property and if you lift the mortgage later you must pay the Bank an additional 10% interest as well as the amount of the mortgage
@@ -95,6 +95,10 @@ To request permission to use this code, please open a GitHub issue with details 
   - `can-sell-house?` - should accept player parameter
   - `apply-house-sale` - should accept player parameter  
   - `apply-property-mortgage` - should accept player parameter
+  - `apply-property-unmortgage` - should accept player parameter
+  - `can-sell-any-house?` - should accept player parameter
+  - `can-mortgage-any-property?` - should accept player parameter
+  - `can-unmortgage-any-property?` - should accept player parameter
   - This creates tight coupling and makes functions less reusable/testable
 
 ## Development Commands
