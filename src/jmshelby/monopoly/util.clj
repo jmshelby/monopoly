@@ -860,11 +860,12 @@
                          (filter #(= prop-name (-> % :def :name)))
                          first)
         ;; Current max houses owned in this group
-        house-max   (->> owned
-                         (filter #(= (-> % :def :group-name)
-                                     (-> single-prop :def :group-name)))
-                         (map :house-count)
-                         (apply max))]
+        house-max   (when single-prop
+                      (->> owned
+                           (filter #(= (-> % :def :group-name)
+                                       (-> single-prop :def :group-name)))
+                           (map :house-count)
+                           (apply max 0)))] ; Use max with default 0
     ;; Itemized validation
     (cond
       ;; Ensure property ownership
