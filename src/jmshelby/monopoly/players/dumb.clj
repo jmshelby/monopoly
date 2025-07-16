@@ -309,17 +309,21 @@
                                                         unmortgage-cost (-> property :mortgage (* 1.1) Math/ceil int)]
                                                     (>= cash unmortgage-cost)))
                                          (sort-by #(-> % :def :mortgage))))
-            mortgage-candidates (when (-> params :actions-available :mortgage-property)
-                                  (->> owned-props
-                                       (filter #(= :paid (:status %)))
-                                       (filter #(= 0 (:house-count %)))
-                                       (sort-by #(-> % :def :mortgage) <)))
-            ;; Pre-compute sellable house candidates using owned-props data  
-            sellable-house-candidates (when (-> params :actions-available :sell-house)
-                                        (->> owned-props
-                                             (filter #(> (:house-count %) 0))
-                                             (filter #(first (util/can-sell-house? game-state (-> % :def :name))))
-                                             (map #(-> % :def :name))))]
+            ;; Pre-compute properties that we could mortgage, if needed
+            ;; NOTE - commenting this out now, need to determine if it's necessary
+            ;; mortgage-candidates (when (-> params :actions-available :mortgage-property)
+            ;;                       (->> owned-props
+            ;;                            (filter #(= :paid (:status %)))
+            ;;                            (filter #(= 0 (:house-count %)))
+            ;;                            (sort-by #(-> % :def :mortgage) <)))
+            ;; Pre-compute sellable house candidates using owned-props data
+            ;; NOTE - commenting this out now, need to determine if it's necessary
+            ;; sellable-house-candidates (when (-> params :actions-available :sell-house)
+            ;;                             (->> owned-props
+            ;;                                  (filter #(> (:house-count %) 0))
+            ;;                                  (filter #(first (util/can-sell-house? game-state (-> % :def :name))))
+            ;;                                  (map #(-> % :def :name))))
+            ]
         (cond
 
           ;; First, check if we can roll, and do it
@@ -383,16 +387,18 @@
            :property-name (-> unmortgage-candidates first :def :name)}
 
           ;; Consider selling houses if we're getting low on cash (but not in raise-funds)
-          (and sellable-house-candidates
-               (< cash 100))
-          {:action :sell-house
-           :property-name (first sellable-house-candidates)}
+          ;; NOTE - commenting this out now, need to determine if it's necessary
+          ;; (and sellable-house-candidates
+          ;;      (< cash 100))
+          ;; {:action :sell-house
+          ;;  :property-name (first sellable-house-candidates)}
 
           ;; Consider mortgaging properties if we're low on cash
-          (and mortgage-candidates
-               (< cash 50))
-          {:action :mortgage-property
-           :property-name (-> mortgage-candidates first :def :name)}
+          ;; NOTE - commenting this out now, need to determine if it's necessary
+          ;; (and mortgage-candidates
+          ;;      (< cash 50))
+          ;; {:action :mortgage-property
+          ;;  :property-name (-> mortgage-candidates first :def :name)}
 
           ;; No other options, end turn
           ;; TODO - soon, "done" might not be available in all cases
