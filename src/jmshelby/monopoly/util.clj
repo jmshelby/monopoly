@@ -402,6 +402,9 @@
 
 ;; TODO - Need to do a special transfer/acquisition workflow for mortgaged properties,
 ;;        currently we just assume it's owned outright
+;; TODO - This function is quite large and complex (~150 lines). Consider refactoring
+;;        into smaller, more focused functions (e.g., auction setup, bidding loop, 
+;;        auction completion, single-bidder detection)
 (defn apply-auction-property-workflow
   "Given a game-state, property name, and optional transaction context,
   carry out the auction workflow by sequentially invoking the 'auction-bid'
