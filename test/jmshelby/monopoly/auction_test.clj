@@ -290,3 +290,34 @@
       ;; Bankruptcy auction should have :bankruptcy reason
       (is (= 1 (count bankruptcy-auction-txs)))
       (is (= :bankruptcy (:reason (first bankruptcy-auction-txs)))))))
+
+(deftest test-single-bidder-auction-efficiency
+  "Test that single bidders win at starting bid price, not higher"
+  (testing "When only one player is eligible to bid, they should win at starting bid"
+    (let [;; Create game with only one player having enough cash
+          gs (-> (create-test-game-state)
+                 (assoc-in [:players 0 :cash] 50)    ; Player A: low cash
+                 (assoc-in [:players 1 :cash] 1000)  ; Player B: high cash  
+                 (assoc-in [:players 2 :cash] 30))   ; Player C: low cash
+          
+          ;; Run auction for expensive property that only B can afford
+          result (util/apply-auction-property-workflow gs "boardwalk")
+          transactions (:transactions result)
+          auction-initiated-txs (filter #(= :auction-initiated (:type %)) transactions)
+          auction-completed-txs (filter #(= :auction-completed (:type %)) transactions)]
+      
+      ;; Verify auction was initiated
+      (is (= 1 (count auction-initiated-txs)))
+      (let [auction-tx (first auction-initiated-txs)]
+        (is (= "boardwalk" (:property auction-tx)))
+        (is (= 10 (:starting-bid auction-tx))) ; Starting bid should be $10
+        (is (= 3 (:participant-count auction-tx)))) ; All 3 players eligible initially
+      
+      ;; Verify auction completed with B as winner
+      (is (= 1 (count auction-completed-txs)))
+      (let [completion-tx (first auction-completed-txs)]
+        (is (= "B" (:winner completion-tx)))
+        ;; CRITICAL: Single bidder should win at starting bid, not higher
+        ;; This is the bug we're testing for
+        (is (= 10 (:winning-bid completion-tx)) 
+            "Single bidder should win at starting bid ($10), not bid against themselves")))))

@@ -139,6 +139,7 @@ Displays comprehensive simulation report including exception details.
 ### Testing
 - All test files follow the same namespace structure as source
 - Tests use `cognitect.test-runner`
+- **IMPORTANT**: Tests should NOT depend on or rely on the dumb player logic (`players/dumb.clj`) unless the test is specifically testing the dumb player itself. Use dedicated test player functions with predictable, controlled behavior for testing game mechanics.
 
 ## Development Notes
 - Uses Clojure 1.12.0
