@@ -235,7 +235,7 @@
       ;; a decision on our part.
       ;; TODO - Verify the below....
       ;; We can either:
-      ;;  - Un-mortgage the property now, by paying half the property's cost (plus 10%??)
+      ;;  - Un-mortgage the property now, by paying half the property's cost (plus 10%)
       ;;  - Keep the property mortgaged, but only paying 10% of the total value
       ;;    - Allowing us to still un-mortgage later, but still needing to pay an additional interest charge
       ;; TODO - What are the params passed in here
