@@ -48,12 +48,18 @@ clojure -M -m jmshelby.monopoly.simulation -g 500 -p 3 -s 2000  # 500 games, 3 p
   - Sequential bidding with configurable increments
   - AI players with intelligent bidding strategies
   - Complete transaction tracking and analytics
-- **Proactive Property Management** (NEW)
+- **Proactive Property Management**
   - House selling during player turns (with even distribution validation)
   - Property mortgaging for strategic cash flow
   - Property unmortgaging to complete monopolies
   - Comprehensive test coverage (42 tests)
   - Performance-optimized AI integration
+- **Deferred Effects Cards System** (NEW)
+  - Utility cards with special dice multipliers (10x dice roll instead of 4x/10x)
+  - Railroad cards with fixed rent multipliers (2x base rent)
+  - Functional composition approach using rent adjustment functions
+  - Elegant card-to-rent-calculation pipeline with minimal code changes
+  - Comprehensive test coverage (47 tests total)
 - Game analysis and summary functions
 - Exception handling in game simulations
 
@@ -65,6 +71,7 @@ clojure -M -m jmshelby.monopoly.simulation -g 500 -p 3 -s 2000  # 500 games, 3 p
 - HTTP interface for remote players
 - Seeded random number generators
 - Advanced auction mechanics
+- Additional deferred effects card types
 - Obscure rule implementations
 
 ## Key Files to Understand
@@ -140,6 +147,42 @@ Displays comprehensive simulation report including exception details.
 - All test files follow the same namespace structure as source
 - Tests use `cognitect.test-runner`
 - **IMPORTANT**: Tests should NOT depend on or rely on the dumb player logic (`players/dumb.clj`) unless the test is specifically testing the dumb player itself. Use dedicated test player functions with predictable, controlled behavior for testing game mechanics.
+
+## Deferred Effects Cards Architecture
+
+### Overview
+The deferred effects system implements special Monopoly cards that modify rent calculations when players land on utilities or railroads. This system uses functional composition to elegantly integrate special rent adjustments without complex state management.
+
+### Key Components
+
+**Card Format** (`definitions.clj`):
+```clojure
+;; Utility card - 10x dice multiplier
+{:card/effect :move
+ :card.move/cell [[:type :property] [:type :utility]]
+ :card.rent/dice-multiplier 10}
+
+;; Railroad card - 2x rent multiplier  
+{:card/effect :move
+ :card.move/cell [[:type :property] [:type :railroad]]
+ :card.rent/multiplier 2}
+```
+
+**Function Creation** (`cards.clj:245-260`):
+Cards create rent adjustment functions using a simple `cond` expression:
+- `:card.rent/dice-multiplier` → Creates function that replaces rent with `multiplier × new_dice_roll`
+- `:card.rent/multiplier` → Creates function that multiplies existing rent by fixed amount
+- Default → Uses `identity` function (no change)
+
+**Application** (`core.clj:141`):
+The move-to-cell function applies the adjustment: `(rent-adjustment rent)` before payment processing.
+
+### Design Benefits
+- **Minimal Code Changes**: Only touches 3 functions across 2 files
+- **Functional Composition**: Uses functions as first-class values
+- **No State Management**: No retained cards or cleanup required
+- **Extensible**: Easy to add new rent adjustment types
+- **Self-Documenting**: `(rent-adjustment rent)` clearly shows intent
 
 ## Development Notes
 - Uses Clojure 1.12.0
