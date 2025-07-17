@@ -135,7 +135,7 @@
       (util/rent-owed? new-state)
       (let [;; Get rent details
             [debtee rent] (util/rent-owed? new-state)
-            ;; Call for adjustments, *once*, could have side affects
+            ;; Call for adjustments, *once*, could have side affects/randomness
             final-rent (rent-adjustment rent)]
         ((functions :make-requisite-payment)
          new-state player-id
