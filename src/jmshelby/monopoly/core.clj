@@ -133,13 +133,16 @@
                           :reason :tax}))))
       ;; Rent
       (util/rent-owed? new-state)
-      (let [[debtee rent] (util/rent-owed? new-state)]
+      (let [;; Get rent details
+            [debtee rent] (util/rent-owed? new-state)
+            ;; Call for adjustments, *once*, could have side affects
+            final-rent (rent-adjustment rent)]
         ((functions :make-requisite-payment)
          new-state player-id
          ;; The player owed/debtee (or bank)
          debtee
          ;; The total amount owed
-         (rent-adjustment rent)
+         final-rent
          ;; Follow-up changes, transfer + tx
          (fn [gs] (-> gs
                       ;; Take from current player, give to owner
@@ -154,12 +157,16 @@
                                   :cash]
                                  + rent)
                       ;; And transaction
-                      (append-tx {:type   :payment
-                                  :from   player-id
-                                  :to     debtee
-                                  :amount rent
-                                  :reason :rent})))))
-      ;; Card Draw
+                      (append-tx (merge {:type   :payment
+                                         :from   player-id
+                                         :to     debtee
+                                         :amount final-rent
+                                         :reason :rent}
+                                        (when (not= rent final-rent)
+                                          {:rent/original rent
+                                           :rent/adjustment (- final-rent rent)})))))))
+
+;; Card Draw
       (= :card (:type new-cell))
       (cards/apply-card-draw new-state)
       ;; Property option/auction, if we're on a property...

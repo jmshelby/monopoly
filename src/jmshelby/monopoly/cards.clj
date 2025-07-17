@@ -242,8 +242,10 @@
           ;;        Make this smarter so it looks better
           [:type :property] (get-next-property-type board old-cell (second target)))
         ;; Check for rent adjustments
-        ;; TODO - Is there a better pattern for pulling optional keys out,
-        ;;        maybe another multi-method
+        ;; TODO - Is there a better pattern for pulling optional keys out
+        ;;        Maybe another multi-method
+        ;; TODO - We could add to these rent-adj functions to also return
+        ;;        details on what/why they are operating, for tx purposes
         rent-adj (cond
                     ;; By static multiplier
                     (:card.rent/multiplier card)
