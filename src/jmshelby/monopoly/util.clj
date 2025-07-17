@@ -780,14 +780,13 @@
       ; Building 5th house (hotel) - need hotel available and 4 houses to return
       (= current-houses 4)
       (hotels-available? game-state)
-      
+
       ; Building 1st-4th house - need house available
       (< current-houses 4)
       (houses-available? game-state)
-      
+
       ; Already has hotel
       :else false)))
-
 
 ;; ----- Building Management ---------
 

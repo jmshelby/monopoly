@@ -77,8 +77,9 @@
            functions]
     :as   game-state}
    new-cell-idx driver
-   & {:keys [allowance?]
-      :or   {allowance? true}}]
+   & {:keys [allowance? rent-adjustment]
+      :or   {allowance? true
+             rent-adjustment identity}}]
   (let [;; Get current player info
         player         (util/current-player game-state)
         player-id      (:id player)
@@ -132,10 +133,17 @@
                           :reason :tax}))))
       ;; Rent
       (util/rent-owed? new-state)
-      (let [rent-owed (util/rent-owed? new-state)]
+      (let [;; Get rent details
+            [debtee rent] (util/rent-owed? new-state)
+            ;; Call for adjustments, *once*, could have side affects/randomness
+            final-rent (rent-adjustment rent)]
         ((functions :make-requisite-payment)
-         new-state
-         player-id (first rent-owed) (second rent-owed)
+         new-state player-id
+         ;; The player owed/debtee (or bank)
+         debtee
+         ;; The total amount owed
+         final-rent
+         ;; Follow-up changes, transfer + tx
          (fn [gs] (-> gs
                       ;; Take from current player, give to owner
                       (update-in [:players
@@ -144,17 +152,21 @@
                                   (->> players
                                        (map-indexed vector)
                                        (filter #(= (:id (second %))
-                                                   (first rent-owed)))
+                                                   debtee))
                                        first first)
                                   :cash]
-                                 + (second rent-owed))
+                                 + rent)
                       ;; And transaction
-                      (append-tx {:type   :payment
-                                  :from   player-id
-                                  :to     (first rent-owed)
-                                  :amount (second rent-owed)
-                                  :reason :rent})))))
-      ;; Card Draw
+                      (append-tx (merge {:type   :payment
+                                         :from   player-id
+                                         :to     debtee
+                                         :amount final-rent
+                                         :reason :rent}
+                                        (when (not= rent final-rent)
+                                          {:rent/original rent
+                                           :rent/adjustment (- final-rent rent)})))))))
+
+;; Card Draw
       (= :card (:type new-cell))
       (cards/apply-card-draw new-state)
       ;; Property option/auction, if we're on a property...

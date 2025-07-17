@@ -61,6 +61,7 @@ To request permission to use this code, please open a GitHub issue with details 
    - Effects:
      - Move / Retain / Incarcerate / Pay / Collect
      - [Multiple effects] (pay per house AND pay per hotel)
+     - Deferred effects: Cards that modify rent calculation during movement (utility 10x dice roll, railroad 2x rent)
  - Proposals
    - On player turn action
      - offer workflow
@@ -72,8 +73,6 @@ To request permission to use this code, please open a GitHub issue with details 
    - Proper player context (each bidder uses their own cash/data)
  ---------------------------
 #### Remaining Logic
- - Cards
-   - Deferred effects (go to nearest utility, pay 10x dice roll)
  - [Full] Player "lose" logic
    - Acquisition workflow to owed party (if not bank)
      - requiring 10% payment of mortgaged properties or to instantly unmortgage property to acquire

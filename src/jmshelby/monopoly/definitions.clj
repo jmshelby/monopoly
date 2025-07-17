@@ -236,8 +236,8 @@
              :card/effect                    :move
              :card.move/cell                 [[:type :property]
                                               [:type :utility]]
-             :card.retain/effect             :inflation
-             :card.inflation/dice-multiplier 10}
+             :card.move/effect               :rent
+             :card.rent/dice-multiplier      10}
             {:text                      ["Advance to the nearest Railroad."
                                          "If unowned, you may buy it from the Bank."
                                          "If owned, pay twice the rental to which they are otherwise entitled."]
@@ -246,8 +246,8 @@
              :card/effect               :move
              :card.move/cell            [[:type :property]
                                          [:type :railroad]]
-             :card.retain/effect        :inflation
-             :card.inflation/multiplier 10}}
+             :card.move/effect               :rent
+             :card.rent/multiplier      2}}
 
    :properties #{;; Utilities
                  {:name     :water-works
@@ -501,7 +501,7 @@
    ;; Game rules and limits
    :rules {:auction-increment 10
            :building-limits {:houses 32
-                            :hotels 12}}})
+                             :hotels 12}}})
 
 (comment
 
