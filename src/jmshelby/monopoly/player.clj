@@ -89,10 +89,7 @@
   [game-state player]
   (let [;; Get retained cards
         retain-cards
-        (->> game-state
-             (get-in [:players (:player-index player) :cards])
-             ;; TODO - wait ... aren't all cards in a player's inventory, by definition, "retained"?
-             (filter #(= :retain (:card/effect %))))
+        (get-in game-state [:players (:player-index player) :cards])
         ;; Get properties for transaction record
         properties (:properties player)]
     ;; Buildings are automatically returned to inventory when properties are liquidated
