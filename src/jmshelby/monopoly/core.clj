@@ -77,8 +77,9 @@
            functions]
     :as   game-state}
    new-cell-idx driver
-   & {:keys [allowance?]
-      :or   {allowance? true}}]
+   & {:keys [allowance? rent-adjustment]
+      :or   {allowance? true
+             rent-adjustment identity}}]
   (let [;; Get current player info
         player         (util/current-player game-state)
         player-id      (:id player)
@@ -132,10 +133,14 @@
                           :reason :tax}))))
       ;; Rent
       (util/rent-owed? new-state)
-      (let [rent-owed (util/rent-owed? new-state)]
+      (let [[debtee rent] (util/rent-owed? new-state)]
         ((functions :make-requisite-payment)
-         new-state
-         player-id (first rent-owed) (second rent-owed)
+         new-state player-id
+         ;; The player owed/debtee (or bank)
+         debtee
+         ;; The total amount owed
+         (rent-adjustment rent)
+         ;; Follow-up changes, transfer + tx
          (fn [gs] (-> gs
                       ;; Take from current player, give to owner
                       (update-in [:players
@@ -144,15 +149,15 @@
                                   (->> players
                                        (map-indexed vector)
                                        (filter #(= (:id (second %))
-                                                   (first rent-owed)))
+                                                   debtee))
                                        first first)
                                   :cash]
-                                 + (second rent-owed))
+                                 + rent)
                       ;; And transaction
                       (append-tx {:type   :payment
                                   :from   player-id
-                                  :to     (first rent-owed)
-                                  :amount (second rent-owed)
+                                  :to     debtee
+                                  :amount rent
                                   :reason :rent})))))
       ;; Card Draw
       (= :card (:type new-cell))

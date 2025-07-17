@@ -1,6 +1,8 @@
 (ns jmshelby.monopoly.cards
   (:require [clojure.set :as set]
-            [jmshelby.monopoly.util :as util]))
+            [jmshelby.monopoly.util
+             :refer [sum roll-dice]
+             :as util]))
 
 (defn cards->deck-queues
   [cards]
@@ -238,9 +240,30 @@
           :property         (get-cell-property board target)
           ;; TODO - Cheating a bit for now ...
           ;;        Make this smarter so it looks better
-          [:type :property] (get-next-property-type board old-cell (second target)))]
-    ;; Make the move
-    (move game-state new-cell :card :allowance? allowance?)))
+          [:type :property] (get-next-property-type board old-cell (second target)))
+        ;; Check for rent adjustments
+        ;; TODO - Is there a better pattern for pulling optional keys out,
+        ;;        maybe another multi-method
+        rent-adj (cond
+                    ;; By static multiplier
+                    (:card.rent/multiplier card)
+                    (fn [rent]
+                      ;; Just multiply rent by the static value
+                      (* rent
+                         (:card.rent/multiplier card)))
+                    ;; By new dice roll w/multiplier
+                    (:card.rent/dice-multiplier card)
+                    (fn [_rent]
+                      ;; Replace rent with [new] dice roll * multiplier
+                      (let [roll (-> 2 roll-dice sum)
+                            mult (:card.rent/dice-multiplier card)]
+                        (* mult roll)))
+                    ;; No adjustment
+                    :else identity)]
+    ;; Make the move, and all it's affects
+    (move game-state new-cell :card
+          :allowance? allowance?
+          :rent-adjustment rent-adj)))
 
 ;; =====================================================
 
