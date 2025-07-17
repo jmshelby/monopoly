@@ -1,6 +1,7 @@
 (ns jmshelby.monopoly.player
   (:require [jmshelby.monopoly.util :as util]
-            [jmshelby.monopoly.cards :as cards]))
+            [jmshelby.monopoly.cards :as cards]
+            [jmshelby.monopoly.property :as property]))
 
 (defn- net-worth
   [game-state player]
@@ -45,30 +46,6 @@
     (-> game-state
         (assoc-in [:players from-idx :cards] #{})
         (update-in [:players to-idx :cards] into cards))))
-
-;; NOTE - mostly taken from trade/exchange-properties NS/fn
-(defn- transfer-property
-  ;; TODO - Do mortgaged/acquisition workflow logic
-  ;;        -> As a part of this, should we signal something in the game-state that we're in the middle of a bankruptcy asset transfer???
-  [game-state from to]
-  (let [prop-names  (-> from :properties keys)
-        ;; Get player maps
-        to-pidx     (:player-index to)
-        from-pidx   (:player-index from)
-        from-player (get-in game-state [:players from-pidx])
-        ;; Get 'from' player property states, only
-        ;; needed to preserve mortgaged status
-        prop-states (select-keys (:properties from-player) prop-names)]
-    (-> game-state
-        ;; Remove props from the 'from' player
-        (update-in [:players from-pidx :properties]
-                   ;; Just a dissoc that takes a set
-                   (partial apply dissoc) prop-names)
-        ;; Add props + existing state to the 'to' player
-        (update-in [:players to-pidx :properties]
-                   ;; Just a conj of existing prop states
-                   ;; into player's own property state map
-                   conj prop-states))))
 
 (defn- auction-bankrupt-properties
   "Auction off all properties owned by a bankrupt player"
@@ -134,7 +111,7 @@
         ;; Transfer all cards over to debtee
         (transfer-cards debtor debtee)
         ;; Transfer all properties over to debtee (including mortgaged acquisition workflow)
-        (transfer-property debtor debtee)
+        (property/transfer debtor debtee)
         ;; Record bankruptcy transaction
         ;; TODO - need to think about a better tx structure for bankruptcy type
         (util/append-tx {:type       :bankruptcy
