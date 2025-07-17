@@ -21,7 +21,7 @@
         ;; Transaction analysis
         payments (->> transactions (filter #(= :payment (:type %))))
         bankruptcies (->> transactions (filter #(= :bankruptcy (:type %))))
-        
+
         ;; Auction analysis
         auction-initiated (->> transactions (filter #(= :auction-initiated (:type %))))
         auction-completed (->> transactions (filter #(= :auction-completed (:type %))))
@@ -546,9 +546,9 @@
                                  starting-bid (:starting-bid first-tx)
                                  participant-count (:participant-count first-tx)
                                  cause-text (cond
-                                             declined-by (format "declined by %s" declined-by)
-                                             bankrupted-by (format "bankruptcy of %s" bankrupted-by)
-                                             :else "unknown cause")]
+                                              declined-by (format "declined by %s" declined-by)
+                                              bankrupted-by (format "bankruptcy of %s" bankrupted-by)
+                                              :else "unknown cause")]
                              (format "[%s] Auction started for %s (%s, starting bid: %s, %d participants)"
                                      tx-num (format-property property) cause-text
                                      (format-money starting-bid) participant-count))
@@ -559,7 +559,7 @@
                                  winning-bid (:winning-bid first-tx)
                                  participants (:participants first-tx)]
                              (format "[%s] Auction completed: %s wins %s for %s (participants: %s)"
-                                     tx-num winner (format-property property) 
+                                     tx-num winner (format-property property)
                                      (format-money winning-bid)
                                      (clojure.string/join ", " participants)))
 
@@ -742,14 +742,14 @@
         (printf "   Auctions Passed: %d (%.1f%%)\n" total-passed passed-rate)
         (when (> total-completed 0)
           (let [completed-txs (:completed-transactions (:auctions summary))]
-            (printf "   Average Winning Bid: $%d\n" 
+            (printf "   Average Winning Bid: $%d\n"
                     (int (/ (apply + (map :winning-bid completed-txs)) total-completed)))))
         (when (> total-passed 0)
           (let [passed-txs (:passed-transactions (:auctions summary))
                 sample-passed (take 3 passed-txs)]
             (println "   Sample Passed Auctions:")
             (doseq [auction sample-passed]
-              (printf "     %s (participants: %s)\n" 
+              (printf "     %s (participants: %s)\n"
                       (clojure.string/replace (name (:property auction)) #"-" " ")
                       (clojure.string/join ", " (:participants auction))))))
         (println)))

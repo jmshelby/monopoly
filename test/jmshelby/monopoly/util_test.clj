@@ -152,7 +152,7 @@
       (is (first (u/can-sell-house? game-state :mediterranean-ave)))
       ;; Cannot sell from unowned property  
       (is (false? (first (u/can-sell-house? game-state :baltic-ave))))))
-  
+
   (testing "can-sell-house? validates house inventory"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))]
@@ -160,7 +160,7 @@
       (let [[valid? reason] (u/can-sell-house? game-state :mediterranean-ave)]
         (is (false? valid?))
         (is (= :house-inventory reason)))))
-  
+
   (testing "can-sell-house? validates even distribution"
     (let [game-state (-> (c/init-game-state 2)
                          ;; Mediterranean monopoly - give uneven house distribution
@@ -179,7 +179,7 @@
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 2})
                          (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2}))]
       (is (true? (u/can-sell-any-house? game-state)))))
-  
+
   (testing "returns false when player has no sellable houses"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))]
@@ -190,13 +190,13 @@
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))]
       (is (true? (u/can-mortgage-any-property? game-state)))))
-  
+
   (testing "returns false when player has no mortgageable properties"
     (let [game-state (-> (c/init-game-state 2)
                          ;; Property with houses cannot be mortgaged
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 1}))]
       (is (false? (u/can-mortgage-any-property? game-state)))))
-  
+
   (testing "returns false when all properties are already mortgaged"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :mortgaged :house-count 0}))]
@@ -208,13 +208,13 @@
                          (assoc-in [:players 0 :cash] 500)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :mortgaged :house-count 0}))]
       (is (true? (u/can-unmortgage-any-property? game-state)))))
-  
+
   (testing "returns false when player has insufficient cash"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :cash] 10)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :mortgaged :house-count 0}))]
       (is (false? (u/can-unmortgage-any-property? game-state)))))
-  
+
   (testing "returns false when player has no mortgaged properties"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :cash] 500)
@@ -237,7 +237,7 @@
       (is (= 1025 (:cash player)))
       ;; Should have a transaction recorded
       (is (some #(= :sell-house (:type %)) (:transactions result-state)))))
-  
+
   (testing "apply-house-sale validates before applying"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))]
@@ -257,18 +257,18 @@
       (is (= 1030 (:cash player)))
       ;; Should have a transaction recorded
       (is (some #(= :mortgage-property (:type %)) (:transactions result-state)))))
-  
+
   (testing "apply-property-mortgage validates property ownership"
     (let [game-state (c/init-game-state 2)]
       ;; Should throw exception for unowned property
       (is (thrown? Exception (u/apply-property-mortgage game-state :mediterranean-ave)))))
-  
+
   (testing "apply-property-mortgage validates no houses on property"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 1}))]
       ;; Should throw exception for property with houses
       (is (thrown? Exception (u/apply-property-mortgage game-state :mediterranean-ave)))))
-  
+
   (testing "apply-property-mortgage validates property not already mortgaged"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :mortgaged :house-count 0}))]
@@ -288,14 +288,14 @@
       (is (= 967 (:cash player)))
       ;; Should have a transaction recorded
       (is (some #(= :unmortgage-property (:type %)) (:transactions result-state)))))
-  
+
   (testing "apply-property-unmortgage validates sufficient funds"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :mortgaged :house-count 0})
                          (assoc-in [:players 0 :cash] 10))]
       ;; Should throw exception for insufficient funds
       (is (thrown? Exception (u/apply-property-unmortgage game-state :mediterranean-ave)))))
-  
+
   (testing "apply-property-unmortgage validates property is mortgaged"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0})

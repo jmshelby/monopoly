@@ -248,20 +248,20 @@
         ;;        details on what/why they are operating, for tx purposes
         rent-adj (cond
                     ;; By static multiplier
-                    (:card.rent/multiplier card)
-                    (fn [rent]
+                   (:card.rent/multiplier card)
+                   (fn [rent]
                       ;; Just multiply rent by the static value
-                      (* rent
-                         (:card.rent/multiplier card)))
+                     (* rent
+                        (:card.rent/multiplier card)))
                     ;; By new dice roll w/multiplier
-                    (:card.rent/dice-multiplier card)
-                    (fn [_rent]
+                   (:card.rent/dice-multiplier card)
+                   (fn [_rent]
                       ;; Replace rent with [new] dice roll * multiplier
-                      (let [roll (-> 2 roll-dice sum)
-                            mult (:card.rent/dice-multiplier card)]
-                        (* mult roll)))
+                     (let [roll (-> 2 roll-dice sum)
+                           mult (:card.rent/dice-multiplier card)]
+                       (* mult roll)))
                     ;; No adjustment
-                    :else identity)]
+                   :else identity)]
     ;; Make the move, and all it's affects
     (move game-state new-cell :card
           :allowance? allowance?
