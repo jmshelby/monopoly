@@ -228,6 +228,52 @@
           identity-fn identity]
       (is (= normal-rent (identity-fn normal-rent)) "Identity function should not change rent"))))
 
+(deftest rent-adjustment-transaction-history
+  (testing "Adjusted rent payment creates transaction with original and adjustment amounts"
+    (let [game-state (-> (core/init-game-state 2)
+                        ;; Player 1 owns a railroad
+                        (assoc-in [:players 1 :properties :reading-railroad] {:status :paid :house-count 0})
+                        ;; Player 0 has cash and is at GO
+                        (assoc-in [:players 0 :cash] 1500)
+                        (assoc-in [:players 0 :cell-residency] 0))
+          ;; Card that moves to railroad with 2x rent multiplier
+          railroad-card {:card/effect :move
+                        :card.move/cell [:property :reading-railroad]
+                        :card.rent/multiplier 2}
+          result-state (cards/apply-card-effect game-state (get-in game-state [:players 0]) railroad-card)
+          ;; Find the rent payment transaction
+          rent-tx (->> result-state
+                      :transactions
+                      (filter #(and (= :payment (:type %))
+                                   (= :rent (:reason %))))
+                      last)]
+      (is (some? rent-tx) "Should have a rent payment transaction")
+      (is (= 25 (:rent/original rent-tx)) "Should record original rent amount")
+      (is (= 25 (:rent/adjustment rent-tx)) "Should record adjustment amount (25 * 2 - 25 = 25)")
+      (is (= 50 (:amount rent-tx)) "Should charge adjusted total amount")))
+
+  (testing "Normal rent payment without adjustment has no extra transaction fields"
+    (let [game-state (-> (core/init-game-state 2)
+                        ;; Player 1 owns a railroad
+                        (assoc-in [:players 1 :properties :reading-railroad] {:status :paid :house-count 0})
+                        ;; Player 0 has cash and is at GO
+                        (assoc-in [:players 0 :cash] 1500)
+                        (assoc-in [:players 0 :cell-residency] 0))
+          ;; Normal move card without rent adjustment
+          normal-move-card {:card/effect :move
+                           :card.move/cell [:property :reading-railroad]}
+          result-state (cards/apply-card-effect game-state (get-in game-state [:players 0]) normal-move-card)
+          ;; Find the rent payment transaction
+          rent-tx (->> result-state
+                      :transactions
+                      (filter #(and (= :payment (:type %))
+                                   (= :rent (:reason %))))
+                      last)]
+      (is (some? rent-tx) "Should have a rent payment transaction")
+      (is (= 25 (:amount rent-tx)) "Should charge normal rent amount")
+      (is (nil? (:rent/original rent-tx)) "Should not have original rent field for unadjusted rent")
+      (is (nil? (:rent/adjustment rent-tx)) "Should not have adjustment field for unadjusted rent"))))
+
 (comment
 
 ;; Setup game
