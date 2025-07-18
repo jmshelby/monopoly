@@ -1,42 +1,43 @@
 (ns jmshelby.monopoly.property
   (:require [jmshelby.monopoly.util :as util]))
 
-(defn- handle-mortgaged-acquisitions
+(defn- apply-mortgaged-acquisition-workflow
   "Handle the player decision workflow for acquiring mortgaged properties.
   Player must choose between :pay-mortgage (immediate unmortgage) or
   :pay-interest (10% now, pay full later) for each mortgaged property.
   This function handles both the decision making AND the property transfer."
-  [game-state from to mortgaged-prop-states]
+  [game-state from to prop-names]
   (let [player-fn (:function to)
         player-id (:id to)
         to-pidx   (:player-index to)
         from-pidx (:player-index from)
         board     (:board game-state)
-        mortgaged-props (keys mortgaged-prop-states)
 
         ;; Get property definitions for mortgage values
         prop-defs (->> board :properties
-                      (reduce #(assoc %1 (:name %2) %2) {}))
+                       (reduce #(assoc %1 (:name %2) %2) {}))
 
         ;; Create context with mortgaged property details
         context {:properties
                  (into {} (map (fn [prop-name]
-                                (let [mortgage-val (:mortgage (prop-defs prop-name))]
-                                  [prop-name {:mortgage-value mortgage-val
-                                              :unmortgage-cost (-> mortgage-val (* 1.1) Math/ceil int)
-                                              :interest-fee (-> mortgage-val (* 0.1) Math/ceil int)}]))
-                              mortgaged-props))}
+                                 (let [prop (prop-defs prop-name)
+                                       mortgage-val (:mortgage prop)]
+                                   [prop-name (assoc prop
+                                                     :mortgage-value mortgage-val
+                                                     :unmortgage-cost (-> mortgage-val (* 1.1) Math/ceil int)
+                                                     :interest-fee (-> mortgage-val (* 0.1) Math/ceil int))]))
+                               prop-names))}
 
-        ;; Get player decisions
-        decisions (player-fn game-state player-id :acquisition context)]
+        ;; Invoke player decision
+        decision (player-fn game-state player-id :acquisition context)]
 
     ;; Process each decision - transfer property and apply payments
     (reduce (fn [state [prop-name choice]]
-              (let [prop-def (prop-defs prop-name)
-                    mortgage-val (:mortgage prop-def)
-                    interest-fee (-> mortgage-val (* 0.1) Math/ceil int)
-                    unmortgage-cost (-> mortgage-val (* 1.1) Math/ceil int)
-                    prop-state (mortgaged-prop-states prop-name)]
+              (let [mortgage-val (get-in context [prop-name :mortgage-value])
+                    interest-fee (get-in context [prop-name :interest-fee])
+                    unmortgage-cost (get-in context [prop-name :unmortgage-cost])]
+
+                ;; TODO - use "make requisite payment" workflow for these charges (they are required)
 
                 (case choice
                   ;; Pay mortgage + 10% to unmortgage immediately
@@ -45,7 +46,9 @@
                       ;; Transfer property with paid status
                       (update-in [:players from-pidx :properties] dissoc prop-name)
                       (assoc-in [:players to-pidx :properties prop-name]
-                               (assoc prop-state :status :paid))
+                                ;; TODO - Is there some central place we can get a new property state from?
+                                {:status :paid
+                                 :house-count 0})
                       ;; Charge player mortgage + 10%
                       (update-in [:players to-pidx :cash] - unmortgage-cost)
                       ;; Record transaction
@@ -60,17 +63,18 @@
                   ;; Pay 10% interest now, keep property mortgaged
                   :pay-interest
                   (-> state
-                      ;; Transfer property with mortgaged status and deferred interest flag
+                      ;; Transfer property with mortgaged status
                       (update-in [:players from-pidx :properties] dissoc prop-name)
                       (assoc-in [:players to-pidx :properties prop-name]
-                               (assoc prop-state :deferred-interest true))
+                                ;; TODO - Is there some central place we can get a new property state from?
+                                {:status :mortgaged
+                                 :house-count 0})
                       ;; Charge player 10% interest
                       (update-in [:players to-pidx :cash] - interest-fee)
                       ;; Record transaction
                       (util/append-tx {:type :mortgaged-acquisition
                                        :player player-id
                                        :property prop-name
-                                       :choice :deferred-unmortgage
                                        :amount interest-fee
                                        :mortgage-value mortgage-val
                                        :interest-fee interest-fee}))
@@ -82,7 +86,7 @@
                                    :choice choice
                                    :valid-choices [:pay-mortgage :pay-interest]})))))
             game-state
-            decisions)))
+            decision)))
 
 (defn transfer
   "Transfer properties from one player to another. Handles mortgaged property
@@ -110,11 +114,11 @@
        ;; Transfer non-mortgaged properties immediately
        (seq normal-prop-states)
        (-> ;; Remove normal props from the 'from' player
-           (update-in [:players from-pidx :properties]
-                      (fn [props] (apply dissoc props (keys normal-prop-states))))
+        (update-in [:players from-pidx :properties]
+                   (fn [props] (apply dissoc props (keys normal-prop-states))))
            ;; Add normal props to the 'to' player
-           (update-in [:players to-pidx :properties]
-                      conj normal-prop-states))
+        (update-in [:players to-pidx :properties]
+                   conj normal-prop-states))
        ;; Handle mortgaged properties through acquisition workflow
        (seq mortgaged-prop-states)
-       (handle-mortgaged-acquisitions from to mortgaged-prop-states)))))
+       (apply-mortgaged-acquisition-workflow from to (keys mortgaged-prop-states))))))
