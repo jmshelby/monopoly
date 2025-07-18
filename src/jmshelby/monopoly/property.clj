@@ -5,7 +5,7 @@
   ;;        -> As a part of this, should we signal something in the game-state that we're in the middle of a bankruptcy asset transfer???
   ([game-state from to]
    ;; Default to transfering all properties owned by "from"
-   (transfer from to (-> from :properties keys)))
+   (transfer game-state from to (-> from :properties keys)))
   ([game-state from to prop-names]
    (let [;; Get player maps
          to-pidx     (:player-index to)
