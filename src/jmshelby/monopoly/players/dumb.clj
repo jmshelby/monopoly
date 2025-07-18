@@ -231,16 +231,25 @@
           ;; Not worth it for us
           {:action :decline}))
 
-      ;; An acquisition of property from a debtor, when mortgaged, requires
-      ;; a decision on our part.
-      ;; TODO - Verify the below....
-      ;; We can either:
-      ;;  - Un-mortgage the property now, by paying half the property's cost (plus 10%)
-      ;;  - Keep the property mortgaged, but only paying 10% of the total value
-      ;;    - Allowing us to still un-mortgage later, but still needing to pay an additional interest charge
-      ;; TODO - What are the params passed in here
-      ;; TODO - There won't actually be a :decline option
-      :acquisition {:action :decline}
+      ;; Mortgaged property acquisition decisions
+      ;; Player must choose between :pay-mortgage (immediate unmortgage) or :pay-interest (10% now, pay full later)
+      :acquisition
+      (let [{:keys [properties]} params
+            player-cash (:cash player)
+            cash-reserve 200 ;; Keep some cash on hand
+
+            ;; For each mortgaged property, decide whether to pay mortgage or interest
+            decisions (into {}
+                           (map (fn [[prop-name prop-info]]
+                                  (let [{:keys [unmortgage-cost interest-fee]} prop-info
+                                        ;; Choose immediate unmortgage if we have enough cash after reserves
+                                        can-afford-unmortgage? (>= (- player-cash unmortgage-cost) cash-reserve)
+                                        choice (if can-afford-unmortgage?
+                                                :pay-mortgage  ;; Immediate unmortgage
+                                                :pay-interest)] ;; Pay 10% now, deal with it later
+                                    [prop-name choice]))
+                                properties))]
+        decisions)
 
       ;; When we owe more cash than we have, we are
       ;; forced to sell off our assets until we have
@@ -287,7 +296,8 @@
            (<= 1.5 gain) :accept
            :else         :decline))}
 
-      ;; Dumb, always buy a property if we can
+      ;; Dumb, always buy a property if we can,
+      ;; we won't be called unless we can afford it
       ;; TODO - maybe keep _some_ money minimum?
       :property-option {:action :buy}
 

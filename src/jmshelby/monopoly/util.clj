@@ -1077,12 +1077,18 @@
          pidx      :player-index
          :as       player}
         (current-player game-state)
-        ;; Get property definition
+        ;; Get property definition and current property state
         property       (->> game-state :board :properties
                             (filter #(= property-name (:name %)))
                             first)
-        unmortgage-price (-> property :mortgage (* 1.1) Math/ceil int)
-        prop-state       (get-in player [:properties property-name])]
+        prop-state     (get-in player [:properties property-name])
+        ;; Calculate unmortgage price - add extra 10% if deferred interest
+        base-unmortgage-price (-> property :mortgage (* 1.1) Math/ceil int)
+        has-deferred-interest? (:deferred-interest prop-state)
+        additional-interest (if has-deferred-interest?
+                             (-> property :mortgage (* 0.1) Math/ceil int)
+                             0)
+        unmortgage-price (+ base-unmortgage-price additional-interest)]
 
     ;; Validate - make sure they own it
     (when (not prop-state)
@@ -1114,14 +1120,21 @@
         (assoc-in [:players pidx :properties
                    property-name :status]
                   :paid)
+        ;; Clear deferred interest flag if present
+        (update-in [:players pidx :properties property-name]
+                   dissoc :deferred-interest)
         ;; Deduct unmortgage cost from player
         (update-in [:players pidx :cash]
                    - unmortgage-price)
         ;; Track transaction
-        (append-tx {:type     :unmortgage-property
-                    :player   player-id
-                    :property property-name
-                    :cost     unmortgage-price}))))
+        (append-tx (merge {:type     :unmortgage-property
+                          :player   player-id
+                          :property property-name
+                          :cost     unmortgage-price}
+                         (when has-deferred-interest?
+                           {:base-cost base-unmortgage-price
+                            :additional-interest additional-interest
+                            :deferred-interest-cleared true}))))))
 
 (defn can-sell-any-house?
   "Check if current player can sell any house on any of their properties."
@@ -1147,13 +1160,16 @@
   [game-state]
   (let [player (current-player game-state)
         mortgaged-props (->> (:properties player)
-                             (filter #(= :mortgaged (:status (second %))))
-                             (map first))]
+                             (filter #(= :mortgaged (:status (second %)))))]
     (->> mortgaged-props
-         (some (fn [prop-name]
+         (some (fn [[prop-name prop-state]]
                  (let [property (->> game-state :board :properties
                                      (filter #(= prop-name (:name %)))
                                      first)
-                       unmortgage-cost (-> property :mortgage (* 1.1) Math/ceil int)]
-                   (>= (:cash player) unmortgage-cost))))
+                       base-unmortgage-cost (-> property :mortgage (* 1.1) Math/ceil int)
+                       additional-interest (if (:deferred-interest prop-state)
+                                            (-> property :mortgage (* 0.1) Math/ceil int)
+                                            0)
+                       total-unmortgage-cost (+ base-unmortgage-cost additional-interest)]
+                   (>= (:cash player) total-unmortgage-cost))))
          boolean)))
