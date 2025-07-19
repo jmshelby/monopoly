@@ -240,15 +240,15 @@
 
             ;; For each mortgaged property, decide whether to pay mortgage or interest
             decisions (into {}
-                           (map (fn [[prop-name prop-info]]
-                                  (let [{:keys [unmortgage-cost interest-fee]} prop-info
+                            (map (fn [[prop-name prop-info]]
+                                   (let [{:keys [unmortgage-cost interest-fee]} prop-info
                                         ;; Choose immediate unmortgage if we have enough cash after reserves
-                                        can-afford-unmortgage? (>= (- player-cash unmortgage-cost) cash-reserve)
-                                        choice (if can-afford-unmortgage?
-                                                :pay-mortgage  ;; Immediate unmortgage
-                                                :pay-interest)] ;; Pay 10% now, deal with it later
-                                    [prop-name choice]))
-                                properties))]
+                                         can-afford-unmortgage? (>= (- player-cash unmortgage-cost) cash-reserve)
+                                         choice (if can-afford-unmortgage?
+                                                  :pay-mortgage  ;; Immediate unmortgage
+                                                  :pay-interest)] ;; Pay 10% now, deal with it later
+                                     [prop-name choice]))
+                                 properties))]
         decisions)
 
       ;; When we owe more cash than we have, we are

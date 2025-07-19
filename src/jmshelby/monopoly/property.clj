@@ -24,11 +24,11 @@
                        (map (fn [prop-name]
                               (let [prop (prop-defs prop-name)
                                     mortgage-val (:mortgage prop)]
-                                   [prop-name (assoc prop
-                                                     :mortgage-value mortgage-val
-                                                     :unmortgage-cost (-> mortgage-val (* 1.1) Math/ceil int)
-                                                     :interest-fee (-> mortgage-val (* 0.1) Math/ceil int))]))
-                               prop-names))}
+                                [prop-name (assoc prop
+                                                  :mortgage-value mortgage-val
+                                                  :unmortgage-cost (-> mortgage-val (* 1.1) Math/ceil int)
+                                                  :interest-fee (-> mortgage-val (* 0.1) Math/ceil int))]))
+                            prop-names))}
 
         ;; Invoke player decision
         decision (player-fn game-state player-id :acquisition context)]
