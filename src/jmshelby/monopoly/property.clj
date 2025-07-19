@@ -56,6 +56,20 @@
                             {:state (merge prop-state [:status :mortgaged])
                              :fee (get-in context [:properties prop-name :interest-fee])})]
 
+                ;; Validate the to-player has enough money for the fee (THIS IS KEY! DOES THIS EVER HAPPEN)
+                ;; !! This is a huge curiosity in my mind - I want to see how often it happens !!
+                ;;    Once i've done that, with this exception, we can implement a proper "requisite
+                ;;    payment" workflow, which will force the purpose to raise funds and possibly go bankrupt.
+                (when (> (:fee final)
+                         (get-in state [:players to-pidx :cash]))
+                  (throw (ex-info "Player receiving mortgaged property doesn't actually have enough money to acquire it!"
+                                  {:player player-id
+                                   :property prop-name
+                                   :choice choice
+                                   :player-cash (get-in state [:players to-pidx :cash])
+                                   :mortgage-final-fee (:fee final)
+                                   :game-state state})))
+
                 ;; Apply this decision/transfer/fee to the game state
                 (-> state
                     ;; Remove from giver
