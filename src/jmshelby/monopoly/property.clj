@@ -20,9 +20,10 @@
         ;; Create context with mortgaged property details
         ;; TODO - should include who it's from maybe?
         context {:properties
-                 (into {} (map (fn [prop-name]
-                                 (let [prop (prop-defs prop-name)
-                                       mortgage-val (:mortgage prop)]
+                 (into {}
+                       (map (fn [prop-name]
+                              (let [prop (prop-defs prop-name)
+                                    mortgage-val (:mortgage prop)]
                                    [prop-name (assoc prop
                                                      :mortgage-value mortgage-val
                                                      :unmortgage-cost (-> mortgage-val (* 1.1) Math/ceil int)
@@ -34,26 +35,28 @@
 
     ;; Process each decision - transfer property and apply payments
     (reduce (fn [state [prop-name choice]]
+
+              ;; Validate choice
+              (when-not (#{:pay-interest :pay-mortgage} choice)
+                (throw (ex-info "Invalid mortgaged property acquisition choice"
+                                {:player player-id
+                                 :property prop-name
+                                 :choice choice
+                                 :valid-choices [:pay-mortgage :pay-interest]})))
+
               (let [;; TODO - Is there some central place we can get a new property state from?
-                    state {:house-count 0}
+                    prop-state {:house-count 0}
                     final (case choice
                             ;; Pay the mortgage cost + 10% fee
                             :pay-mortgage
-                            {:state (merge state [:status :paid])
-                             :fee (get-in context [prop-name :unmortgage-cost])}
+                            {:state (merge prop-state [:status :paid])
+                             :fee (get-in context [:properties prop-name :unmortgage-cost])}
                             ;; Just pay the fee right now
                             :pay-interest
-                            {:state (merge state [:status :mortgaged])
-                             :fee (get-in context [prop-name :interest-fee])})]
+                            {:state (merge prop-state [:status :mortgaged])
+                             :fee (get-in context [:properties prop-name :interest-fee])})]
 
-                ;; Validate choice
-                (when-not (#{:pay-interest :pay-mortgage} choice)
-                  (throw (ex-info "Invalid mortgaged property acquisition choice"
-                                  {:player player-id
-                                   :property prop-name
-                                   :choice choice
-                                   :valid-choices [:pay-mortgage :pay-interest]})))
-
+                ;; Apply this decision/transfer/fee to the game state
                 (-> state
                     ;; Remove from giver
                     (update-in [:players from-pidx :properties] dissoc prop-name)
