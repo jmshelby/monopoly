@@ -511,6 +511,18 @@
              sim)
            (recur (inc idx)))))))
 
+;; Find the first exception
+  (def sim
+    (time
+     (loop [idx 0]
+       (println "==============================================")
+       (let [sim (rand-game-end-state 4 1500)]
+         (if (:exception sim)
+           (do
+             (println "Found exception in: " idx "games")
+             sim)
+           (recur (inc idx)))))))
+
   (let [players    (+ 2 (rand-int 5))
         iterations (+ 20 (rand-int 500))
         state      (rand-game-state players iterations)
