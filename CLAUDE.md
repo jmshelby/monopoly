@@ -207,6 +207,10 @@ See `players/dumb.clj` for example AI implementation. Players need to implement 
 ## Code Style Guidelines
 
 ### Formatting
-- Empty lines should contain no trailing whitespace (spaces or tabs)
+- **CRITICAL**: NO TRAILING WHITESPACE anywhere in any file
+  - Empty lines must contain zero characters - no trailing whitespace (spaces or tabs)
+  - Populated lines must not end with trailing spaces or tabs
+  - This applies to ALL lines in ALL files (code, tests, documentation)
 - Use completely empty lines for visual separation
 - Maintain consistent indentation with spaces (not tabs)
+- **Before submitting any code**: Verify all lines end cleanly with no trailing whitespace
