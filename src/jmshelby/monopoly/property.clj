@@ -47,7 +47,7 @@
                              :fee (get-in context [prop-name :interest-fee])})]
 
                 ;; Validate choice
-                (when (#{:pay-interest :pay-mortgage} choice)
+                (when-not (#{:pay-interest :pay-mortgage} choice)
                   (throw (ex-info "Invalid mortgaged property acquisition choice"
                                   {:player player-id
                                    :property prop-name
