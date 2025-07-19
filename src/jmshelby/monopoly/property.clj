@@ -18,6 +18,7 @@
                        (reduce #(assoc %1 (:name %2) %2) {}))
 
         ;; Create context with mortgaged property details
+        ;; TODO - should include who it's from maybe?
         context {:properties
                  (into {} (map (fn [prop-name]
                                  (let [prop (prop-defs prop-name)
@@ -33,58 +34,44 @@
 
     ;; Process each decision - transfer property and apply payments
     (reduce (fn [state [prop-name choice]]
-              (let [mortgage-val (get-in context [prop-name :mortgage-value])
-                    interest-fee (get-in context [prop-name :interest-fee])
-                    unmortgage-cost (get-in context [prop-name :unmortgage-cost])]
+              (let [;; TODO - Is there some central place we can get a new property state from?
+                    state {:house-count 0}
+                    final (case choice
+                            ;; Pay the mortgage cost + 10% fee
+                            :pay-mortgage
+                            {:state (merge state [:status :paid])
+                             :fee (get-in context [prop-name :unmortgage-cost])}
+                            ;; Just pay the fee right now
+                            :pay-interest
+                            {:state (merge state [:status :mortgaged])
+                             :fee (get-in context [prop-name :interest-fee])})]
 
-                ;; TODO - use "make requisite payment" workflow for these charges (they are required)
-
-                (case choice
-                  ;; Pay mortgage + 10% to unmortgage immediately
-                  :pay-mortgage
-                  (-> state
-                      ;; Transfer property with paid status
-                      (update-in [:players from-pidx :properties] dissoc prop-name)
-                      (assoc-in [:players to-pidx :properties prop-name]
-                                ;; TODO - Is there some central place we can get a new property state from?
-                                {:status :paid
-                                 :house-count 0})
-                      ;; Charge player mortgage + 10%
-                      (update-in [:players to-pidx :cash] - unmortgage-cost)
-                      ;; Record transaction
-                      (util/append-tx {:type :mortgaged-acquisition
-                                       :player player-id
-                                       :property prop-name
-                                       :choice :immediate-unmortgage
-                                       :amount unmortgage-cost
-                                       :mortgage-value mortgage-val
-                                       :interest-fee interest-fee}))
-
-                  ;; Pay 10% interest now, keep property mortgaged
-                  :pay-interest
-                  (-> state
-                      ;; Transfer property with mortgaged status
-                      (update-in [:players from-pidx :properties] dissoc prop-name)
-                      (assoc-in [:players to-pidx :properties prop-name]
-                                ;; TODO - Is there some central place we can get a new property state from?
-                                {:status :mortgaged
-                                 :house-count 0})
-                      ;; Charge player 10% interest
-                      (update-in [:players to-pidx :cash] - interest-fee)
-                      ;; Record transaction
-                      (util/append-tx {:type :mortgaged-acquisition
-                                       :player player-id
-                                       :property prop-name
-                                       :amount interest-fee
-                                       :mortgage-value mortgage-val
-                                       :interest-fee interest-fee}))
-
-                  ;; Invalid choice
+                ;; Validate choice
+                (when (#{:pay-interest :pay-mortgage} choice)
                   (throw (ex-info "Invalid mortgaged property acquisition choice"
                                   {:player player-id
                                    :property prop-name
                                    :choice choice
-                                   :valid-choices [:pay-mortgage :pay-interest]})))))
+                                   :valid-choices [:pay-mortgage :pay-interest]})))
+
+                (-> state
+                    ;; Remove from giver
+                    (update-in [:players from-pidx :properties] dissoc prop-name)
+                    ;; Give to receiver (with new state)
+                    (assoc-in [:players to-pidx :properties prop-name] (:state final))
+                    ;; Charge player fee
+                    ;; TODO - Use "make requisite payment" workflow for these charges
+                    ;;        (they are required to pay this now, and if they can't
+                    ;;        they need to raise funds or go bankrupt)
+                    (update-in [:players to-pidx :cash] - (:fee final))
+                    ;; Record transaction
+                    (util/append-tx {:type :acquisition
+                                     :to-player player-id
+                                     :from-player (:id from)
+                                     :property prop-name
+                                     ;; :reason ??
+                                     :acquisition-style [:mortgaged choice]
+                                     :mortgage-final-fee (:fee final)}))))
             game-state
             decision)))
 
