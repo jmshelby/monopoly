@@ -456,6 +456,40 @@
 
 (comment
 
+;; TODO - add stats around house/hotel inventory
+
+  ;; Acquisition Thoughts/Questions
+  ;; - 2 ways to happen
+  ;;   - trade
+  ;;   - bankrupt to player
+  ;; - Transactions
+  ;;   - What order should these be in? (before)
+  ;;     [trade]
+  ;;     - Does the person get the cash first?
+  ;;     [bankrupt]
+  ;;     - Does the person get the cash first?
+  ;;   - Should they be included in the transaction?
+  ;;     - is this too much data?
+
+  {:type :trade,
+   :status :proposal,
+   :to "D",
+   :from "B",
+   :asking {:properties #{:tennessee-ave}},
+   :offering {:properties #{:short-line-railroad :vermont-ave}}}
+
+  {:type :bankruptcy,
+   :player "C",
+   :to "B",
+   :cash 334,
+   :cards #{},
+   :properties
+   {:st-james-place {:status :paid, :house-count 0},
+    :indiana-ave {:status :paid, :house-count 0},
+    :marvin-gardens {:status :paid, :house-count 0},
+    :north-carolina-ave {:status :paid, :house-count 0},
+    :new-york-ave {:status :paid, :house-count 0}}}
+
   (->> defs/board
        ;; :properties
        )

@@ -99,13 +99,13 @@
     ;; TODO - maybe we just assume it's valid and the caller can validate first...
     (when-not
      (and
-          ;; The current player is offering
-          ;; TODO - Should *we* really care about this?
+      ;; The current player is offering
+      ;; TODO - Should *we* really care about this?
       (= (:id from-player)
          (:trade/from-player proposal))
-          ;; Offerred player has resources
+      ;; Offerred player has resources
       (validate-side to-player asking)
-          ;; Offering player has resources
+      ;; Offering player has resources
       (validate-side from-player offering))
       (throw (ex-info "Invalid trade proposal"
                       {:checks     {;; The current player is offering
@@ -136,6 +136,7 @@
         (append-tx game-state :decline proposal)
         ;; Accepted
         :accept
+        ;; TODO - perhaps we log tx first, then apply the things (for acquisition txs, and other things we may want to log as txs)
         (-> game-state
             ;; Perform transaction of resources
             (apply-trade proposal)
