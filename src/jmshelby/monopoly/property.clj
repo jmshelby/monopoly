@@ -6,12 +6,13 @@
   Player must choose between :pay-mortgage (immediate unmortgage) or
   :pay-interest (10% now, pay full later) for each mortgaged property.
   This function handles both the decision making AND the property transfer."
-  [game-state from to prop-names]
+  [{:keys [board functions]
+    :as game-state}
+   from to prop-names]
   (let [player-fn (:function to)
         player-id (:id to)
         to-pidx   (:player-index to)
         from-pidx (:player-index from)
-        board     (:board game-state)
 
         ;; Get property definitions for mortgage values
         prop-defs (->> board :properties
@@ -44,8 +45,7 @@
                                  :choice choice
                                  :valid-choices [:pay-mortgage :pay-interest]})))
 
-              (let [;; TODO - Is there some central place we can get a new property state from?
-                    prop-state {:house-count 0}
+              (let [prop-state {:house-count 0}
                     final (case choice
                             ;; Pay the mortgage cost + 10% fee
                             :pay-mortgage
@@ -56,39 +56,24 @@
                             {:state (merge prop-state [:status :mortgaged])
                              :fee (get-in context [:properties prop-name :interest-fee])})]
 
-                ;; Validate the to-player has enough money for the fee (THIS IS KEY! DOES THIS EVER HAPPEN)
-                ;; !! This is a huge curiosity in my mind - I want to see how often it happens !!
-                ;;    Once i've done that, with this exception, we can implement a proper "requisite
-                ;;    payment" workflow, which will force the purpose to raise funds and possibly go bankrupt.
-                (when (> (:fee final)
-                         (get-in state [:players to-pidx :cash]))
-                  (throw (ex-info "Player receiving mortgaged property doesn't actually have enough money to acquire it!"
-                                  {:player player-id
-                                   :property prop-name
-                                   :choice choice
-                                   :player-cash (get-in state [:players to-pidx :cash])
-                                   :mortgage-final-fee (:fee final)
-                                   :game-state state})))
-
                 ;; Apply this decision/transfer/fee to the game state
                 (-> state
                     ;; Remove from giver
                     (update-in [:players from-pidx :properties] dissoc prop-name)
-                    ;; Give to receiver (with new state)
+                    ;; Give to receiver (with *pending* new state)
                     (assoc-in [:players to-pidx :properties prop-name] (:state final))
-                    ;; Charge player fee
-                    ;; TODO - Use "make requisite payment" workflow for these charges
-                    ;;        (they are required to pay this now, and if they can't
-                    ;;        they need to raise funds or go bankrupt)
-                    (update-in [:players to-pidx :cash] - (:fee final))
-                    ;; Record transaction
-                    (util/append-tx {:type :acquisition
-                                     :to-player player-id
-                                     :from-player (:id from)
-                                     :property prop-name
+                    ;; Charge requisite fee from player to bank
+                    ((functions :make-requisite-payment)
+                     player-id :bank (:fee final)
+                     (fn [gs]
+                      ;; *If* it went through, record successful transaction
+                       (util/append-tx gs {:type :acquisition
+                                           :to-player player-id
+                                           :from-player (:id from)
+                                           :property prop-name
                                      ;; :reason ??
-                                     :acquisition-style [:mortgaged choice]
-                                     :mortgage-final-fee (:fee final)}))))
+                                           :acquisition-style [:mortgaged choice]
+                                           :mortgage-final-fee (:fee final)}))))))
             game-state
             decision)))
 
