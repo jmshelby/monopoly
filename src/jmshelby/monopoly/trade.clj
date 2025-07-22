@@ -136,12 +136,11 @@
         (append-tx game-state :decline proposal)
         ;; Accepted
         :accept
-        ;; TODO - perhaps we log tx first, then apply the things (for acquisition txs, and other things we may want to log as txs)
         (-> game-state
+            ;; Log tx
+            (append-tx :accept proposal)
             ;; Perform transaction of resources
-            (apply-trade proposal)
-            ;; Log last status/stage
-            (append-tx :accept proposal))))))
+            (apply-trade proposal))))))
 
 ;; TODO - This is actually pretty kind-of a hard part of logic to write ... lots of different cases...
 ;;        Perhaps a rules engine would be better, because it could be many and/or/and combinations
