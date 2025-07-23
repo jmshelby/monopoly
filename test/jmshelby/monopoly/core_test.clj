@@ -1,12 +1,13 @@
 (ns jmshelby.monopoly.core-test
   (:require [clojure.test :refer :all]
+            [clojure.set :refer [subset?]]
             [jmshelby.monopoly.core :as c]
             [jmshelby.monopoly.util :as u]
             [jmshelby.monopoly.util :as util]))
 
 ;; Run several random end game simulations
 (deftest exercise-game
-  (let [sim-count 100
+  (let [sim-count 250
         _         (println "Running" sim-count "game simulations")
         sims      (time
                    (doall
@@ -15,6 +16,11 @@
                           (range 1 (inc sim-count)))))]
     (println "Running" sim-count "game simulations...DONE")
     (println "Sims:")
+    ;; TODO - Refactor this so it's not a doseq .. this just makes a ton
+    ;;        of assertion failures (as if they're all different assertions).
+    ;;        Do each assertion once, and fail make the assertion fail if
+    ;;        it finds a bad case, and have it report the percentage of
+    ;;        cases found bad
     (doseq [[n sim] sims]
       (println "  -> Status: " (:status sim) " (" (-> sim :transactions count) ")"))
 
@@ -37,7 +43,64 @@
       (let [tx-counts (map #(-> % second :transactions count) sims)]
         (is (every? pos? tx-counts) "All games should have at least 1 transaction")
         ;; Some games may hit failsafe and continue beyond limit due to current player finishing their turn
-        (is (every? #(<= % 3500) tx-counts) "No game should greatly exceed failsafe limit"))))
+        (is (every? #(<= % 3500) tx-counts) "No game should greatly exceed failsafe limit")))
+
+    (testing "No player goes bankrupt more than once"
+      (doseq [[n sim] sims]
+        (let [bankruptcy-txs (->> (:transactions sim)
+                                  (filter #(= :bankruptcy (:type %))))
+              bankrupt-players (map :player bankruptcy-txs)
+              player-bankruptcy-counts (frequencies bankrupt-players)]
+          ;; Each player should be bankrupt at most once
+          (is (every? #(<= % 1) (vals player-bankruptcy-counts))
+              (str "Simulation " n " has players going bankrupt multiple times: " 
+                   (filter #(> (second %) 1) player-bankruptcy-counts)))
+          ;; If we have bankruptcies, validate the player statuses in final state
+          (when (seq bankruptcy-txs)
+            (let [final-players (:players sim)
+                  bankrupt-player-ids (set bankrupt-players)
+                  final-bankrupt-players (filter #(= :bankrupt (:status %)) final-players)
+                  final-bankrupt-ids (set (map :id final-bankrupt-players))]
+              ;; All players who had bankruptcy transactions should have :bankrupt status
+              (is (subset? bankrupt-player-ids final-bankrupt-ids)
+                  (str "Simulation " n " has bankruptcy transactions but players not marked bankrupt"))
+              ;; All players with :bankrupt status should have had a bankruptcy transaction
+              (is (subset? final-bankrupt-ids bankrupt-player-ids)
+                  (str "Simulation " n " has players marked bankrupt without bankruptcy transactions"))))))))
+
+;; ======= Bankruptcy Logic Tests ===================
+
+(deftest bankrupt-player-single-bankruptcy-test
+  "Test that players can only go bankrupt once"
+  (testing "Player can only be marked bankrupt once"
+    ;; Run multiple simulations to catch edge cases
+    (let [sims (doall (pmap (fn [_] (c/rand-game-end-state 4 1500)) (range 50)))]
+      (doseq [sim sims]
+        (let [bankruptcy-txs (->> (:transactions sim)
+                                  (filter #(= :bankruptcy (:type %))))
+              bankrupt-players (map :player bankruptcy-txs)
+              duplicates (filter #(> (second %) 1) (frequencies bankrupt-players))]
+          (is (empty? duplicates)
+              (str "Found players going bankrupt multiple times: " duplicates))))))
+
+  (testing "Bankrupt players should not take turns"
+    ;; This is harder to test directly, but we can verify that all move transactions
+    ;; after bankruptcy are by non-bankrupt players
+    (let [sim (c/rand-game-end-state 4 1500)
+          transactions (:transactions sim)
+          bankruptcy-txs (filter #(= :bankruptcy (:type %)) transactions)
+          move-txs (filter #(= :move (:type %)) transactions)]
+      (when (seq bankruptcy-txs)
+        ;; For each move transaction, check if it happens after a bankruptcy for that player
+        (doseq [move-tx move-txs]
+          (let [player-id (:player move-tx)
+                ;; Find the last bankruptcy transaction for this player before this move
+                bankruptcies-for-player (->> bankruptcy-txs
+                                            (filter #(= player-id (:player %)))
+                                            (take-while #(< (.indexOf transactions %)
+                                                           (.indexOf transactions move-tx))))]
+            (is (empty? bankruptcies-for-player)
+                (str "Player " player-id " moved after going bankrupt"))))))))
 
 ;; ======= New Property Management Integration Tests ===================
 
