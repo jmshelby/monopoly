@@ -152,6 +152,7 @@
                           (:property-name decision))
       :mortgage-property (util/apply-property-mortgage
                           game-state
+                          player
                           (:property-name decision)))))
 
 (defn- apply-raise-funds-workflow

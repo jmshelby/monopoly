@@ -1013,15 +1013,12 @@
                     :building-type (if selling-hotel? :hotel :house)}))))
 
 (defn apply-property-mortgage
-  "Given a game-state and a property, apply the mortgaging
-  of said property for current player. Validates and throws
-  if current player cannot perform operation."
-  [game-state property-name]
-  ;; TODO - the player in question should probably be passed as a prop?
+  "Given a game-state, player, and a property, apply the mortgaging
+  of said property for the specified player. Validates and throws
+  if player cannot perform operation."
+  [game-state player property-name]
   (let [{player-id :id
-         pidx      :player-index
-         :as       player}
-        (current-player game-state)
+         pidx      :player-index} player
         ;; Get property definition
         property       (->> game-state :board :properties
                             (filter #(= property-name (:name %)))
@@ -1066,14 +1063,12 @@
                     :proceeds mortgage-price}))))
 
 (defn apply-property-unmortgage
-  "Given a game-state and a property, apply the unmortgaging
-  of said property for current player. Validates and throws
-  if current player cannot perform operation."
-  [game-state property-name]
+  "Given a game-state, player, and a property, apply the unmortgaging
+  of said property for the specified player. Validates and throws
+  if player cannot perform operation."
+  [game-state player property-name]
   (let [{player-id :id
-         pidx      :player-index
-         :as       player}
-        (current-player game-state)
+         pidx      :player-index} player
         ;; Get property definition
         property       (->> game-state :board :properties
                             (filter #(= property-name (:name %)))
@@ -1128,20 +1123,18 @@
        boolean))
 
 (defn can-mortgage-any-property?
-  "Check if current player can mortgage any of their properties."
-  [game-state]
-  (let [player (current-player game-state)
-        owned-props (->> (:properties player)
+  "Check if specified player can mortgage any of their properties."
+  [game-state player]
+  (let [owned-props (->> (:properties player)
                          (filter #(and (= :paid (:status (second %)))
                                        (= 0 (get (second %) :house-count 0))))
                          (map first))]
     (boolean (seq owned-props))))
 
 (defn can-unmortgage-any-property?
-  "Check if current player can unmortgage any of their properties."
-  [game-state]
-  (let [player (current-player game-state)
-        mortgaged-props (->> (:properties player)
+  "Check if specified player can unmortgage any of their properties."
+  [game-state player]
+  (let [mortgaged-props (->> (:properties player)
                              (filter #(= :mortgaged (:status (second %))))
                              (map first))]
     (->> mortgaged-props

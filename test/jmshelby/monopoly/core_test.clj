@@ -93,10 +93,10 @@
                               (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0})
                               (assoc-in [:players 0 :cash] 1000))
           ;; First mortgage the property
-            mortgaged-state (u/apply-property-mortgage initial-state :mediterranean-ave)
+            mortgaged-state (u/apply-property-mortgage initial-state (u/current-player initial-state) :mediterranean-ave)
             player-after-mortgage (u/current-player mortgaged-state)
           ;; Then unmortgage it
-            unmortgaged-state (u/apply-property-unmortgage mortgaged-state :mediterranean-ave)
+            unmortgaged-state (u/apply-property-unmortgage mortgaged-state (u/current-player mortgaged-state) :mediterranean-ave)
             player-after-unmortgage (u/current-player unmortgaged-state)]
 
       ;; After mortgage: status should be mortgaged, cash increased
@@ -127,7 +127,7 @@
                            (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))
             actions (cond-> #{}
                       true (conj :done)
-                      (u/can-mortgage-any-property? game-state) (conj :mortgage-property))]
+                      (u/can-mortgage-any-property? game-state (u/current-player game-state)) (conj :mortgage-property))]
         (is (contains? actions :mortgage-property))))
 
     (testing "unmortgage-property appears when can-unmortgage-any-property? is true"
@@ -136,7 +136,7 @@
                            (assoc-in [:players 0 :properties :mediterranean-ave] {:status :mortgaged :house-count 0}))
             actions (cond-> #{}
                       true (conj :done)
-                      (u/can-unmortgage-any-property? game-state) (conj :unmortgage-property))]
+                      (u/can-unmortgage-any-property? game-state (u/current-player game-state)) (conj :unmortgage-property))]
         (is (contains? actions :unmortgage-property)))))
 
   (deftest actions-available-excludes-unavailable-actions-test
@@ -146,8 +146,8 @@
             actions (cond-> #{}
                       true (conj :done)
                       (u/can-sell-any-house? game-state player) (conj :sell-house)
-                      (u/can-mortgage-any-property? game-state) (conj :mortgage-property)
-                      (u/can-unmortgage-any-property? game-state) (conj :unmortgage-property))]
+                      (u/can-mortgage-any-property? game-state player) (conj :mortgage-property)
+                      (u/can-unmortgage-any-property? game-state player) (conj :unmortgage-property))]
       ;; Should only have :done since player has no properties
         (is (= #{:done} actions)))))
 
@@ -170,14 +170,14 @@
     (testing "cannot mortgage property with houses"
       (let [game-state (-> (c/init-game-state 2)
                            (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 1}))]
-        (is (thrown? Exception (u/apply-property-mortgage game-state :mediterranean-ave))))))
+        (is (thrown? Exception (u/apply-property-mortgage game-state (u/current-player game-state) :mediterranean-ave))))))
 
   (deftest unmortgage-insufficient-funds-fails-test
     (testing "cannot unmortgage without sufficient funds"
       (let [game-state (-> (c/init-game-state 2)
                            (assoc-in [:players 0 :properties :mediterranean-ave] {:status :mortgaged :house-count 0})
                            (assoc-in [:players 0 :cash] 10))] ; Not enough for 110% of $30 mortgage
-        (is (thrown? Exception (u/apply-property-unmortgage game-state :mediterranean-ave))))))
+        (is (thrown? Exception (u/apply-property-unmortgage game-state (u/current-player game-state) :mediterranean-ave))))))
 
   (deftest sell-house-from-unowned-property-fails-test
     (testing "cannot sell house from unowned property"
@@ -219,12 +219,12 @@
             sale-tx (first (filter #(= :sell-house (:type %)) (:transactions after-sale)))
 
           ;; Test mortgage transaction
-            after-mortgage (u/apply-property-mortgage initial-state :mediterranean-ave)
+            after-mortgage (u/apply-property-mortgage initial-state (u/current-player initial-state) :mediterranean-ave)
             mortgage-tx (first (filter #(= :mortgage-property (:type %)) (:transactions after-mortgage)))
 
           ;; Test unmortgage transaction (need to start with mortgaged property)
             mortgaged-state (assoc-in initial-state [:players 0 :properties :mediterranean-ave :status] :mortgaged)
-            after-unmortgage (u/apply-property-unmortgage mortgaged-state :mediterranean-ave)
+            after-unmortgage (u/apply-property-unmortgage mortgaged-state (u/current-player mortgaged-state) :mediterranean-ave)
             unmortgage-tx (first (filter #(= :unmortgage-property (:type %)) (:transactions after-unmortgage)))]
 
       ;; Validate house sale transaction

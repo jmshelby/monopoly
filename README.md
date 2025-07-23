@@ -87,16 +87,6 @@ To request permission to use this code, please open a GitHub issue with details 
 
 
 
-## Known Issues
-
-#### Code Quality
-- **Parameter Passing Inconsistency**: Several utility functions in `util.clj` rely on "current player" context instead of accepting explicit player parameters. This affects:
-  - `apply-property-mortgage` - should accept player parameter
-  - `apply-property-unmortgage` - should accept player parameter
-  - `can-mortgage-any-property?` - should accept player parameter
-  - `can-unmortgage-any-property?` - should accept player parameter
-  - This creates tight coupling and makes functions less reusable/testable
-
 ## Development Commands
 
 ### Running Tests

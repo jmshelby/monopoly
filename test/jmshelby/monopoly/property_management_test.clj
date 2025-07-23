@@ -65,7 +65,7 @@
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0})
                          (assoc-in [:players 0 :properties :baltic-ave] {:status :mortgaged :house-count 0}))
           ;; Unmortgage to complete monopoly
-          after-unmortgage (u/apply-property-unmortgage game-state :baltic-ave)
+          after-unmortgage (u/apply-property-unmortgage game-state (u/current-player game-state) :baltic-ave)
           player-after (u/current-player after-unmortgage)]
 
       ;; Both properties should now be paid
@@ -87,7 +87,7 @@
 
       ;; When cash is low, should prioritize house selling over unmortgaging
       (is (u/can-sell-any-house? game-state player))
-      (is (u/can-unmortgage-any-property? game-state))
+      (is (u/can-unmortgage-any-property? game-state player))
 
       ;; After selling houses, should have more cash
       (let [after-sale (u/apply-house-sale game-state player :mediterranean-ave)
@@ -137,8 +137,8 @@
                  (get-in (u/current-player game-state) [:properties :mediterranean-ave :house-count])))))
 
       ;; Test unmortgaging
-      (when (u/can-unmortgage-any-property? game-state)
-        (let [after-unmortgage (u/apply-property-unmortgage game-state :baltic-ave)
+      (when (u/can-unmortgage-any-property? game-state (u/current-player game-state))
+        (let [after-unmortgage (u/apply-property-unmortgage game-state (u/current-player game-state) :baltic-ave)
               player-after (u/current-player after-unmortgage)]
           (is (< (:cash player-after) (:cash (u/current-player game-state))))
           (is (= :paid (get-in player-after [:properties :baltic-ave :status])))))
@@ -157,8 +157,8 @@
           player (u/current-player initial-state)
           ;; Sequence: sell house -> mortgage property -> unmortgage property
           after-sell (u/apply-house-sale initial-state player :mediterranean-ave)
-          after-mortgage (u/apply-property-mortgage after-sell :oriental-ave)
-          after-unmortgage (u/apply-property-unmortgage after-mortgage :oriental-ave)
+          after-mortgage (u/apply-property-mortgage after-sell (u/current-player after-sell) :oriental-ave)
+          after-unmortgage (u/apply-property-unmortgage after-mortgage (u/current-player after-mortgage) :oriental-ave)
           final-player (u/current-player after-unmortgage)]
 
       ;; Verify the sequence completed successfully
@@ -219,8 +219,8 @@
       (let [after-sale (u/apply-house-sale initial-state
                                            (u/current-player initial-state)
                                            :mediterranean-ave)
-            after-mortgage (u/apply-property-mortgage after-sale :oriental-ave)
-            after-unmortgage (u/apply-property-unmortgage after-mortgage :oriental-ave)
+            after-mortgage (u/apply-property-mortgage after-sale (u/current-player after-sale) :oriental-ave)
+            after-unmortgage (u/apply-property-unmortgage after-mortgage (u/current-player after-mortgage) :oriental-ave)
             final-player (u/current-player after-unmortgage)]
 
         ;; Verify final state is consistent

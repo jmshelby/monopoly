@@ -304,9 +304,9 @@
                                :sell-house)
 
                               ;; Property mortgage/unmortgage
-                             (when (util/can-mortgage-any-property? game-state)
+                             (when (util/can-mortgage-any-property? game-state player)
                                :mortgage-property)
-                             (when (util/can-unmortgage-any-property? game-state)
+                             (when (util/can-unmortgage-any-property? game-state player)
                                :unmortgage-property)
 
                               ;; Trade Proposals
@@ -353,9 +353,11 @@
           ;; Mortgage/unmortgage properties
           :mortgage-property (util/apply-property-mortgage
                               game-state
+                              player
                               (:property-name decision))
           :unmortgage-property (util/apply-property-unmortgage
                                 game-state
+                                player
                                 (:property-name decision))
 
           ;; JAIL
