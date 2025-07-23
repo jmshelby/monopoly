@@ -111,7 +111,7 @@
     ;; First, set player status
     (assoc-in * [:players pidx :status] :bankrupt)
     ;; Next, before transfers, sell off required assets
-    (sell-off-houses game-state debtor)
+    (sell-off-houses * debtor)
     ;; Then record bankruptcy transaction, to set context
     (util/append-tx * {:type       :bankruptcy
                        :player     (:id debtor)
