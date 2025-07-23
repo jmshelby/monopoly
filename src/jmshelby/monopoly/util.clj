@@ -112,12 +112,10 @@
        cycle
        ;; Find current player
        (drop-while #(not= (:id %) (:player current-turn)))
-       ;; Proceed to next players
-       next
        ;; Only active, non-bankrupt, players
        (filter #(= :playing (:status %)))
-       ;; Return first player
-       first))
+       ;; Return next player ID
+       fnext))
 
 (defn player-by-id
   "Given a game-state, return player with given ID.
