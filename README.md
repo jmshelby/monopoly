@@ -44,7 +44,7 @@ To request permission to use this code, please open a GitHub issue with details 
    - detect if bankrupt
    - force sell off, "raise funds" workflow
    - Bankruptcy to Bank: When players owe the Bank more than they can pay, all properties are auctioned off to remaining players
-   > Should you owe the Bank, instead of another player, more than you can pay (because of taxes or penalties) even by selling off buildings and mortgaging property, you must turn over all assets to the Bank. In this case, the Bank immediately sells by auction all property so taken, except buildings
+   - Mortgaged property acquisitions, require min of 10%, or unmortgaging
  - Go to Jail
    - "go to jail" cell/spot
    - Roll 3 consecutive doubles, "got to jail"
@@ -64,7 +64,8 @@ To request permission to use this code, please open a GitHub issue with details 
      - Deferred effects: Cards that modify rent calculation during movement (utility 10x dice roll, railroad 2x rent)
  - Proposals
    - On player turn action
-     - offer workflow
+     - Offer workflow
+     - Mortgaged property acquisitions, require min of 10%, or unmortgaging
  - Auction System
    - Property auctions when purchase declined, or can't afford
    - Bankruptcy auctions: All properties auctioned when player goes bankrupt to bank
@@ -73,14 +74,8 @@ To request permission to use this code, please open a GitHub issue with details 
    - Proper player context (each bidder uses their own cash/data)
  ---------------------------
 #### Remaining Logic
- - [Full] Player "lose" logic
-   - Acquisition workflow to owed party (if not bank)
-     - requiring 10% payment of mortgaged properties or to instantly unmortgage property to acquire
-   > [Ability to make deals when needing funds]
- - Proposals
-   - Mortgaged property requirements
-     > If you are the new owner, you may lift the mortgage at once if you wish by paying off the mortgage plus 10% interest to the Bank. If the mortgage is not lifted at once, you must pay the Bank 10% interest when you buy the property and if you lift the mortgage later you must pay the Bank an additional 10% interest as well as the amount of the mortgage
-   - Counter-offer workflow
+ - Proposal "Counter-offer" workflow
+   - not super important, as any
  - Obscure Rules
    > "INCOME TAX": If you land here you have two options: You may estimate your tax at $900 and pay the Bank, or you may pay 10% of your total worth to the Bank. Your total worth is all your cash on hand, printed prices of mortgaged and unmortgaged properties and cost price of all buildings you own. You must decide which option you will take before you add up your total worth.
      - ?? Which version of the game has these rules ??
@@ -99,7 +94,7 @@ clojure -M:test
 # Generate coverage report
 ./bin/coverage
 
-# View HTML report  
+# View HTML report
 open target/coverage/index.html
 ```
 
@@ -124,7 +119,7 @@ clojure -J-Xmx8g -M:sim 1000
 
 The simulation provides statistics on:
 - Game completion rates and winner distribution
-- Transaction counts and game length analysis  
+- Transaction counts and game length analysis 
 - Auction system metrics (occurrence rates, success/failure ratios, average bids)
 - Performance metrics and memory usage
 - Incomplete game breakdown (failsafe cases)
