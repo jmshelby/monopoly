@@ -146,6 +146,7 @@
          ;; Follow-up changes, transfer + tx
          (fn [gs] (-> gs
                       ;; Take from current player, give to owner
+                      ;; TODO - wait, doesn't the make-requisite-payment fn do this for us?
                       (update-in [:players
                                   ;; Get the player index of owed player
                                   ;; TODO - this could probably be refactored
@@ -233,7 +234,6 @@
 
       ;; Check if it's time to end the game,
       ;; only 1 active player left?
-      ;; TODO - is it possible for 0 to be left?
       (->> players
            (filter #(= :playing (:status %)))
            count
