@@ -954,20 +954,22 @@
                        :reason   :unspecified})))
 
     ;; Apply the purchase
-    (-> game-state
-        ;; Inc house count in player's owned collection
-        (update-in [:players pidx :properties
+    (as-> game-state *
+      ;; Inc house count in player's owned collection
+      (update-in * [:players pidx :properties
                     property-name :house-count]
-                   inc)
-        ;; Subtract money
-        (update-in [:players pidx :cash]
-                   - (:house-price property))
-        ;; Track transaction
-        (append-tx {:type     :purchase-house
+                 inc)
+      ;; Subtract money
+      (update-in * [:players pidx :cash]
+                 - (:house-price property))
+      ;; Track transaction with post-transaction inventory counts
+      (append-tx * {:type     :purchase-house
                     :player   player-id
                     :property property-name
                     :price    (:house-price property)
-                    :building-type (if building-hotel? :hotel :house)}))))
+                    :building-type (if building-hotel? :hotel :house)
+                    :houses-available (houses-available *)
+                    :hotels-available (hotels-available *)}))))
 
 (defn apply-house-sale
   "Given a game state and a property, apply the sell of a single house for
@@ -997,20 +999,22 @@
                          :reason   (second valid?)}))))
 
     ;; Apply the sale
-    (-> game-state
-        ;; Dec house count in player's owned collection
-        (update-in [:players pidx :properties
+    (as-> game-state *
+      ;; Dec house count in player's owned collection
+      (update-in * [:players pidx :properties
                     property-name :house-count]
-                   dec)
-        ;; Add back money, half of original price
-        (update-in [:players pidx :cash]
-                   + proceeds)
-        ;; Track transaction
-        (append-tx {:type     :sell-house
+                 dec)
+      ;; Add back money, half of original price
+      (update-in * [:players pidx :cash]
+                 + proceeds)
+      ;; Track transaction with post-transaction inventory counts
+      (append-tx * {:type     :sell-house
                     :player   player-id
                     :property property-name
                     :proceeds proceeds
-                    :building-type (if selling-hotel? :hotel :house)}))))
+                    :building-type (if selling-hotel? :hotel :house)
+                    :houses-available (houses-available *)
+                    :hotels-available (hotels-available *)}))))
 
 (defn apply-property-mortgage
   "Given a game-state, player, and a property, apply the mortgaging

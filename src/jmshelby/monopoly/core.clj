@@ -456,8 +456,6 @@
 
 (comment
 
-;; TODO - add stats around house/hotel inventory
-
   (->> defs/board
        ;; :properties
        )
@@ -493,8 +491,6 @@
              (println "Found single player auction in: " idx "games")
              sim)
            (recur (inc idx)))))))
-
-  (println "hi")
 
   ;; Find the first bankupt to bank tx
   (def sim
