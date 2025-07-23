@@ -1,7 +1,8 @@
 (ns jmshelby.monopoly.core-test
   (:require [clojure.test :refer :all]
             [jmshelby.monopoly.core :as c]
-            [jmshelby.monopoly.util :as u]))
+            [jmshelby.monopoly.util :as u]
+            [jmshelby.monopoly.util :as util]))
 
 ;; Run several random end game simulations
 (deftest exercise-game
@@ -77,7 +78,9 @@
           ;; Simulate what advance-board does for :sell-house action
             decision {:action :sell-house :property-name :mediterranean-ave}
           ;; This is the core logic from advance-board case :sell-house
-            result-state (u/apply-house-sale game-state (:property-name decision))
+            result-state (u/apply-house-sale game-state
+                                             (u/current-player game-state)
+                                             (:property-name decision))
             player (u/current-player result-state)]
       ;; Verify the action was applied correctly
         (is (= 1 (get-in player [:properties :mediterranean-ave :house-count])))
@@ -116,7 +119,7 @@
             player (u/current-player game-state)
             actions (cond-> #{}
                       true (conj :done)
-                      (u/can-sell-any-house? game-state) (conj :sell-house))]
+                      (u/can-sell-any-house? game-state player) (conj :sell-house))]
         (is (contains? actions :sell-house))))
 
     (testing "mortgage-property appears when can-mortgage-any-property? is true"
@@ -139,9 +142,10 @@
   (deftest actions-available-excludes-unavailable-actions-test
     (testing "actions don't appear when conditions not met"
       (let [game-state (c/init-game-state 2) ; Fresh game with no properties
+            player (util/current-player game-state)
             actions (cond-> #{}
                       true (conj :done)
-                      (u/can-sell-any-house? game-state) (conj :sell-house)
+                      (u/can-sell-any-house? game-state player) (conj :sell-house)
                       (u/can-mortgage-any-property? game-state) (conj :mortgage-property)
                       (u/can-unmortgage-any-property? game-state) (conj :unmortgage-property))]
       ;; Should only have :done since player has no properties
@@ -154,11 +158,13 @@
       (let [game-state (-> (c/init-game-state 2)
                          ;; Mediterranean monopoly with uneven distribution
                            (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 1})
-                           (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2}))]
+                           (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2}))
+
+        player (u/current-player game-state)]
       ;; Should not be able to sell from Mediterranean (doesn't have max houses)
-        (is (thrown? Exception (u/apply-house-sale game-state :mediterranean-ave)))
+        (is (thrown? Exception (u/apply-house-sale game-state player :mediterranean-ave)))
       ;; Should be able to sell from Baltic (has max houses)
-        (is (u/apply-house-sale game-state :baltic-ave)))))
+        (is (u/apply-house-sale game-state player :baltic-ave)))))
 
   (deftest mortgage-property-with-houses-fails-test
     (testing "cannot mortgage property with houses"
@@ -176,7 +182,9 @@
   (deftest sell-house-from-unowned-property-fails-test
     (testing "cannot sell house from unowned property"
       (let [game-state (c/init-game-state 2)] ; Fresh game, no properties owned
-        (is (thrown? Exception (u/apply-house-sale game-state :mediterranean-ave))))))
+        (is (thrown? Exception (u/apply-house-sale game-state
+                                                   (u/current-player game-state)
+                                                   :mediterranean-ave))))))
 
 ;; ======= Game State Consistency Tests ===================
 
@@ -186,7 +194,9 @@
                               (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 3})
                               (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 3})
                               (assoc-in [:players 0 :cash] 1000))
-            result-state (u/apply-house-sale initial-state :mediterranean-ave)
+            result-state (u/apply-house-sale initial-state
+                                             (u/current-player initial-state)
+                                             :mediterranean-ave)
             player (u/current-player result-state)]
       ;; House count decreases by 1
         (is (= 2 (get-in player [:properties :mediterranean-ave :house-count])))
@@ -203,8 +213,9 @@
       (let [initial-state (-> (c/init-game-state 2)
                               (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 2})
                               (assoc-in [:players 0 :cash] 1000))
+            player (u/current-player initial-state)
           ;; Test house sale transaction
-            after-sale (u/apply-house-sale initial-state :mediterranean-ave)
+            after-sale (u/apply-house-sale initial-state player :mediterranean-ave)
             sale-tx (first (filter #(= :sell-house (:type %)) (:transactions after-sale)))
 
           ;; Test mortgage transaction

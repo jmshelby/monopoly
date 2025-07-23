@@ -148,7 +148,7 @@
     ;; TODO - we'll need a default that doesn't allow indecision...
     (case (:action decision)
       :sell-house        (util/apply-house-sale
-                          game-state
+                          game-state player
                           (:property-name decision))
       :mortgage-property (util/apply-property-mortgage
                           game-state
@@ -176,9 +176,7 @@
     ;; Start loop/reduce, until player cash is sufficient:
     (loop [gs state]
       (let [;; Get current params
-            player      (->> gs :players
-                             (filter #(= pid (:id %)))
-                             first)
+            player (util/player-by-id gs pid)
             remaining   (- amount (:cash player))
             ;; Call out to player, apply decision
             gs-next     (invoke-and-apply-raise-funds

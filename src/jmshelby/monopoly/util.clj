@@ -886,10 +886,9 @@
           (can-build-house-inventory? game-state prop-name)))))
 
 (defn can-sell-house?
-  [game-state prop-name]
+  [game-state player prop-name]
   ;; TODO - the player in question should probably be passed as a prop
-  (let [{player-id :id}
-        (current-player game-state)
+  (let [{player-id :id} player
         ;; All properties owned
         owned       (->> game-state
                          owned-property-details
@@ -974,11 +973,9 @@
   "Given a game state and a property, apply the sell of a single house for
   current player on given property. Validates and throws if house sell is
   not allowed by game rules. Returns buildings to inventory."
-  [game-state property-name]
-  ;; TODO - the player in question should probably be passed as a prop
+  [game-state player property-name]
   (let [{player-id :id
-         pidx      :player-index}
-        (current-player game-state)
+         pidx      :player-index} player
         ;; Get property definition
         property (->> game-state :board :properties
                       (filter #(= :street (:type %)))
@@ -991,7 +988,7 @@
         selling-hotel? (= current-houses 5)]
 
     ;; Validation
-    (let [valid? (can-sell-house? game-state property-name)]
+    (let [valid? (can-sell-house? game-state player property-name)]
       (when-not (first valid?)
         (throw (ex-info "Player decision not allowed"
                         {:action   :sell-house
@@ -1125,12 +1122,10 @@
 
 (defn can-sell-any-house?
   "Check if current player can sell any house on any of their properties."
-  [game-state]
-  (let [player (current-player game-state)
-        owned-props (->> (:properties player) keys)]
-    (->> owned-props
-         (some #(first (can-sell-house? game-state %)))
-         boolean)))
+  [game-state player]
+  (->> player :properties keys
+       (some #(first (can-sell-house? game-state player %)))
+       boolean))
 
 (defn can-mortgage-any-property?
   "Check if current player can mortgage any of their properties."

@@ -300,7 +300,7 @@
                              (when can-build? :buy-house)
 
                               ;; House selling
-                             (when (util/can-sell-any-house? game-state)
+                             (when (util/can-sell-any-house? game-state player)
                                :sell-house)
 
                               ;; Property mortgage/unmortgage
@@ -347,7 +347,7 @@
 
           ;; Sell house(s)
           :sell-house (util/apply-house-sale
-                       game-state
+                       game-state player
                        (:property-name decision))
 
           ;; Mortgage/unmortgage properties
@@ -556,6 +556,8 @@
              (println "Found exception in: " idx "games")
              sim)
            (recur (inc idx)))))))
+
+
 
   (let [players    (+ 2 (rand-int 5))
         iterations (+ 20 (rand-int 500))

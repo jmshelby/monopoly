@@ -147,17 +147,19 @@
 (deftest can-sell-house-validation-test
   (testing "can-sell-house? validates property ownership"
     (let [game-state (-> (c/init-game-state 2)
-                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 2}))]
+                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 2}))
+          player (u/current-player game-state)]
       ;; Can sell from owned property with houses
-      (is (first (u/can-sell-house? game-state :mediterranean-ave)))
-      ;; Cannot sell from unowned property  
-      (is (false? (first (u/can-sell-house? game-state :baltic-ave))))))
+      (is (first (u/can-sell-house? game-state player :mediterranean-ave)))
+      ;; Cannot sell from unowned property
+      (is (false? (first (u/can-sell-house? game-state player :baltic-ave))))))
 
   (testing "can-sell-house? validates house inventory"
     (let [game-state (-> (c/init-game-state 2)
-                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))]
+                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))
+          player (u/current-player game-state)]
       ;; Cannot sell from property with no houses
-      (let [[valid? reason] (u/can-sell-house? game-state :mediterranean-ave)]
+      (let [[valid? reason] (u/can-sell-house? game-state player :mediterranean-ave)]
         (is (false? valid?))
         (is (= :house-inventory reason)))))
 
@@ -165,25 +167,28 @@
     (let [game-state (-> (c/init-game-state 2)
                          ;; Mediterranean monopoly - give uneven house distribution
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 1})
-                         (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2}))]
+                         (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2}))
+          player (u/current-player game-state)]
       ;; Cannot sell from property without max houses in group
-      (let [[valid? reason] (u/can-sell-house? game-state :mediterranean-ave)]
+      (let [[valid? reason] (u/can-sell-house? game-state player :mediterranean-ave)]
         (is (false? valid?))
         (is (= :even-house-distribution reason)))
       ;; Can sell from property with max houses in group
-      (is (first (u/can-sell-house? game-state :baltic-ave))))))
+      (is (first (u/can-sell-house? game-state player :baltic-ave))))))
 
 (deftest can-sell-any-house-test
   (testing "returns true when player has sellable houses"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 2})
-                         (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2}))]
-      (is (true? (u/can-sell-any-house? game-state)))))
+                         (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2}))
+          player (u/current-player game-state)]
+      (is (true? (u/can-sell-any-house? game-state player)))))
 
   (testing "returns false when player has no sellable houses"
     (let [game-state (-> (c/init-game-state 2)
-                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))]
-      (is (false? (u/can-sell-any-house? game-state))))))
+                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))
+          player (u/current-player game-state)]
+      (is (false? (u/can-sell-any-house? game-state player))))))
 
 (deftest can-mortgage-any-property-test
   (testing "returns true when player has mortgageable properties"
@@ -229,7 +234,9 @@
                             (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 2})
                             (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2})
                             (assoc-in [:players 0 :cash] 1000))
-          result-state (u/apply-house-sale initial-state :mediterranean-ave)
+          result-state (u/apply-house-sale initial-state
+                                           (u/current-player initial-state)
+                                           :mediterranean-ave)
           player (u/current-player result-state)]
       ;; House count should decrease
       (is (= 1 (get-in player [:properties :mediterranean-ave :house-count])))
@@ -240,9 +247,10 @@
 
   (testing "apply-house-sale validates before applying"
     (let [game-state (-> (c/init-game-state 2)
-                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))]
+                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))
+          player (u/current-player game-state)]
       ;; Should throw exception for invalid house sale
-      (is (thrown? Exception (u/apply-house-sale game-state :mediterranean-ave))))))
+      (is (thrown? Exception (u/apply-house-sale game-state player :mediterranean-ave))))))
 
 (deftest apply-property-mortgage-test
   (testing "apply-property-mortgage updates game state correctly"
