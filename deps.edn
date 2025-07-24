@@ -13,7 +13,7 @@
                                    "--src-ns-path" "src"
                                    "--test-ns-path" "test"
                                    "--ns-regex" "jmshelby.monopoly.*"
-                                   "--ns-exclude-regex" ".*test.*"
+                                   "--ns-exclude-regex" ".*test.*|.*simulation.*|.*analysis.*"
                                    "--codecov"
                                    "--html"
                                    "--lcov"
