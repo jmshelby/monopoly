@@ -468,6 +468,8 @@
 
   sim
 
+  (:transactions sim)
+
   (-> sim
       analysis/summarize-game
       analysis/print-game-summary)
