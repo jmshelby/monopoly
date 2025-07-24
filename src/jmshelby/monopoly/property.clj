@@ -13,17 +13,13 @@
         player-id (:id to)
         to-pidx   (:player-index to)
         from-pidx (:player-index from)
-
-        ;; Get property definitions for mortgage values
-        prop-defs (->> board :properties
-                       (reduce #(assoc %1 (:name %2) %2) {}))
-
         ;; Create context with mortgaged property details
         ;; TODO - should include who it's from maybe?
         context {:properties
                  (into {}
                        (map (fn [prop-name]
-                              (let [prop (prop-defs prop-name)
+                              (let [prop ((util/board-prop->def board)
+                                          prop-name)
                                     mortgage-val (:mortgage prop)]
                                 [prop-name (assoc prop
                                                   :mortgage-value mortgage-val

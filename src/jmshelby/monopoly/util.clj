@@ -39,6 +39,19 @@
 
 ;; ======= Definition Derivations ==============
 
+(defn *board-prop->def
+  "Given a board definition, return a map of
+  all properties keyed by property name."
+  [board]
+  (->> board :properties
+       (reduce #(assoc %1 (:name %2) %2) {})))
+
+(def board-prop->def
+  "[Cached Version]
+  Given a board definition, return a map of
+  all properties keyed by property name."
+  (memoize *board-prop->def))
+
 (defn *street-group-counts
   "Given a board definition, return a map of
   'street' property groups -> count.
@@ -54,6 +67,12 @@
        (into {})))
 
 (def street-group-counts
+  "[Cached Version]
+  Given a board definition, return a map of
+  'street' property groups -> count.
+  Useful for determining how many of each
+  street type property is required in order
+  to have a monopoly. "
   (memoize *street-group-counts))
 
 (defn jail-cell-index
