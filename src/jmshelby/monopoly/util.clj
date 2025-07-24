@@ -39,6 +39,19 @@
 
 ;; ======= Definition Derivations ==============
 
+(defn *board-prop->def
+  "Given a board definition, return a map of
+  all properties keyed by property name."
+  [board]
+  (->> board :properties
+       (reduce #(assoc %1 (:name %2) %2) {})))
+
+(def board-prop->def
+  "[Cached Version]
+  Given a board definition, return a map of
+  all properties keyed by property name."
+  (memoize *board-prop->def))
+
 (defn *street-group-counts
   "Given a board definition, return a map of
   'street' property groups -> count.
@@ -54,6 +67,12 @@
        (into {})))
 
 (def street-group-counts
+  "[Cached Version]
+  Given a board definition, return a map of
+  'street' property groups -> count.
+  Useful for determining how many of each
+  street type property is required in order
+  to have a monopoly. "
   (memoize *street-group-counts))
 
 (defn jail-cell-index
@@ -112,10 +131,12 @@
        cycle
        ;; Find current player
        (drop-while #(not= (:id %) (:player current-turn)))
+       ;; Proceed to next players
+       next
        ;; Only active, non-bankrupt, players
        (filter #(= :playing (:status %)))
-       ;; Return next player ID
-       fnext))
+       ;; Return first player
+       first))
 
 (defn player-by-id
   "Given a game-state, return player with given ID.
@@ -886,10 +907,9 @@
           (can-build-house-inventory? game-state prop-name)))))
 
 (defn can-sell-house?
-  [game-state prop-name]
+  [game-state player prop-name]
   ;; TODO - the player in question should probably be passed as a prop
-  (let [{player-id :id}
-        (current-player game-state)
+  (let [{player-id :id} player
         ;; All properties owned
         owned       (->> game-state
                          owned-property-details
@@ -955,30 +975,30 @@
                        :reason   :unspecified})))
 
     ;; Apply the purchase
-    (-> game-state
-        ;; Inc house count in player's owned collection
-        (update-in [:players pidx :properties
+    (as-> game-state *
+      ;; Inc house count in player's owned collection
+      (update-in * [:players pidx :properties
                     property-name :house-count]
-                   inc)
-        ;; Subtract money
-        (update-in [:players pidx :cash]
-                   - (:house-price property))
-        ;; Track transaction
-        (append-tx {:type     :purchase-house
+                 inc)
+      ;; Subtract money
+      (update-in * [:players pidx :cash]
+                 - (:house-price property))
+      ;; Track transaction with post-transaction inventory counts
+      (append-tx * {:type     :purchase-house
                     :player   player-id
                     :property property-name
                     :price    (:house-price property)
-                    :building-type (if building-hotel? :hotel :house)}))))
+                    :building-type (if building-hotel? :hotel :house)
+                    :houses-available (houses-available *)
+                    :hotels-available (hotels-available *)}))))
 
 (defn apply-house-sale
   "Given a game state and a property, apply the sell of a single house for
   current player on given property. Validates and throws if house sell is
   not allowed by game rules. Returns buildings to inventory."
-  [game-state property-name]
-  ;; TODO - the player in question should probably be passed as a prop
+  [game-state player property-name]
   (let [{player-id :id
-         pidx      :player-index}
-        (current-player game-state)
+         pidx      :player-index} player
         ;; Get property definition
         property (->> game-state :board :properties
                       (filter #(= :street (:type %)))
@@ -991,7 +1011,7 @@
         selling-hotel? (= current-houses 5)]
 
     ;; Validation
-    (let [valid? (can-sell-house? game-state property-name)]
+    (let [valid? (can-sell-house? game-state player property-name)]
       (when-not (first valid?)
         (throw (ex-info "Player decision not allowed"
                         {:action   :sell-house
@@ -1000,31 +1020,30 @@
                          :reason   (second valid?)}))))
 
     ;; Apply the sale
-    (-> game-state
-        ;; Dec house count in player's owned collection
-        (update-in [:players pidx :properties
+    (as-> game-state *
+      ;; Dec house count in player's owned collection
+      (update-in * [:players pidx :properties
                     property-name :house-count]
-                   dec)
-        ;; Add back money, half of original price
-        (update-in [:players pidx :cash]
-                   + proceeds)
-        ;; Track transaction
-        (append-tx {:type     :sell-house
+                 dec)
+      ;; Add back money, half of original price
+      (update-in * [:players pidx :cash]
+                 + proceeds)
+      ;; Track transaction with post-transaction inventory counts
+      (append-tx * {:type     :sell-house
                     :player   player-id
                     :property property-name
                     :proceeds proceeds
-                    :building-type (if selling-hotel? :hotel :house)}))))
+                    :building-type (if selling-hotel? :hotel :house)
+                    :houses-available (houses-available *)
+                    :hotels-available (hotels-available *)}))))
 
 (defn apply-property-mortgage
-  "Given a game-state and a property, apply the mortgaging
-  of said property for current player. Validates and throws
-  if current player cannot perform operation."
-  [game-state property-name]
-  ;; TODO - the player in question should probably be passed as a prop?
+  "Given a game-state, player, and a property, apply the mortgaging
+  of said property for the specified player. Validates and throws
+  if player cannot perform operation."
+  [game-state player property-name]
   (let [{player-id :id
-         pidx      :player-index
-         :as       player}
-        (current-player game-state)
+         pidx      :player-index} player
         ;; Get property definition
         property       (->> game-state :board :properties
                             (filter #(= property-name (:name %)))
@@ -1069,14 +1088,12 @@
                     :proceeds mortgage-price}))))
 
 (defn apply-property-unmortgage
-  "Given a game-state and a property, apply the unmortgaging
-  of said property for current player. Validates and throws
-  if current player cannot perform operation."
-  [game-state property-name]
+  "Given a game-state, player, and a property, apply the unmortgaging
+  of said property for the specified player. Validates and throws
+  if player cannot perform operation."
+  [game-state player property-name]
   (let [{player-id :id
-         pidx      :player-index
-         :as       player}
-        (current-player game-state)
+         pidx      :player-index} player
         ;; Get property definition
         property       (->> game-state :board :properties
                             (filter #(= property-name (:name %)))
@@ -1125,28 +1142,24 @@
 
 (defn can-sell-any-house?
   "Check if current player can sell any house on any of their properties."
-  [game-state]
-  (let [player (current-player game-state)
-        owned-props (->> (:properties player) keys)]
-    (->> owned-props
-         (some #(first (can-sell-house? game-state %)))
-         boolean)))
+  [game-state player]
+  (->> player :properties keys
+       (some #(first (can-sell-house? game-state player %)))
+       boolean))
 
 (defn can-mortgage-any-property?
-  "Check if current player can mortgage any of their properties."
-  [game-state]
-  (let [player (current-player game-state)
-        owned-props (->> (:properties player)
+  "Check if specified player can mortgage any of their properties."
+  [game-state player]
+  (let [owned-props (->> (:properties player)
                          (filter #(and (= :paid (:status (second %)))
                                        (= 0 (get (second %) :house-count 0))))
                          (map first))]
     (boolean (seq owned-props))))
 
 (defn can-unmortgage-any-property?
-  "Check if current player can unmortgage any of their properties."
-  [game-state]
-  (let [player (current-player game-state)
-        mortgaged-props (->> (:properties player)
+  "Check if specified player can unmortgage any of their properties."
+  [game-state player]
+  (let [mortgaged-props (->> (:properties player)
                              (filter #(= :mortgaged (:status (second %))))
                              (map first))]
     (->> mortgaged-props

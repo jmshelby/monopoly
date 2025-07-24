@@ -146,6 +146,7 @@
          ;; Follow-up changes, transfer + tx
          (fn [gs] (-> gs
                       ;; Take from current player, give to owner
+                      ;; TODO - wait, doesn't the make-requisite-payment fn do this for us?
                       (update-in [:players
                                   ;; Get the player index of owed player
                                   ;; TODO - this could probably be refactored
@@ -233,7 +234,6 @@
 
       ;; Check if it's time to end the game,
       ;; only 1 active player left?
-      ;; TODO - is it possible for 0 to be left?
       (->> players
            (filter #(= :playing (:status %)))
            count
@@ -300,13 +300,13 @@
                              (when can-build? :buy-house)
 
                               ;; House selling
-                             (when (util/can-sell-any-house? game-state)
+                             (when (util/can-sell-any-house? game-state player)
                                :sell-house)
 
                               ;; Property mortgage/unmortgage
-                             (when (util/can-mortgage-any-property? game-state)
+                             (when (util/can-mortgage-any-property? game-state player)
                                :mortgage-property)
-                             (when (util/can-unmortgage-any-property? game-state)
+                             (when (util/can-unmortgage-any-property? game-state player)
                                :unmortgage-property)
 
                               ;; Trade Proposals
@@ -347,15 +347,15 @@
 
           ;; Sell house(s)
           :sell-house (util/apply-house-sale
-                       game-state
+                       game-state player
                        (:property-name decision))
 
           ;; Mortgage/unmortgage properties
           :mortgage-property (util/apply-property-mortgage
-                              game-state
+                              game-state player
                               (:property-name decision))
           :unmortgage-property (util/apply-property-unmortgage
-                                game-state
+                                game-state player
                                 (:property-name decision))
 
           ;; JAIL
@@ -466,14 +466,16 @@
 
   (def sim (rand-game-end-state 4 2000))
 
+  sim
+
+  (:transactions sim)
+
   (-> sim
       analysis/summarize-game
       analysis/print-game-summary)
 
   ;; Print detailed transaction log
   (analysis/print-transaction-log sim)
-
-  sim
 
   ;; Find an auction for one player
   (def sim
@@ -492,8 +494,6 @@
              sim)
            (recur (inc idx)))))))
 
-  (println "hi")
-
   ;; Find the first bankupt to bank tx
   (def sim
     (time
@@ -508,6 +508,18 @@
          (if (has-it? (:transactions sim))
            (do
              (println "Found bankrupt to bank in: " idx "games")
+             sim)
+           (recur (inc idx)))))))
+
+;; Find the first exception
+  (def sim
+    (time
+     (loop [idx 0]
+       (println "==============================================")
+       (let [sim (rand-game-end-state 4 1500)]
+         (if (:exception sim)
+           (do
+             (println "Found exception in: " idx "games")
              sim)
            (recur (inc idx)))))))
 

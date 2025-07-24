@@ -147,17 +147,19 @@
 (deftest can-sell-house-validation-test
   (testing "can-sell-house? validates property ownership"
     (let [game-state (-> (c/init-game-state 2)
-                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 2}))]
+                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 2}))
+          player (u/current-player game-state)]
       ;; Can sell from owned property with houses
-      (is (first (u/can-sell-house? game-state :mediterranean-ave)))
-      ;; Cannot sell from unowned property  
-      (is (false? (first (u/can-sell-house? game-state :baltic-ave))))))
+      (is (first (u/can-sell-house? game-state player :mediterranean-ave)))
+      ;; Cannot sell from unowned property
+      (is (false? (first (u/can-sell-house? game-state player :baltic-ave))))))
 
   (testing "can-sell-house? validates house inventory"
     (let [game-state (-> (c/init-game-state 2)
-                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))]
+                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))
+          player (u/current-player game-state)]
       ;; Cannot sell from property with no houses
-      (let [[valid? reason] (u/can-sell-house? game-state :mediterranean-ave)]
+      (let [[valid? reason] (u/can-sell-house? game-state player :mediterranean-ave)]
         (is (false? valid?))
         (is (= :house-inventory reason)))))
 
@@ -165,61 +167,64 @@
     (let [game-state (-> (c/init-game-state 2)
                          ;; Mediterranean monopoly - give uneven house distribution
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 1})
-                         (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2}))]
+                         (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2}))
+          player (u/current-player game-state)]
       ;; Cannot sell from property without max houses in group
-      (let [[valid? reason] (u/can-sell-house? game-state :mediterranean-ave)]
+      (let [[valid? reason] (u/can-sell-house? game-state player :mediterranean-ave)]
         (is (false? valid?))
         (is (= :even-house-distribution reason)))
       ;; Can sell from property with max houses in group
-      (is (first (u/can-sell-house? game-state :baltic-ave))))))
+      (is (first (u/can-sell-house? game-state player :baltic-ave))))))
 
 (deftest can-sell-any-house-test
   (testing "returns true when player has sellable houses"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 2})
-                         (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2}))]
-      (is (true? (u/can-sell-any-house? game-state)))))
+                         (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2}))
+          player (u/current-player game-state)]
+      (is (true? (u/can-sell-any-house? game-state player)))))
 
   (testing "returns false when player has no sellable houses"
     (let [game-state (-> (c/init-game-state 2)
-                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))]
-      (is (false? (u/can-sell-any-house? game-state))))))
+                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))
+          player (u/current-player game-state)]
+      (is (false? (u/can-sell-any-house? game-state player))))))
 
 (deftest can-mortgage-any-property-test
   (testing "returns true when player has mortgageable properties"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))]
-      (is (true? (u/can-mortgage-any-property? game-state)))))
+      (is (true? (u/can-mortgage-any-property? game-state (u/current-player game-state))))))
 
   (testing "returns false when player has no mortgageable properties"
     (let [game-state (-> (c/init-game-state 2)
                          ;; Property with houses cannot be mortgaged
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 1}))]
-      (is (false? (u/can-mortgage-any-property? game-state)))))
+      (is (false? (u/can-mortgage-any-property? game-state (u/current-player game-state))))))
 
   (testing "returns false when all properties are already mortgaged"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :mortgaged :house-count 0}))]
-      (is (false? (u/can-mortgage-any-property? game-state))))))
+      (is (false? (u/can-mortgage-any-property? game-state (u/current-player game-state)))))))
 
 (deftest can-unmortgage-any-property-test
   (testing "returns true when player has mortgaged properties and sufficient cash"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :cash] 500)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :mortgaged :house-count 0}))]
-      (is (true? (u/can-unmortgage-any-property? game-state)))))
+      (is (true? (u/can-unmortgage-any-property? game-state (u/current-player game-state))))))
 
   (testing "returns false when player has insufficient cash"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :cash] 10)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :mortgaged :house-count 0}))]
-      (is (false? (u/can-unmortgage-any-property? game-state)))))
+      (is (false? (u/can-unmortgage-any-property? game-state (u/current-player game-state))))))
 
   (testing "returns false when player has no mortgaged properties"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :cash] 500)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))]
-      (is (false? (u/can-unmortgage-any-property? game-state))))))
+      (is (false? (u/can-unmortgage-any-property? game-state (u/current-player game-state)))))))
 
 ;; ======= Property Action Application Tests ===================
 
@@ -229,7 +234,9 @@
                             (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 2})
                             (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2})
                             (assoc-in [:players 0 :cash] 1000))
-          result-state (u/apply-house-sale initial-state :mediterranean-ave)
+          result-state (u/apply-house-sale initial-state
+                                           (u/current-player initial-state)
+                                           :mediterranean-ave)
           player (u/current-player result-state)]
       ;; House count should decrease
       (is (= 1 (get-in player [:properties :mediterranean-ave :house-count])))
@@ -240,16 +247,17 @@
 
   (testing "apply-house-sale validates before applying"
     (let [game-state (-> (c/init-game-state 2)
-                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))]
+                         (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0}))
+          player (u/current-player game-state)]
       ;; Should throw exception for invalid house sale
-      (is (thrown? Exception (u/apply-house-sale game-state :mediterranean-ave))))))
+      (is (thrown? Exception (u/apply-house-sale game-state player :mediterranean-ave))))))
 
 (deftest apply-property-mortgage-test
   (testing "apply-property-mortgage updates game state correctly"
     (let [initial-state (-> (c/init-game-state 2)
                             (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0})
                             (assoc-in [:players 0 :cash] 1000))
-          result-state (u/apply-property-mortgage initial-state :mediterranean-ave)
+          result-state (u/apply-property-mortgage initial-state (u/current-player initial-state) :mediterranean-ave)
           player (u/current-player result-state)]
       ;; Property status should change to mortgaged
       (is (= :mortgaged (get-in player [:properties :mediterranean-ave :status])))
@@ -261,26 +269,26 @@
   (testing "apply-property-mortgage validates property ownership"
     (let [game-state (c/init-game-state 2)]
       ;; Should throw exception for unowned property
-      (is (thrown? Exception (u/apply-property-mortgage game-state :mediterranean-ave)))))
+      (is (thrown? Exception (u/apply-property-mortgage game-state (u/current-player game-state) :mediterranean-ave)))))
 
   (testing "apply-property-mortgage validates no houses on property"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 1}))]
       ;; Should throw exception for property with houses
-      (is (thrown? Exception (u/apply-property-mortgage game-state :mediterranean-ave)))))
+      (is (thrown? Exception (u/apply-property-mortgage game-state (u/current-player game-state) :mediterranean-ave)))))
 
   (testing "apply-property-mortgage validates property not already mortgaged"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :mortgaged :house-count 0}))]
       ;; Should throw exception for already mortgaged property
-      (is (thrown? Exception (u/apply-property-mortgage game-state :mediterranean-ave))))))
+      (is (thrown? Exception (u/apply-property-mortgage game-state (u/current-player game-state) :mediterranean-ave))))))
 
 (deftest apply-property-unmortgage-test
   (testing "apply-property-unmortgage updates game state correctly"
     (let [initial-state (-> (c/init-game-state 2)
                             (assoc-in [:players 0 :properties :mediterranean-ave] {:status :mortgaged :house-count 0})
                             (assoc-in [:players 0 :cash] 1000))
-          result-state (u/apply-property-unmortgage initial-state :mediterranean-ave)
+          result-state (u/apply-property-unmortgage initial-state (u/current-player initial-state) :mediterranean-ave)
           player (u/current-player result-state)]
       ;; Property status should change to paid
       (is (= :paid (get-in player [:properties :mediterranean-ave :status])))
@@ -294,11 +302,142 @@
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :mortgaged :house-count 0})
                          (assoc-in [:players 0 :cash] 10))]
       ;; Should throw exception for insufficient funds
-      (is (thrown? Exception (u/apply-property-unmortgage game-state :mediterranean-ave)))))
+      (is (thrown? Exception (u/apply-property-unmortgage game-state (u/current-player game-state) :mediterranean-ave)))))
 
   (testing "apply-property-unmortgage validates property is mortgaged"
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0})
                          (assoc-in [:players 0 :cash] 1000))]
       ;; Should throw exception for non-mortgaged property
-      (is (thrown? Exception (u/apply-property-unmortgage game-state :mediterranean-ave))))))
+      (is (thrown? Exception (u/apply-property-unmortgage game-state (u/current-player game-state) :mediterranean-ave))))))
+
+;; ======= Bankruptcy Turn Order Tests ===================
+;; 
+;; These tests validate the critical "player after bankruptcy getting skipped" bug fix
+;; by testing the next-player function and turn management utilities
+
+(deftest next-player-with-bankruptcy-test
+  "Test that next-player function properly skips bankrupt players"
+  (testing "next-player skips single bankrupt player"
+    (let [game-state (-> (c/init-game-state 4)
+                         (assoc-in [:current-turn :player] "A")
+                         (assoc-in [:players 1 :status] :bankrupt))] ; Mark B as bankrupt
+      ;; From A, next should be C (skipping bankrupt B)
+      (is (= "C" (:id (u/next-player game-state))))))
+
+  (testing "next-player handles multiple bankrupt players"
+    (let [game-state (-> (c/init-game-state 4)
+                         (assoc-in [:current-turn :player] "A")
+                         (assoc-in [:players 1 :status] :bankrupt) ; Mark B as bankrupt
+                         (assoc-in [:players 2 :status] :bankrupt))] ; Mark C as bankrupt
+      ;; From A, next should be D (skipping bankrupt B and C)
+      (is (= "D" (:id (u/next-player game-state))))))
+
+  (testing "next-player handles wrap-around with bankruptcy"
+    (let [game-state (-> (c/init-game-state 4)
+                         (assoc-in [:current-turn :player] "D")
+                         (assoc-in [:players 1 :status] :bankrupt))] ; Mark B as bankrupt
+      ;; From D, next should wrap to A (skipping bankrupt B)
+      (is (= "A" (:id (u/next-player game-state))))))
+
+  (testing "next-player systematic turn order validation"
+    ;; Test all possible current player positions with bankrupt middle player
+    (let [base-state (-> (c/init-game-state 4)
+                         (assoc-in [:players 1 :status] :bankrupt))] ; Mark B as bankrupt
+      
+      (doseq [[current-player expected-next] [["A" "C"]  ; A -> C (skip B)
+                                              ["C" "D"]  ; C -> D 
+                                              ["D" "A"]]] ; D -> A (wrap around, skip B)
+        (let [game-state (assoc-in base-state [:current-turn :player] current-player)
+              result (u/next-player game-state)]
+          (is (= expected-next (:id result))
+              (str "From player " current-player " should go to " expected-next 
+                   " but got " (:id result)))))))
+
+  (testing "next-player edge cases"
+    ;; Last player bankruptcy
+    (let [game-state (-> (c/init-game-state 4)
+                         (assoc-in [:current-turn :player] "D")
+                         (assoc-in [:players 3 :status] :bankrupt))]
+      (is (= "A" (:id (u/next-player game-state)))))
+    
+    ;; First player bankruptcy  
+    (let [game-state (-> (c/init-game-state 4)
+                         (assoc-in [:current-turn :player] "A")
+                         (assoc-in [:players 0 :status] :bankrupt))]
+      (is (= "B" (:id (u/next-player game-state)))))
+    
+    ;; Only one active player remaining
+    (let [game-state (-> (c/init-game-state 4)
+                         (assoc-in [:current-turn :player] "A")
+                         (assoc-in [:players 1 :status] :bankrupt)
+                         (assoc-in [:players 2 :status] :bankrupt)
+                         (assoc-in [:players 3 :status] :bankrupt))]
+      (is (= "A" (:id (u/next-player game-state)))))))
+
+(deftest apply-end-turn-with-bankruptcy-test
+  "Test that apply-end-turn advances to correct player after bankruptcy"
+  (testing "apply-end-turn skips bankrupt players"
+    (let [initial-state (-> (c/init-game-state 4)
+                            (assoc-in [:current-turn :player] "A")
+                            (assoc-in [:players 1 :status] :bankrupt)) ; Mark B as bankrupt
+          result-state (u/apply-end-turn initial-state)]
+      ;; Should advance to C (skipping bankrupt B)
+      (is (= "C" (get-in result-state [:current-turn :player])))
+      ;; Dice rolls should be cleared
+      (is (empty? (get-in result-state [:current-turn :dice-rolls])))))
+
+  (testing "apply-end-turn handles multiple consecutive bankruptcies"
+    (let [initial-state (-> (c/init-game-state 5)
+                            (assoc-in [:current-turn :player] "A")
+                            (assoc-in [:players 1 :status] :bankrupt) ; Mark B as bankrupt
+                            (assoc-in [:players 2 :status] :bankrupt) ; Mark C as bankrupt
+                            (assoc-in [:players 3 :status] :bankrupt)) ; Mark D as bankrupt
+          result-state (u/apply-end-turn initial-state)]
+      ;; Should advance to E (skipping all bankrupt players)
+      (is (= "E" (get-in result-state [:current-turn :player]))))))
+
+(deftest bankruptcy-turn-order-regression-test
+  "Regression test for the specific 'player after bankruptcy getting skipped' bug"
+  (testing "Player immediately after bankrupt player gets their turn"
+    ;; This test would have failed before the bug fix
+    (let [game-state (-> (c/init-game-state 4)
+                         (assoc-in [:current-turn :player] "A")
+                         (assoc-in [:players 1 :status] :bankrupt))] ; B goes bankrupt
+      
+      ;; Critical test: from A, next should be C (not skip C and go to D)
+      (is (= "C" (:id (u/next-player game-state)))
+          "After B goes bankrupt, turn from A should go to C (not skip C)")))
+
+  (testing "Bug doesn't occur with different bankrupt positions"
+    (doseq [[bankrupt-idx next-expected] [[0 "B"]  ; A bankrupt -> B
+                                          [1 "C"]  ; B bankrupt -> C  
+                                          [2 "D"]  ; C bankrupt -> D
+                                          [3 "A"]]] ; D bankrupt -> A (wrap)
+      
+      (let [bankrupt-player (nth ["A" "B" "C" "D"] bankrupt-idx)
+            game-state (-> (c/init-game-state 4)
+                           (assoc-in [:current-turn :player] bankrupt-player)
+                           (assoc-in [:players bankrupt-idx :status] :bankrupt))
+            next-player-result (u/next-player game-state)]
+        
+        (is (= next-expected (:id next-player-result))
+            (str "When " bankrupt-player " is bankrupt, next player should be " 
+                 next-expected " not " (:id next-player-result))))))
+
+  (testing "Complex scenario with multiple bankruptcies preserves turn order"
+    ;; Simulate progressive bankruptcies to ensure no cascading skips
+    (let [initial-state (c/init-game-state 4)]
+      
+      ;; Test sequence: Normal -> B bankrupt -> B+C bankrupt
+      (let [b-bankrupt (assoc-in initial-state [:players 1 :status] :bankrupt)
+            bc-bankrupt (assoc-in b-bankrupt [:players 2 :status] :bankrupt)]
+        
+        ;; With B bankrupt: A -> C -> D -> A
+        (is (= "C" (:id (u/next-player (assoc-in b-bankrupt [:current-turn :player] "A")))))
+        (is (= "D" (:id (u/next-player (assoc-in b-bankrupt [:current-turn :player] "C")))))
+        (is (= "A" (:id (u/next-player (assoc-in b-bankrupt [:current-turn :player] "D")))))
+        
+        ;; With B+C bankrupt: A -> D -> A
+        (is (= "D" (:id (u/next-player (assoc-in bc-bankrupt [:current-turn :player] "A")))))
+        (is (= "A" (:id (u/next-player (assoc-in bc-bankrupt [:current-turn :player] "D")))))))))

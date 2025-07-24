@@ -1,28 +1,8 @@
 (ns jmshelby.monopoly.trade
   (:require [clojure.set :as set
              :refer [union subset? difference]]
-            [jmshelby.monopoly.util :as util]))
-
-;; TODO - similar to the "transfer-property" fn player, but that actually does "acquisition" logic for mortgaged properties
-(defn- exchange-properties
-  ;; TODO - add notes, emphasising that this doesn't validate the exchange
-  [game-state from-pidx to-pidx prop-names]
-  (let [;; Get player maps
-        ;; to-player   (get-in game-state [:players to-pidx])
-        from-player (get-in game-state [:players from-pidx])
-        ;; Get 'from' player property states, only
-        ;; needed to preserve mortgaged status
-        prop-states (select-keys (:properties from-player) prop-names)]
-    (-> game-state
-        ;; Remove props from the 'from' player
-        (update-in [:players from-pidx :properties]
-                   ;; Just a dissoc that takes a set
-                   (partial apply dissoc) prop-names)
-        ;; Add props + existing state to the 'to' player
-        (update-in [:players to-pidx :properties]
-                   ;; Just a conj of existing prop states
-                   ;; into player's own property state map
-                   conj prop-states))))
+            [jmshelby.monopoly.util :as util]
+            [jmshelby.monopoly.property :as property]))
 
 (defn- apply-trade
   "Given a game state and a proposal, exchange the resources
@@ -30,11 +10,11 @@
   [game-state proposal]
   (let [;; Get player indexes
         {pidx-proposer
-         :player-index} (util/player-by-id
-                         game-state (:trade/from-player proposal))
+         :player-index :as proposer}
+        (util/player-by-id game-state (:trade/from-player proposal))
         {pidx-acceptor
-         :player-index} (util/player-by-id
-                         game-state (:trade/to-player proposal))
+         :player-index :as acceptor}
+        (util/player-by-id game-state (:trade/to-player proposal))
         ;; Pull out both sides of the proposal and ensure
         ;; all resource keys are available with empty values
         stub-defaults   (fn [p] (merge {:cash       0
@@ -61,9 +41,9 @@
         (update-in [:players pidx-acceptor :cards] union (:cards offering))
         (update-in [:players pidx-proposer :cards] difference (:cards offering))
         ;; Properties: acceptor -> proposer
-        (exchange-properties pidx-acceptor pidx-proposer (:properties asking))
+        (property/transfer acceptor proposer (:properties asking))
         ;; Properties: proposer -> acceptor
-        (exchange-properties pidx-proposer pidx-acceptor (:properties offering)))))
+        (property/transfer proposer acceptor (:properties offering)))))
 
 (defn- append-tx
   [game-state status proposal]
@@ -119,13 +99,13 @@
     ;; TODO - maybe we just assume it's valid and the caller can validate first...
     (when-not
      (and
-          ;; The current player is offering
-          ;; TODO - Should *we* really care about this?
+      ;; The current player is offering
+      ;; TODO - Should *we* really care about this?
       (= (:id from-player)
          (:trade/from-player proposal))
-          ;; Offerred player has resources
+      ;; Offerred player has resources
       (validate-side to-player asking)
-          ;; Offering player has resources
+      ;; Offering player has resources
       (validate-side from-player offering))
       (throw (ex-info "Invalid trade proposal"
                       {:checks     {;; The current player is offering
@@ -157,10 +137,10 @@
         ;; Accepted
         :accept
         (-> game-state
+            ;; Log tx
+            (append-tx :accept proposal)
             ;; Perform transaction of resources
-            (apply-trade proposal)
-            ;; Log last status/stage
-            (append-tx :accept proposal))))))
+            (apply-trade proposal))))))
 
 ;; TODO - This is actually pretty kind-of a hard part of logic to write ... lots of different cases...
 ;;        Perhaps a rules engine would be better, because it could be many and/or/and combinations

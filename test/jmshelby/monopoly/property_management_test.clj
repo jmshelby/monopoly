@@ -1,7 +1,8 @@
 (ns jmshelby.monopoly.property-management-test
   (:require [clojure.test :refer :all]
             [jmshelby.monopoly.util :as u]
-            [jmshelby.monopoly.core :as c]))
+            [jmshelby.monopoly.core :as c]
+            [jmshelby.monopoly.util :as util]))
 
 ;; ======= Property Management Workflow Tests ===================
 
@@ -46,7 +47,9 @@
                             (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 2})
                             (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 2}))
           ;; Sell a house to raise funds
-          after-sale (u/apply-house-sale initial-state :mediterranean-ave)
+          after-sale (u/apply-house-sale initial-state
+                                         (u/current-player initial-state)
+                                         :mediterranean-ave)
           player-after-sale (u/current-player after-sale)]
 
       ;; Cash should increase from house sale
@@ -62,7 +65,7 @@
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 0})
                          (assoc-in [:players 0 :properties :baltic-ave] {:status :mortgaged :house-count 0}))
           ;; Unmortgage to complete monopoly
-          after-unmortgage (u/apply-property-unmortgage game-state :baltic-ave)
+          after-unmortgage (u/apply-property-unmortgage game-state (u/current-player game-state) :baltic-ave)
           player-after (u/current-player after-unmortgage)]
 
       ;; Both properties should now be paid
@@ -79,14 +82,15 @@
                          (assoc-in [:players 0 :cash] 100)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 3})
                          (assoc-in [:players 0 :properties :baltic-ave] {:status :paid :house-count 3})
-                         (assoc-in [:players 0 :properties :oriental-ave] {:status :mortgaged :house-count 0}))]
+                         (assoc-in [:players 0 :properties :oriental-ave] {:status :mortgaged :house-count 0}))
+          player (util/current-player game-state)]
 
       ;; When cash is low, should prioritize house selling over unmortgaging
-      (is (u/can-sell-any-house? game-state))
-      (is (u/can-unmortgage-any-property? game-state))
+      (is (u/can-sell-any-house? game-state player))
+      (is (u/can-unmortgage-any-property? game-state player))
 
       ;; After selling houses, should have more cash
-      (let [after-sale (u/apply-house-sale game-state :mediterranean-ave)
+      (let [after-sale (u/apply-house-sale game-state player :mediterranean-ave)
             player-after (u/current-player after-sale)]
         (is (= 125 (:cash player-after))) ; 100 + 25 from house sale
         (is (= 2 (get-in player-after [:properties :mediterranean-ave :house-count])))))))
@@ -120,20 +124,21 @@
     (let [game-state (-> (c/init-game-state 2)
                          (assoc-in [:players 0 :cash] 300)
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 1})
-                         (assoc-in [:players 0 :properties :baltic-ave] {:status :mortgaged :house-count 0}))]
+                         (assoc-in [:players 0 :properties :baltic-ave] {:status :mortgaged :house-count 0}))
+          player (util/current-player game-state)]
 
       ;; Test each action produces valid state transitions
       ;; Test house selling
-      (when (u/can-sell-any-house? game-state)
-        (let [after-sale (u/apply-house-sale game-state :mediterranean-ave)
+      (when (u/can-sell-any-house? game-state player)
+        (let [after-sale (u/apply-house-sale game-state player :mediterranean-ave)
               player-after (u/current-player after-sale)]
           (is (>= (:cash player-after) (:cash (u/current-player game-state))))
           (is (< (get-in player-after [:properties :mediterranean-ave :house-count])
                  (get-in (u/current-player game-state) [:properties :mediterranean-ave :house-count])))))
 
       ;; Test unmortgaging
-      (when (u/can-unmortgage-any-property? game-state)
-        (let [after-unmortgage (u/apply-property-unmortgage game-state :baltic-ave)
+      (when (u/can-unmortgage-any-property? game-state (u/current-player game-state))
+        (let [after-unmortgage (u/apply-property-unmortgage game-state (u/current-player game-state) :baltic-ave)
               player-after (u/current-player after-unmortgage)]
           (is (< (:cash player-after) (:cash (u/current-player game-state))))
           (is (= :paid (get-in player-after [:properties :baltic-ave :status])))))
@@ -149,10 +154,11 @@
                             (assoc-in [:players 0 :cash] 1000)
                             (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 2})
                             (assoc-in [:players 0 :properties :oriental-ave] {:status :paid :house-count 0}))
+          player (u/current-player initial-state)
           ;; Sequence: sell house -> mortgage property -> unmortgage property
-          after-sell (u/apply-house-sale initial-state :mediterranean-ave)
-          after-mortgage (u/apply-property-mortgage after-sell :oriental-ave)
-          after-unmortgage (u/apply-property-unmortgage after-mortgage :oriental-ave)
+          after-sell (u/apply-house-sale initial-state player :mediterranean-ave)
+          after-mortgage (u/apply-property-mortgage after-sell (u/current-player after-sell) :oriental-ave)
+          after-unmortgage (u/apply-property-unmortgage after-mortgage (u/current-player after-mortgage) :oriental-ave)
           final-player (u/current-player after-unmortgage)]
 
       ;; Verify the sequence completed successfully
@@ -171,13 +177,14 @@
                          ;; Set up for potential auction scenario
                          (assoc-in [:players 0 :cash] 50) ; Low cash might affect auction bidding
                          (assoc-in [:players 0 :properties :mediterranean-ave] {:status :paid :house-count 1})
-                         (assoc-in [:players 1 :cash] 200))]
+                         (assoc-in [:players 1 :cash] 200))
+          player (util/current-player game-state)]
 
       ;; Player 0 should be able to sell house to raise auction funds
-      (is (u/can-sell-any-house? game-state))
+      (is (u/can-sell-any-house? game-state player))
 
       ;; After selling house, should have more cash for auctions
-      (let [after-sale (u/apply-house-sale game-state :mediterranean-ave)
+      (let [after-sale (u/apply-house-sale game-state player :mediterranean-ave)
             player-after (u/current-player after-sale)]
         (is (= 75 (:cash player-after))) ; Should now have more for auction bidding
         (is (= 0 (get-in player-after [:properties :mediterranean-ave :house-count])))))))
@@ -209,9 +216,11 @@
                             (assoc-in [:players 0 :properties :oriental-ave] {:status :paid :house-count 0}))]
 
       ;; Perform rapid operations: sell house, mortgage, unmortgage
-      (let [after-sale (u/apply-house-sale initial-state :mediterranean-ave)
-            after-mortgage (u/apply-property-mortgage after-sale :oriental-ave)
-            after-unmortgage (u/apply-property-unmortgage after-mortgage :oriental-ave)
+      (let [after-sale (u/apply-house-sale initial-state
+                                           (u/current-player initial-state)
+                                           :mediterranean-ave)
+            after-mortgage (u/apply-property-mortgage after-sale (u/current-player after-sale) :oriental-ave)
+            after-unmortgage (u/apply-property-unmortgage after-mortgage (u/current-player after-mortgage) :oriental-ave)
             final-player (u/current-player after-unmortgage)]
 
         ;; Verify final state is consistent

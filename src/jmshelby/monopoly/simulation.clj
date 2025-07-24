@@ -5,6 +5,72 @@
             [clojure.core.async :as async :refer [>! <! >!! <!! go go-loop chan close! pipeline thread]]
             [clojure.tools.cli :as cli]))
 
+(defn analyze-building-scarcity
+  "Analyze building inventory scarcity patterns from game transactions"
+  [transactions]
+  (let [building-txs (->> transactions
+                          (filter #(#{:purchase-house :sell-house} (:type %)))
+                          (filter #(and (:houses-available %) (:hotels-available %))))
+        
+        ;; Track shortages
+        house-shortages (->> building-txs
+                             (filter #(< (:houses-available %) 5))
+                             count)
+        hotel-shortages (->> building-txs
+                             (filter #(= (:hotels-available %) 0))
+                             count)
+        
+        ;; Critical shortages (very low inventory)
+        critical-house-shortages (->> building-txs
+                                      (filter #(<= (:houses-available %) 2))
+                                      count)
+        
+        ;; Last building purchases
+        last-house-purchases (->> building-txs
+                                  (filter #(and (= :purchase-house (:type %))
+                                                (= (:houses-available %) 0)))
+                                  count)
+        last-hotel-purchases (->> building-txs
+                                  (filter #(and (= :purchase-house (:type %))
+                                                (= :hotel (:building-type %))
+                                                (= (:hotels-available %) 0)))
+                                  count)
+        
+        ;; Simplified shortage analysis - count shortage periods
+        shortage-states (->> building-txs
+                             (map-indexed (fn [idx tx]
+                                            {:idx idx
+                                             :houses-low? (< (:houses-available tx) 5)
+                                             :hotels-gone? (= (:hotels-available tx) 0)}))
+                             (map #(assoc % :has-shortage? (or (:houses-low? %) (:hotels-gone? %)))))
+        
+        ;; Simple shortage periods calculation
+        shortage-transitions (->> shortage-states
+                                  (partition 2 1)
+                                  (filter (fn [[prev curr]]
+                                            ;; Look for transitions into shortage
+                                            (and (not (:has-shortage? prev))
+                                                 (:has-shortage? curr))))
+                                  count)
+        
+        max-shortage-duration (->> shortage-states
+                                   (partition-by :has-shortage?)
+                                   (filter #(:has-shortage? (first %)))
+                                   (map count)
+                                   (apply max 0))]
+    
+    {:building-transaction-count (count building-txs)
+     :house-shortage-transactions house-shortages
+     :hotel-shortage-transactions hotel-shortages
+     :critical-house-shortage-transactions critical-house-shortages
+     :last-house-purchases last-house-purchases
+     :last-hotel-purchases last-hotel-purchases
+     :total-shortage-periods shortage-transitions
+     :max-shortage-duration max-shortage-duration
+     :avg-shortage-duration (when (and (seq shortage-states) (> shortage-transitions 0))
+                              (double (/ max-shortage-duration shortage-transitions)))
+     :had-building-shortages (or (> house-shortages 0) (> hotel-shortages 0))}))
+
 (defn analyze-game-outcome
   "Analyze a single game result and return outcome statistics"
   [game-state]
@@ -21,7 +87,10 @@
         ;; Auction reason breakdown
         property-declined-auctions (->> auction-initiated-txs (filter #(= :property-declined (:reason %))))
         bankruptcy-auctions (->> auction-initiated-txs (filter #(= :bankruptcy (:reason %))))
-        purchase-txs (->> transactions (filter #(= :purchase (:type %))))]
+        purchase-txs (->> transactions (filter #(= :purchase (:type %))))
+        
+        ;; Building scarcity analysis
+        building-analysis (analyze-building-scarcity transactions)]
     {:has-winner (= 1 (count active-players))
      :winner-id winner-id
      :transaction-count tx-count
@@ -46,7 +115,10 @@
      :property-declined-auction-count (count property-declined-auctions)
      :bankruptcy-auction-count (count bankruptcy-auctions)
      :property-declined-auctions property-declined-auctions
-     :bankruptcy-auctions bankruptcy-auctions}))
+     :bankruptcy-auctions bankruptcy-auctions
+     
+     ;; Building scarcity results
+     :building-scarcity building-analysis}))
 
 (defn run-simulation
   "Run a large number of game simulations using core.async pipeline for memory efficiency"
@@ -144,6 +216,25 @@
                                     (mapcat :auction-passed-transactions)
                                     (take 10))
 
+         ;; Building scarcity analysis
+         games-with-building-shortages (->> results 
+                                             (filter #(get-in % [:building-scarcity :had-building-shortages])))
+         building-shortage-occurrence-rate (* 100.0 (/ (count games-with-building-shortages) num-games))
+         
+         total-house-shortage-transactions (apply + (map #(get-in % [:building-scarcity :house-shortage-transactions] 0) results))
+         total-hotel-shortage-transactions (apply + (map #(get-in % [:building-scarcity :hotel-shortage-transactions] 0) results))
+         total-critical-house-shortages (apply + (map #(get-in % [:building-scarcity :critical-house-shortage-transactions] 0) results))
+         total-last-house-purchases (apply + (map #(get-in % [:building-scarcity :last-house-purchases] 0) results))
+         total-last-hotel-purchases (apply + (map #(get-in % [:building-scarcity :last-hotel-purchases] 0) results))
+         total-shortage-periods (apply + (map #(get-in % [:building-scarcity :total-shortage-periods] 0) results))
+         
+         avg-shortage-durations (->> results
+                                     (map #(get-in % [:building-scarcity :avg-shortage-duration]))
+                                     (filter some?))
+         max-shortage-durations (->> results
+                                     (map #(get-in % [:building-scarcity :max-shortage-duration]))
+                                     (filter some?))
+
         ;; Incomplete game analysis
          incomplete-games (->> games-without-winner
                                (group-by :active-player-count)
@@ -221,6 +312,21 @@
                 :sample-auction-completions sample-auction-completions
                 :sample-auction-passed sample-auction-passed
 
+                ;; Building scarcity statistics
+                :games-with-building-shortages (count games-with-building-shortages)
+                :building-shortage-occurrence-rate building-shortage-occurrence-rate
+                :total-house-shortage-transactions total-house-shortage-transactions
+                :total-hotel-shortage-transactions total-hotel-shortage-transactions
+                :total-critical-house-shortages total-critical-house-shortages
+                :total-last-house-purchases total-last-house-purchases
+                :total-last-hotel-purchases total-last-hotel-purchases
+                :total-shortage-periods total-shortage-periods
+                :avg-shortage-duration-per-game (when (seq avg-shortage-durations)
+                                                   (double (/ (apply + avg-shortage-durations)
+                                                              (count avg-shortage-durations))))
+                :max-shortage-duration-overall (when (seq max-shortage-durations)
+                                                 (apply max max-shortage-durations))
+
                 :incomplete-game-breakdown incomplete-games}]
 
      (println (format "Simulation completed in %.1f seconds" (/ duration-ms 1000.0)))
@@ -239,7 +345,10 @@
                 avg-auctions-passed-per-game auction-completion-rate auction-passed-rate auction-to-purchase-ratio
                 property-declined-auction-occurrence-rate bankruptcy-auction-occurrence-rate
                 property-declined-to-bankruptcy-auction-ratio total-property-declined-auctions total-bankruptcy-auctions
-                auction-initiated-stats sample-auction-initiations sample-auction-completions sample-auction-passed]} stats]
+                auction-initiated-stats sample-auction-initiations sample-auction-completions sample-auction-passed
+                games-with-building-shortages building-shortage-occurrence-rate total-house-shortage-transactions
+                total-hotel-shortage-transactions total-critical-house-shortages total-last-house-purchases
+                total-last-hotel-purchases total-shortage-periods avg-shortage-duration-per-game max-shortage-duration-overall]} stats]
 
     (println "\n=== MONOPOLY SIMULATION RESULTS ===")
     (println)
@@ -329,6 +438,24 @@
                 (clojure.string/join ", " (:participants auction)))))
     (when (= 0 total-auctions-initiated)
       (println "   🤔 No auctions initiated - all properties likely purchased before cash pressure"))
+    (println)
+
+    ;; Building Scarcity Statistics
+    (println "🏠 BUILDING SCARCITY ANALYSIS")
+    (printf "   Games with Building Shortages: %d (%.2f%%)\n" 
+            games-with-building-shortages building-shortage-occurrence-rate)
+    (printf "   Total House Shortage Transactions: %d\n" total-house-shortage-transactions)
+    (printf "   Total Hotel Shortage Transactions: %d\n" total-hotel-shortage-transactions)
+    (printf "   Critical House Shortages (≤2 houses): %d\n" total-critical-house-shortages)
+    (printf "   Last House Purchases (inventory exhausted): %d\n" total-last-house-purchases)
+    (printf "   Last Hotel Purchases (inventory exhausted): %d\n" total-last-hotel-purchases)
+    (printf "   Total Shortage Periods: %d\n" total-shortage-periods)
+    (when avg-shortage-duration-per-game
+      (printf "   Average Shortage Duration per Game: %.2f transactions\n" avg-shortage-duration-per-game))
+    (when max-shortage-duration-overall
+      (printf "   Maximum Shortage Duration: %d transactions\n" max-shortage-duration-overall))
+    (when (= 0 games-with-building-shortages)
+      (println "   📈 No building shortages observed - inventory constraints not reached"))
     (println)
 
     ;; Failsafe Transaction Statistics
