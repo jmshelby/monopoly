@@ -466,14 +466,14 @@
 
   (def sim (rand-game-end-state 4 2000))
 
+  sim
+
   (-> sim
       analysis/summarize-game
       analysis/print-game-summary)
 
   ;; Print detailed transaction log
   (analysis/print-transaction-log sim)
-
-  sim
 
   ;; Find an auction for one player
   (def sim
@@ -520,8 +520,6 @@
              (println "Found exception in: " idx "games")
              sim)
            (recur (inc idx)))))))
-
-
 
   (let [players    (+ 2 (rand-int 5))
         iterations (+ 20 (rand-int 500))

@@ -16,6 +16,7 @@
   price, per the board defs."
   [game-state player]
   (let [pidx        (:player-index player)
+        player-id (:id player)
         ;; Get property details
         props       (util/owned-property-details game-state [player])
         ;; Get house sell value, half price for each house
@@ -27,14 +28,24 @@
                                 (* house-count (:house-price def))))
                          (apply +)
                          util/half)]
-  ;; TODO - should this be a transaction?
-    (-> game-state
+    (if (zero? house-worth)
+      ;; No changes if no houses owned
+      game-state
+      ;; Remove all houses + add cash + liquidate transaction
+      (as-> game-state *
         ;; First sell off all houses to bank
-        (update-in [:players pidx :cash] + house-worth)
-        (update-in [:players pidx :properties]
+        (update-in * [:players pidx :cash] + house-worth)
+        (update-in * [:players pidx :properties]
                    (fn [props] (->> props
                                     (map (fn [[k m]] [k (assoc m :house-count 0)]))
-                                    (into {})))))))
+                                    (into {}))))
+        ;; Log a single tx for this bulk action,
+        ;; include building stats since that all we're liquidating
+        (util/append-tx * {:type :liquidate-assets
+                           :player player-id
+                           :proceeds house-worth
+                           :houses-available (util/houses-available *)
+                           :hotels-available (util/hotels-available *)})))))
 
 (defn- transfer-cash
   "Given a game state, from and to entities, and an amount;
