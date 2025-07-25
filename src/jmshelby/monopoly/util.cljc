@@ -47,14 +47,11 @@
   (->> board :properties
        (reduce #(assoc %1 (:name %2) %2) {})))
 
-#?(:clj
-   (def board-prop->def
-     "[Cached Version]
-     Given a board definition, return a map of
-     all properties keyed by property name."
-     (memoize *board-prop->def))
-   :cljs
-   (def board-prop->def *board-prop->def))
+(def board-prop->def
+  "[Cached Version]
+  Given a board definition, return a map of
+  all properties keyed by property name."
+  (memoize *board-prop->def))
 
 (defn *street-group-counts
   "Given a board definition, return a map of
@@ -70,17 +67,14 @@
        (map (fn [[k coll]] [k (count coll)]))
        (into {})))
 
-#?(:clj
-   (def street-group-counts
-     "[Cached Version]
-     Given a board definition, return a map of
-     'street' property groups -> count.
-     Useful for determining how many of each
-     street type property is required in order
-     to have a monopoly. "
-     (memoize *street-group-counts))
-   :cljs
-   (def street-group-counts *street-group-counts))
+(def street-group-counts
+  "[Cached Version]
+  Given a board definition, return a map of
+  'street' property groups -> count.
+  Useful for determining how many of each
+  street type property is required in order
+  to have a monopoly. "
+  (memoize *street-group-counts))
 
 (defn jail-cell-index
   "Given a board definition, return the ordinal
@@ -404,7 +398,9 @@
      ;; LRU cache with max 1000 entries to prevent memory leaks
      (memo/lru *owned-property-details :lru/threshold 1000))
    :cljs
-   (def owned-property-details *owned-property-details))
+   (def owned-property-details
+     ;; Basic memoization for ClojureScript
+     (memoize *owned-property-details)))
 
 (defn player-property-sell-worth
   "Given a game-state, and a player ID, calculate and return the player's \"sell worth\" as a cash integer.
