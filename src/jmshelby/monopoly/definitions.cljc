@@ -182,7 +182,7 @@
              :deck          :chance
              :card/effect   :pay
              :card.pay/cash 15}
-            {:text          "Doctor’s fee. Pay $50"
+            {:text          "Doctor's fee. Pay $50"
              :deck          :community-chest
              :card/effect   :pay
              :card.pay/cash 50}

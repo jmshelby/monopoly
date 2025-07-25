@@ -23,8 +23,10 @@
                                     mortgage-val (:mortgage prop)]
                                 [prop-name (assoc prop
                                                   :mortgage-value mortgage-val
-                                                  :unmortgage-cost (-> mortgage-val (* 1.1) Math/ceil int)
-                                                  :interest-fee (-> mortgage-val (* 0.1) Math/ceil int))]))
+                                                  :unmortgage-cost #?(:clj (-> mortgage-val (* 1.1) Math/ceil int)
+                                                                      :cljs (-> mortgage-val (* 1.1) js/Math.ceil int))
+                                                  :interest-fee #?(:clj (-> mortgage-val (* 0.1) Math/ceil int)
+                                                                   :cljs (-> mortgage-val (* 0.1) js/Math.ceil int)))]))
                             prop-names))}
 
         ;; Invoke player decision

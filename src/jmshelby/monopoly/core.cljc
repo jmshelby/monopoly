@@ -420,11 +420,11 @@
              (try
                (let [next-state (advance-board state)]
                  {:state next-state :exception nil})
-               (catch Exception e
+               (catch #?(:clj Exception :cljs :default) e
                  {:state state
-                  :exception (merge {:message (.getMessage e)
+                  :exception (merge {:message #?(:clj (.getMessage e) :cljs (.-message e))
                                      :type (str (type e))
-                                     :stack-trace (mapv str (.getStackTrace e))
+                                     :stack-trace #?(:clj (mapv str (.getStackTrace e)) :cljs nil)
                                      :iteration iteration
                                      :last-transaction (last (:transactions state))
                                      :current-player (get-in state [:current-turn :player])
@@ -432,8 +432,9 @@
                                                        (map #(vector (:id %) (select-keys % [:cash :status])))
                                                        (into {}))}
                                     ;; Include ex-info data if available
-                                    (when (instance? clojure.lang.ExceptionInfo e)
-                                      {:ex-data (ex-data e)}))})))]
+                                    #?(:clj (when (instance? clojure.lang.ExceptionInfo e)
+                                              {:ex-data (ex-data e)})
+                                       :cljs nil))})))]
      (loop [current-state (init-game-state players)
             iteration-count 0]
        (let [{:keys [state exception]} (safe-advance current-state iteration-count)]
