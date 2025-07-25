@@ -1,6 +1,6 @@
 (ns jmshelby.monopoly.util
   (:require [clojure.set :as set]
-            [clojure.core.memoize :as memo]))
+            #?(:clj [clojure.core.memoize :as memo])))
 
 ;; ======= General =============================
 
@@ -35,7 +35,8 @@
 (defn roll-dice
   "Return a random dice roll of n # of dice"
   [n]
-  (vec (repeatedly n #(inc (rand-int 6)))))
+  #?(:clj (vec (repeatedly n #(inc (rand-int 6))))
+     :cljs (vec (repeatedly n #(inc (rand-int 6))))))
 
 ;; ======= Definition Derivations ==============
 
@@ -392,9 +393,14 @@
                               (street-group->count (-> deets :def :group-name))))])))
           (into {})))))
 
-(def owned-property-details
-  ;; LRU cache with max 1000 entries to prevent memory leaks
-  (memo/lru *owned-property-details :lru/threshold 1000))
+#?(:clj
+   (def owned-property-details
+     ;; LRU cache with max 1000 entries to prevent memory leaks
+     (memo/lru *owned-property-details :lru/threshold 1000))
+   :cljs
+   (def owned-property-details
+     ;; Basic memoization for ClojureScript
+     (memoize *owned-property-details)))
 
 (defn player-property-sell-worth
   "Given a game-state, and a player ID, calculate and return the player's \"sell worth\" as a cash integer.
@@ -1098,7 +1104,8 @@
         property       (->> game-state :board :properties
                             (filter #(= property-name (:name %)))
                             first)
-        unmortgage-price (-> property :mortgage (* 1.1) Math/ceil int)
+        unmortgage-price #?(:clj (-> property :mortgage (* 1.1) Math/ceil int)
+                            :cljs (-> property :mortgage (* 1.1) js/Math.ceil int))
         prop-state       (get-in player [:properties property-name])]
 
     ;; Validate - make sure they own it
@@ -1167,6 +1174,7 @@
                  (let [property (->> game-state :board :properties
                                      (filter #(= prop-name (:name %)))
                                      first)
-                       unmortgage-cost (-> property :mortgage (* 1.1) Math/ceil int)]
+                       unmortgage-cost #?(:clj (-> property :mortgage (* 1.1) Math/ceil int)
+                                          :cljs (-> property :mortgage (* 1.1) js/Math.ceil int))]
                    (>= (:cash player) unmortgage-cost))))
          boolean)))
