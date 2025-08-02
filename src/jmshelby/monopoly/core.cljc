@@ -9,8 +9,7 @@
             [jmshelby.monopoly.player :as player]
             [jmshelby.monopoly.definitions :as defs]
             [jmshelby.monopoly.players.dumb :as dumb-player]
-            ;; [jmshelby.monopoly.analysis :as analysis]
-            ))
+            [jmshelby.monopoly.analysis :as analysis]))
 
 ;; Game state, schema
 (def example-state
@@ -472,12 +471,12 @@
 
   (:transactions sim)
 
-  ;; (-> sim
-  ;;     analysis/summarize-game
-  ;;     analysis/print-game-summary)
+  (-> sim
+      analysis/summarize-game
+      analysis/print-game-summary)
 
   ;; Print detailed transaction log
-  ;; (analysis/print-transaction-log sim)
+  (analysis/print-transaction-log sim)
 
   ;; Find an auction for one player
   (def sim
