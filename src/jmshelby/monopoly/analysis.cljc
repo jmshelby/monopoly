@@ -10,6 +10,12 @@
   #?(:clj (apply clojure.core/printf fmt args)
      :cljs (print (apply str args))))
 
+(defn format
+  "Cross-platform format that works in both Clojure and ClojureScript"
+  [fmt & args]
+  #?(:clj (apply clojure.core/format fmt args)
+     :cljs (apply str args)))
+
 (defn summarize-game
   "Analyze a game state and transactions to provide a summary of what happened.
   Includes basic statistics, player outcomes, and potential inconsistencies."
