@@ -1,6 +1,14 @@
 (ns jmshelby.monopoly.analysis
   (:require [jmshelby.monopoly.util :as util]
-            [clojure.set :as set]))
+            [clojure.set :as set]
+            #?(:clj [clojure.string :as string]
+               :cljs [clojure.string :as string])))
+
+(defn printf 
+  "Cross-platform printf that works in both Clojure and ClojureScript"
+  [fmt & args]
+  #?(:clj (apply clojure.core/printf fmt args)
+     :cljs (print (apply str args))))
 
 (defn summarize-game
   "Analyze a game state and transactions to provide a summary of what happened.
