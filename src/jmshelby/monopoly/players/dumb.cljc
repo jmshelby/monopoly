@@ -88,9 +88,9 @@
          ;; - not monopolized
          (remove :group-monopoly?)
          ;; - Only one left to get a monopoly
-         ;;   filter (group-owned / group-total) >= 1/2
+         ;;   filter (group-owned / group-total) >= 0.5
          (filter (fn [prop]
-                   (<= 1/2
+                   (<= 0.5
                        (/ (:group-owned-count prop)
                           (group->count (-> prop :def :group-name))))))
          ;; - grouped by group name
@@ -119,13 +119,13 @@
          (filter #(= player-id (:owner %)))
          ;; - Groups that we only own 1 spot of,
          ;;   or any non-street type
-         ;;   -> filter (group-owned / group-total) < 1/2
+         ;;   -> filter (group-owned / group-total) < 0.5
          ;;    OR utils OR railroads
          (filter (fn [prop]
                    (let [type (-> prop :def :type)]
                      (or (= :utility type)
                          (= :railroad type)
-                         (> 1/2
+                         (> 0.5
                             (/ (:group-owned-count prop)
                                (group->count (-> prop :def :group-name))))))))
          ;; - attach a value
@@ -316,7 +316,8 @@
                                     (->> owned-props
                                          (filter #(= :mortgaged (:status %)))
                                          (filter #(let [property (-> % :def)
-                                                        unmortgage-cost (-> property :mortgage (* 1.1) Math/ceil int)]
+                                                        unmortgage-cost #?(:clj (-> property :mortgage (* 1.1) Math/ceil int)
+                                                                           :cljs (-> property :mortgage (* 1.1) js/Math.ceil int))]
                                                     (>= cash unmortgage-cost)))
                                          (sort-by #(-> % :def :mortgage))))
             ;; Pre-compute properties that we could mortgage, if needed
