@@ -14,7 +14,16 @@
   "Cross-platform format that works in both Clojure and ClojureScript"
   [fmt & args]
   #?(:clj (apply clojure.core/format fmt args)
-     :cljs (apply str args)))
+     :cljs (let [fmt-str (str fmt)]
+             (loop [result fmt-str
+                    remaining-args args]
+               (if (or (empty? remaining-args)
+                       (not (re-find #"%[sd]" result)))
+                 result
+                 (let [arg (first remaining-args)
+                       ;; Replace first %s or %d with the argument
+                       new-result (clojure.string/replace-first result #"%[sd]" (str arg))]
+                   (recur new-result (rest remaining-args))))))))
 
 (defn summarize-game
   "Analyze a game state and transactions to provide a summary of what happened.
