@@ -1,4 +1,5 @@
 (ns jmshelby.monopoly.analysis
+  (:refer-clojure :exclude [format printf])
   (:require [jmshelby.monopoly.util :as util]
             [clojure.set :as set]
             #?(:clj [clojure.string :as string]
