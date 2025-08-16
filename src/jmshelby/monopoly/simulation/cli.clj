@@ -1,5 +1,5 @@
 (ns jmshelby.monopoly.simulation.cli
-  (:require [jmshelby.monopoly.simulation.core :as sim-core]
+  (:require [jmshelby.monopoly.simulation :as sim]
             [clojure.pprint :as pprint]
             [clojure.tools.cli :as cli]
             [clojure.string]))
@@ -159,7 +159,7 @@
    (let [progress-reporter (fn [game-num]
                              (when (= 0 (mod game-num 100))
                                (println (format "Completed %d/%d games..." game-num num-games))))
-         stats (time (sim-core/run-simulation num-games num-players safety-threshold))]
+         stats (time (sim/run-simulation num-games num-players safety-threshold))]
      (println (format "Simulation completed in %.1f seconds" (:duration-seconds stats)))
      (print-simulation-results stats)
      stats)))
