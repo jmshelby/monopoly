@@ -1,7 +1,8 @@
 (ns jmshelby.monopoly.simulation
   (:require [jmshelby.monopoly.core :as core]
             [jmshelby.monopoly.util :as util]
-            [clojure.core.async :as async :refer [>! <! >!! <!! go go-loop chan close! pipeline thread]]))
+            #?(:clj [clojure.core.async :as async :refer [>! <! >!! <!! go go-loop chan close! pipeline thread]]
+               :cljs [cljs.core.async :as async :refer [>! <! chan close! pipeline]])))
 
 (defn analyze-building-scarcity
   "Analyze building inventory scarcity patterns from game transactions"
@@ -293,39 +294,52 @@
    Returns simulation statistics."
   ([num-games] (run-simulation num-games 4 1500))
   ([num-games num-players safety-threshold]
-   (let [start-time (System/currentTimeMillis)
-         parallelism  (+ 2 (* 2 (.. Runtime getRuntime availableProcessors)))
+   #?(:clj
+      (let [start-time (System/currentTimeMillis)
+            parallelism  (+ 2 (* 2 (.. Runtime getRuntime availableProcessors)))
 
-         ;; Create channels
-         input-ch (async/chan 10)    ; Buffer for game numbers
-         output-ch (async/chan 200)   ; Buffer for results
+            ;; Create channels
+            input-ch (async/chan 10)    ; Buffer for game numbers
+            output-ch (async/chan 200)   ; Buffer for results
 
-         ;; Function that processes a single game
-         process-game (fn [game-num]
-                        (let [game-state (core/rand-game-end-state num-players safety-threshold)]
-                          ;; Extract minimal stats and let GC clean up the full game state
-                          (analyze-game-outcome game-state)))
+            ;; Function that processes a single game
+            process-game (fn [game-num]
+                           (let [game-state (core/rand-game-end-state num-players safety-threshold)]
+                             ;; Extract minimal stats and let GC clean up the full game state
+                             (analyze-game-outcome game-state)))
 
-         ;; Set up pipeline to process games in parallel with backpressure
-         pipeline-result (async/pipeline parallelism output-ch (map process-game) input-ch)
+            ;; Set up pipeline to process games in parallel with backpressure
+            pipeline-result (async/pipeline parallelism output-ch (map process-game) input-ch)
 
-         ;; Start feeding game numbers to input channel
-         feeder (async/go
-                  (doseq [game-num (range num-games)]
-                    (async/>! input-ch game-num))
-                  (async/close! input-ch))
+            ;; Start feeding game numbers to input channel
+            feeder (async/go
+                     (doseq [game-num (range num-games)]
+                       (async/>! input-ch game-num))
+                     (async/close! input-ch))
 
-         ;; Collect results from output channel
-         collector (async/go-loop [results []]
-                     (if-let [result (async/<! output-ch)]
-                       (recur (conj results result))
-                       results))
+            ;; Collect results from output channel
+            collector (async/go-loop [results []]
+                        (if-let [result (async/<! output-ch)]
+                          (recur (conj results result))
+                          results))
 
-         ;; Wait for all processing to complete and collect results
-         results (async/<!! collector)
+            ;; Wait for all processing to complete and collect results
+            results (async/<!! collector)
 
-         end-time (System/currentTimeMillis)
-         duration-ms (- end-time start-time)]
+            end-time (System/currentTimeMillis)
+            duration-ms (- end-time start-time)]
 
-     (calculate-statistics results num-games duration-ms))))
+        (calculate-statistics results num-games duration-ms))
 
+      :cljs
+      ;; For ClojureScript, use a simpler approach without complex pipeline
+      (let [start-time (js/Date.now)
+            results (->> (range num-games)
+                         (map (fn [_]
+                                (let [game-state (core/rand-game-end-state num-players safety-threshold)]
+                                  (analyze-game-outcome game-state))))
+                         vec)
+            end-time (js/Date.now)
+            duration-ms (- end-time start-time)]
+
+        (calculate-statistics results num-games duration-ms)))))

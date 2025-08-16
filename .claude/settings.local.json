@@ -27,7 +27,9 @@
       "Bash(git checkout:*)",
       "Bash(gh pr list:*)",
       "Bash(git rebase:*)",
-      "Bash(gh pr view:*)"
+      "Bash(gh pr view:*)",
+      "Bash(mv:*)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }

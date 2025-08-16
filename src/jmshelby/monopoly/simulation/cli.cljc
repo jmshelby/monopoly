@@ -70,7 +70,8 @@
 
 (defn exit [status msg]
   (println msg)
-  (System/exit status))
+  #?(:clj (System/exit status)
+     :cljs (js/process.exit status)))
 
 (defn -main
   "Run the simulation and print results"
