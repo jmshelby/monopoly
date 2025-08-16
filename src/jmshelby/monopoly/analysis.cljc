@@ -19,7 +19,6 @@
                     remaining-args args]
                (if (or (empty? remaining-args)
                        (not (re-find #"%[sd]" result)))
-                 (str "jake-hi: " result)
                  (let [arg (first remaining-args)
                        ;; Replace first %s or %d with the argument
                        new-result (clojure.string/replace-first result #"%[sd]" (str arg))]
