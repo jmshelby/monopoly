@@ -4,12 +4,6 @@
             #?(:clj [clojure.string :as string]
                :cljs [clojure.string :as string])))
 
-(defn printf 
-  "Cross-platform printf that works in both Clojure and ClojureScript"
-  [fmt & args]
-  #?(:clj (apply clojure.core/printf fmt args)
-     :cljs (print (apply str args))))
-
 (defn format
   "Cross-platform format that works in both Clojure and ClojureScript"
   [fmt & args]
@@ -38,6 +32,11 @@
                        (recur new-result (rest remaining-args)))
                      ;; No more format specifiers found
                      result)))))))
+
+(defn printf 
+  "Cross-platform printf that works in both Clojure and ClojureScript"
+  [fmt & args]
+  (print (apply format fmt args)))
 
 (defn summarize-game
   "Analyze a game state and transactions to provide a summary of what happened.
