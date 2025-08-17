@@ -293,7 +293,9 @@
   "Run a large number of game simulations using core.async pipeline for memory efficiency.
    Returns simulation statistics."
   ([num-games] (run-simulation num-games 4 1500))
-  ([num-games num-players safety-threshold]
+  ([num-games num-players] (run-simulation num-games num-players 1500))
+  ([num-games num-players safety-threshold] (run-simulation num-games num-players safety-threshold nil))
+  ([num-games num-players safety-threshold progress-fn]
    #?(:clj
       (let [start-time (System/currentTimeMillis)
             parallelism  (+ 2 (* 2 (.. Runtime getRuntime availableProcessors)))
@@ -317,10 +319,13 @@
                        (async/>! input-ch game-num))
                      (async/close! input-ch))
 
-            ;; Collect results from output channel
-            collector (async/go-loop [results []]
+            ;; Collect results from output channel with progress reporting
+            collector (async/go-loop [results []
+                                      completed 0]
                         (if-let [result (async/<! output-ch)]
-                          (recur (conj results result))
+                          (let [new-completed (inc completed)]
+                            (when progress-fn (progress-fn new-completed))
+                            (recur (conj results result) new-completed))
                           results))
 
             ;; Wait for all processing to complete and collect results
@@ -335,9 +340,11 @@
       ;; For ClojureScript, use a simpler approach without complex pipeline
       (let [start-time (js/Date.now)
             results (->> (range num-games)
-                         (map (fn [_]
-                                (let [game-state (core/rand-game-end-state num-players safety-threshold)]
-                                  (analyze-game-outcome game-state))))
+                         (map-indexed (fn [idx _]
+                                        (let [game-state (core/rand-game-end-state num-players safety-threshold)
+                                              result (analyze-game-outcome game-state)]
+                                          (when progress-fn (progress-fn (inc idx)))
+                                          result)))
                          vec)
             end-time (js/Date.now)
             duration-ms (- end-time start-time)]

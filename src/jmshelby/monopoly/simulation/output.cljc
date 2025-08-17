@@ -157,7 +157,7 @@
    (let [progress-reporter (fn [game-num]
                              (when (= 0 (mod game-num 100))
                                (println (format "Completed %d/%d games..." game-num num-games))))
-         stats (time (sim/run-simulation num-games num-players safety-threshold))]
+         stats (time (sim/run-simulation num-games num-players safety-threshold progress-reporter))]
      (println (format "Simulation completed in %.1f seconds" (:duration-seconds stats)))
      (print-simulation-results stats)
      stats)))
