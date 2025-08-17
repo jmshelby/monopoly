@@ -290,13 +290,11 @@
 
 (defn run-simulation
   "Run a large number of game simulations using core.async pipeline for memory efficiency.
-   Returns simulation statistics."
+   Returns a channel that will yield individual game analysis results."
   ([num-games] (run-simulation num-games 4 1500))
   ([num-games num-players] (run-simulation num-games num-players 1500))
-  ([num-games num-players safety-threshold] (run-simulation num-games num-players safety-threshold nil))
-  ([num-games num-players safety-threshold progress-fn]
-   (let [start-time (time/now)
-         parallelism #?(:clj (+ 2 (* 2 (.. Runtime getRuntime availableProcessors)))
+  ([num-games num-players safety-threshold]
+   (let [parallelism #?(:clj (+ 2 (* 2 (.. Runtime getRuntime availableProcessors)))
                         :cljs 4) ; Reasonable default for JavaScript
 
          ;; Create channels
@@ -307,29 +305,16 @@
          process-game (fn [game-num]
                         (let [game-state (core/rand-game-end-state num-players safety-threshold)]
                           ;; Extract minimal stats and let GC clean up the full game state
-                          (analyze-game-outcome game-state)))
+                          (analyze-game-outcome game-state)))]
 
-         ;; Set up pipeline to process games in parallel with backpressure
-         pipeline-result (async/pipeline parallelism output-ch (map process-game) input-ch)
+     ;; Set up pipeline to process games in parallel with backpressure
+     (async/pipeline parallelism output-ch (map process-game) input-ch)
 
-         ;; Start feeding game numbers to input channel
-         feeder (async/go
-                  (doseq [game-num (range num-games)]
-                    (async/>! input-ch game-num))
-                  (async/close! input-ch))
-
-         ;; Collect results from output channel with progress reporting
-         collector (async/go-loop [results []
-                                   completed 0]
-                     (if-let [result (async/<! output-ch)]
-                       (let [new-completed (inc completed)]
-                         (when progress-fn (progress-fn new-completed))
-                         (recur (conj results result) new-completed))
-                       results))]
-
-     ;; Return a channel with the final statistics
+     ;; Start feeding game numbers to input channel
      (async/go
-       (let [results (async/<! collector)
-             end-time (time/now)
-             duration-ms (time/elapsed-ms start-time end-time)]
-         (calculate-statistics results num-games duration-ms))))))
+       (doseq [game-num (range num-games)]
+         (async/>! input-ch game-num))
+       (async/close! input-ch))
+
+     ;; Return the output channel directly - caller handles collection and processing
+     output-ch)))

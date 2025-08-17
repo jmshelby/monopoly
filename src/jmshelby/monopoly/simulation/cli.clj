@@ -84,15 +84,27 @@
   ([num-games num-players safety-threshold]
    (println (format "Starting simulation of %d games with %d players each (safety: %d)..."
                     num-games num-players safety-threshold))
-   (let [progress-reporter
-         (fn [game-num]
-           (when (= 0 (mod game-num 100))
-             (println (format "Completed %d/%d games..." game-num num-games))))
-         start-time (time/now)
-         stats-ch (sim/run-simulation num-games num-players safety-threshold progress-reporter)
-         ;; Block on the async result since we're in JVM-only CLI code
-         stats (async/<!! stats-ch)
+   (let [start-time (time/now)
+         output-ch (sim/run-simulation num-games num-players safety-threshold)
+
+         ;; Collect results from output channel with progress reporting
+         results (async/<!!
+                  (async/go-loop [results []
+                                  completed 0]
+                    (if-let [result (async/<! output-ch)]
+                      (let [new-completed (inc completed)]
+                        ;; Progress reporting
+                        (when (= 0 (mod new-completed 100))
+                          (println (format "Completed %d/%d games..." new-completed num-games)))
+                        (recur (conj results result) new-completed))
+                      results)))
+
+         ;; Calculate final statistics
+         end-time (time/now)
+         duration-ms (time/elapsed-ms start-time end-time)
+         stats (sim/calculate-statistics results num-games duration-ms)
          duration-seconds (time/elapsed-seconds start-time)]
+
      (println (format "Simulation completed in %.1f seconds" duration-seconds))
      (output/print-simulation-results stats)
      stats)))
