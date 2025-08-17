@@ -1,6 +1,8 @@
 (ns jmshelby.monopoly.simulation.output
   (:require [jmshelby.monopoly.simulation :as sim]
-            [clojure.string]))
+            [clojure.string]
+            #?(:clj [clojure.core.async :as async :refer [<! <!! go]]
+               :cljs [cljs.core.async :as async :refer [<! go]])))
 
 (defn print-simulation-results
   "Print a human-readable summary of simulation results"
@@ -157,7 +159,22 @@
    (let [progress-reporter (fn [game-num]
                              (when (= 0 (mod game-num 100))
                                (println (format "Completed %d/%d games..." game-num num-games))))
-         stats (time (sim/run-simulation num-games num-players safety-threshold progress-reporter))]
-     (println (format "Simulation completed in %.1f seconds" (:duration-seconds stats)))
-     (print-simulation-results stats)
-     stats)))
+         start-time #?(:clj (System/currentTimeMillis)
+                       :cljs (js/Date.now))
+         stats-ch (sim/run-simulation num-games num-players safety-threshold progress-reporter)]
+     #?(:clj
+        (let [stats (async/<!! stats-ch)
+              end-time (System/currentTimeMillis)
+              duration-ms (- end-time start-time)]
+          (println (format "Simulation completed in %.1f seconds" (/ duration-ms 1000.0)))
+          (print-simulation-results stats)
+          stats)
+        :cljs
+        ;; In ClojureScript, return a channel since we can't block
+        (async/go
+          (let [stats (async/<! stats-ch)
+                end-time (js/Date.now)
+                duration-ms (- end-time start-time)]
+            (println (format "Simulation completed in %.1f seconds" (/ duration-ms 1000.0)))
+            (print-simulation-results stats)
+            stats))))))
