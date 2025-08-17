@@ -1,5 +1,6 @@
 (ns jmshelby.monopoly.simulation.output
-  (:require [jmshelby.monopoly.simulation :as sim]
+  (:refer-clojure :exclude [printf])
+  (:require [jmshelby.monopoly.util.format :refer [printf]]
             [clojure.string]))
 
 (defn print-simulation-results
@@ -148,16 +149,3 @@
 
     (println "=== END SIMULATION RESULTS ===")))
 
-(defn run-and-print-simulation
-  "Run simulation and print results with progress reporting"
-  ([num-games] (run-and-print-simulation num-games 4 1500))
-  ([num-games num-players safety-threshold]
-   (println (format "Starting simulation of %d games with %d players each (safety: %d)..."
-                    num-games num-players safety-threshold))
-   (let [progress-reporter (fn [game-num]
-                             (when (= 0 (mod game-num 100))
-                               (println (format "Completed %d/%d games..." game-num num-games))))
-         stats (time (sim/run-simulation num-games num-players safety-threshold))]
-     (println (format "Simulation completed in %.1f seconds" (:duration-seconds stats)))
-     (print-simulation-results stats)
-     stats)))

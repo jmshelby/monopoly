@@ -1,8 +1,13 @@
 (ns jmshelby.monopoly.simulation.cli
-  (:require [jmshelby.monopoly.simulation.output :as output]
+  (:refer-clojure :exclude [format printf])
+  (:require [jmshelby.monopoly.simulation :as sim]
+            [jmshelby.monopoly.simulation.output :as output]
+            [jmshelby.monopoly.util.time :as time]
+            [jmshelby.monopoly.util.format :refer [format printf]]
             [clojure.pprint :as pprint]
             [clojure.tools.cli :as cli]
-            [clojure.string]))
+            [clojure.string]
+            [clojure.core.async :as async :refer [<! go]]))
 
 
 (def cli-options
@@ -70,8 +75,39 @@
 
 (defn exit [status msg]
   (println msg)
-  #?(:clj (System/exit status)
-     :cljs (js/process.exit status)))
+  (System/exit status))
+
+(defn run-and-print-simulation
+  "Run simulation and print results with progress reporting.
+   Blocks until completion and prints results directly."
+  ([num-games] (run-and-print-simulation num-games 4 1500))
+  ([num-games num-players safety-threshold]
+   (println (format "Starting simulation of %d games with %d players each (safety: %d)..."
+                    num-games num-players safety-threshold))
+   (let [start-time (time/now)
+         output-ch (sim/run-simulation num-games num-players safety-threshold)
+
+         ;; Collect results from output channel with progress reporting
+         results (async/<!!
+                  (async/go-loop [results []
+                                  completed 0]
+                    (if-let [result (async/<! output-ch)]
+                      (let [new-completed (inc completed)]
+                        ;; Progress reporting
+                        (when (= 0 (mod new-completed 100))
+                          (println (format "Completed %d/%d games..." new-completed num-games)))
+                        (recur (conj results result) new-completed))
+                      results)))
+
+         ;; Calculate final statistics
+         end-time (time/now)
+         duration-ms (time/elapsed-ms start-time end-time)
+         stats (sim/calculate-statistics results num-games duration-ms)
+         duration-seconds (time/elapsed-seconds start-time)]
+
+     (println (format "Simulation completed in %.1f seconds" duration-seconds))
+     (output/print-simulation-results stats)
+     stats)))
 
 (defn -main
   "Run the simulation and print results"
@@ -82,4 +118,5 @@
       (let [{:keys [games players safety]} options]
         (printf "Configuration: %d games, %d players, safety threshold %d\n" games players safety)
         (println)
-        (output/run-and-print-simulation games players safety)))))
+        ;; run-and-print-simulation now blocks internally
+        (run-and-print-simulation games players safety)))))
