@@ -21,4 +21,4 @@
                                    "--fail-threshold" "0"
                                    "--low-watermark" "0"]}
            ;; Simulation alias
-           :sim {:main-opts ["-m" "jmshelby.monopoly.simulation"]}}}
+           :sim {:main-opts ["-m" "jmshelby.monopoly.simulation.cli"]}}}

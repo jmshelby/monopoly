@@ -1,20 +1,43 @@
 (ns jmshelby.monopoly.analysis
+  (:refer-clojure :exclude [format printf])
   (:require [jmshelby.monopoly.util :as util]
             [clojure.set :as set]
             #?(:clj [clojure.string :as string]
                :cljs [clojure.string :as string])))
 
-(defn printf 
-  "Cross-platform printf that works in both Clojure and ClojureScript"
-  [fmt & args]
-  #?(:clj (apply clojure.core/printf fmt args)
-     :cljs (print (apply str args))))
-
 (defn format
   "Cross-platform format that works in both Clojure and ClojureScript"
   [fmt & args]
   #?(:clj (apply clojure.core/format fmt args)
-     :cljs (apply str args)))
+     :cljs (let [fmt-str (str fmt)]
+             (loop [result fmt-str
+                    remaining-args args]
+               (if (empty? remaining-args)
+                 result
+                 (let [arg (first remaining-args)
+                       ;; Match format specifiers with optional width
+                       match (re-find #"%(\d*)([sd])" result)]
+                   (if match
+                     (let [[full-match width-str spec] match
+                           width (if (seq width-str) (js/parseInt width-str) 0)
+                           formatted-arg (if (and (= spec "d") (> width 0))
+                                          ;; Right-pad numbers with spaces
+                                           (let [str-arg (str arg)
+                                                 pad-needed (- width (count str-arg))]
+                                             (if (> pad-needed 0)
+                                               (str (apply str (repeat pad-needed " ")) str-arg)
+                                               str-arg))
+                                          ;; For %s or %d without width, just convert to string
+                                           (str arg))
+                           new-result (clojure.string/replace-first result (re-pattern (str "%" width-str spec)) formatted-arg)]
+                       (recur new-result (rest remaining-args)))
+                     ;; No more format specifiers found
+                     result)))))))
+
+(defn printf 
+  "Cross-platform printf that works in both Clojure and ClojureScript"
+  [fmt & args]
+  (print (apply format fmt args)))
 
 (defn summarize-game
   "Analyze a game state and transactions to provide a summary of what happened.
@@ -609,24 +632,24 @@
         (let [winner (first active-players)
               net-worth (+ (:cash winner)
                            (util/player-property-sell-worth game-state (:id winner)))]
-          (println (format "🏆 WINNER: Player %s with $%d cash ($%d net worth, %d properties)"
+          (printf "🏆 WINNER: Player %s with $%d cash ($%d net worth, %d properties)\n"
                            (:id winner)
                            (:cash winner)
                            net-worth
-                           (count (:properties winner)))))
+                           (count (:properties winner))))
 
         ;; Multiple players still active
         (> (count active-players) 1)
         (do
-          (println (format "🎮 GAME INCOMPLETE: %d players remaining" (count active-players)))
+          (printf "🎮 GAME INCOMPLETE: %d players remaining\n" (count active-players))
           (doseq [player active-players]
             (let [net-worth (+ (:cash player)
                                (util/player-property-sell-worth game-state (:id player)))]
-              (println (format "   Player %s: $%d cash ($%d net worth, %d properties)"
+              (printf "   Player %s: $%d cash ($%d net worth, %d properties)\n"
                                (:id player)
                                (:cash player)
                                net-worth
-                               (count (:properties player)))))))
+                               (count (:properties player))))))
 
         ;; No active players (shouldn't happen but handle it)
         :else
