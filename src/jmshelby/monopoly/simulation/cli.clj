@@ -84,9 +84,10 @@
   ([num-games num-players safety-threshold]
    (println (format "Starting simulation of %d games with %d players each (safety: %d)..."
                     num-games num-players safety-threshold))
-   (let [progress-reporter (fn [game-num]
-                             (when (= 0 (mod game-num 100))
-                               (println (format "Completed %d/%d games..." game-num num-games))))
+   (let [progress-reporter
+         (fn [game-num]
+           (when (= 0 (mod game-num 100))
+             (println (format "Completed %d/%d games..." game-num num-games))))
          start-time (time/now)
          stats-ch (sim/run-simulation num-games num-players safety-threshold progress-reporter)]
      ;; Always return a channel - unified async approach
