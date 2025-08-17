@@ -79,7 +79,7 @@
 
 (defn run-and-print-simulation
   "Run simulation and print results with progress reporting.
-   Returns a channel that will contain the statistics when complete."
+   Blocks until completion and prints results directly."
   ([num-games] (run-and-print-simulation num-games 4 1500))
   ([num-games num-players safety-threshold]
    (println (format "Starting simulation of %d games with %d players each (safety: %d)..."
@@ -89,14 +89,13 @@
            (when (= 0 (mod game-num 100))
              (println (format "Completed %d/%d games..." game-num num-games))))
          start-time (time/now)
-         stats-ch (sim/run-simulation num-games num-players safety-threshold progress-reporter)]
-     ;; Always return a channel - unified async approach
-     (go
-       (let [stats (<! stats-ch)
-             duration-seconds (time/elapsed-seconds start-time)]
-         (println (format "Simulation completed in %.1f seconds" duration-seconds))
-         (output/print-simulation-results stats)
-         stats)))))
+         stats-ch (sim/run-simulation num-games num-players safety-threshold progress-reporter)
+         ;; Block on the async result since we're in JVM-only CLI code
+         stats (async/<!! stats-ch)
+         duration-seconds (time/elapsed-seconds start-time)]
+     (println (format "Simulation completed in %.1f seconds" duration-seconds))
+     (output/print-simulation-results stats)
+     stats)))
 
 (defn -main
   "Run the simulation and print results"
@@ -107,5 +106,5 @@
       (let [{:keys [games players safety]} options]
         (printf "Configuration: %d games, %d players, safety threshold %d\n" games players safety)
         (println)
-        ;; run-and-print-simulation now returns a channel, so we block on it
-        (async/<!! (run-and-print-simulation games players safety))))))
+        ;; run-and-print-simulation now blocks internally
+        (run-and-print-simulation games players safety)))))
