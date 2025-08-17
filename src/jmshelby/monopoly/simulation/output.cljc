@@ -1,10 +1,7 @@
 (ns jmshelby.monopoly.simulation.output
-  (:refer-clojure :exclude [format printf])
-  (:require [jmshelby.monopoly.simulation :as sim]
-            [jmshelby.monopoly.util.time :as time]
-            [jmshelby.monopoly.util.format :refer [format printf]]
-            [clojure.string]
-            [clojure.core.async :as async :refer [<! go]]))
+  (:refer-clojure :exclude [printf])
+  (:require [jmshelby.monopoly.util.format :refer [printf]]
+            [clojure.string]))
 
 (defn print-simulation-results
   "Print a human-readable summary of simulation results"
@@ -152,22 +149,3 @@
 
     (println "=== END SIMULATION RESULTS ===")))
 
-(defn run-and-print-simulation
-  "Run simulation and print results with progress reporting.
-   Returns a channel that will contain the statistics when complete."
-  ([num-games] (run-and-print-simulation num-games 4 1500))
-  ([num-games num-players safety-threshold]
-   (println (format "Starting simulation of %d games with %d players each (safety: %d)..."
-                    num-games num-players safety-threshold))
-   (let [progress-reporter (fn [game-num]
-                             (when (= 0 (mod game-num 100))
-                               (println (format "Completed %d/%d games..." game-num num-games))))
-         start-time (time/now)
-         stats-ch (sim/run-simulation num-games num-players safety-threshold progress-reporter)]
-     ;; Always return a channel - unified async approach
-     (go
-       (let [stats (<! stats-ch)
-             duration-seconds (time/elapsed-seconds start-time)]
-         (println (format "Simulation completed in %.1f seconds" duration-seconds))
-         (print-simulation-results stats)
-         stats)))))

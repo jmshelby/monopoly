@@ -9,7 +9,7 @@
            ;; Test coverage
            :coverage {:extra-paths ["test"]
                       :extra-deps {cloverage/cloverage {:mvn/version "1.2.4"}}
-                      :main-opts  ["-m" "cloverage.coverage" 
+                      :main-opts  ["-m" "cloverage.coverage"
                                    "--src-ns-path" "src"
                                    "--test-ns-path" "test"
                                    "--ns-regex" "jmshelby.monopoly.*"
