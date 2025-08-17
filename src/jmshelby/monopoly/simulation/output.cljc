@@ -1,8 +1,7 @@
 (ns jmshelby.monopoly.simulation.output
   (:require [jmshelby.monopoly.simulation :as sim]
             [clojure.string]
-            #?(:clj [clojure.core.async :as async :refer [<! <!! go]]
-               :cljs [cljs.core.async :as async :refer [<! go]])))
+            [clojure.core.async :as async :refer [<! go]]))
 
 (defn print-simulation-results
   "Print a human-readable summary of simulation results"
@@ -151,7 +150,8 @@
     (println "=== END SIMULATION RESULTS ===")))
 
 (defn run-and-print-simulation
-  "Run simulation and print results with progress reporting"
+  "Run simulation and print results with progress reporting.
+   Returns a channel that will contain the statistics when complete."
   ([num-games] (run-and-print-simulation num-games 4 1500))
   ([num-games num-players safety-threshold]
    (println (format "Starting simulation of %d games with %d players each (safety: %d)..."
@@ -162,19 +162,12 @@
          start-time #?(:clj (System/currentTimeMillis)
                        :cljs (js/Date.now))
          stats-ch (sim/run-simulation num-games num-players safety-threshold progress-reporter)]
-     #?(:clj
-        (let [stats (async/<!! stats-ch)
-              end-time (System/currentTimeMillis)
-              duration-ms (- end-time start-time)]
-          (println (format "Simulation completed in %.1f seconds" (/ duration-ms 1000.0)))
-          (print-simulation-results stats)
-          stats)
-        :cljs
-        ;; In ClojureScript, return a channel since we can't block
-        (async/go
-          (let [stats (async/<! stats-ch)
-                end-time (js/Date.now)
-                duration-ms (- end-time start-time)]
-            (println (format "Simulation completed in %.1f seconds" (/ duration-ms 1000.0)))
-            (print-simulation-results stats)
-            stats))))))
+     ;; Always return a channel - unified async approach
+     (go
+       (let [stats (<! stats-ch)
+             end-time #?(:clj (System/currentTimeMillis)
+                         :cljs (js/Date.now))
+             duration-ms (- end-time start-time)]
+         (println (format "Simulation completed in %.1f seconds" (/ duration-ms 1000.0)))
+         (print-simulation-results stats)
+         stats)))))

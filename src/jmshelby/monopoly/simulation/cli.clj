@@ -2,7 +2,8 @@
   (:require [jmshelby.monopoly.simulation.output :as output]
             [clojure.pprint :as pprint]
             [clojure.tools.cli :as cli]
-            [clojure.string]))
+            [clojure.string]
+            [clojure.core.async :as async]))
 
 
 (def cli-options
@@ -70,8 +71,7 @@
 
 (defn exit [status msg]
   (println msg)
-  #?(:clj (System/exit status)
-     :cljs (js/process.exit status)))
+  (System/exit status))
 
 (defn -main
   "Run the simulation and print results"
@@ -82,4 +82,5 @@
       (let [{:keys [games players safety]} options]
         (printf "Configuration: %d games, %d players, safety threshold %d\n" games players safety)
         (println)
-        (output/run-and-print-simulation games players safety)))))
+        ;; run-and-print-simulation now returns a channel, so we block on it
+        (async/<!! (output/run-and-print-simulation games players safety))))))
