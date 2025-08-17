@@ -298,8 +298,8 @@
                         :cljs 4) ; Reasonable default for JavaScript
 
          ;; Create channels
-         input-ch (async/chan 10)    ; Buffer for game numbers
-         output-ch (async/chan 200)   ; Buffer for results
+         input-ch (async/chan)
+         output-ch (async/chan)   ; Buffer for results
 
          ;; Function that processes a single game
          process-game (fn [game-num]
