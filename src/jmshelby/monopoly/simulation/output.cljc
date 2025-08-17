@@ -1,6 +1,8 @@
 (ns jmshelby.monopoly.simulation.output
+  (:refer-clojure :exclude [format printf])
   (:require [jmshelby.monopoly.simulation :as sim]
             [jmshelby.monopoly.util.time :as time]
+            [jmshelby.monopoly.util.format :refer [format printf]]
             [clojure.string]
             [clojure.core.async :as async :refer [<! go]]))
 

@@ -1,5 +1,7 @@
 (ns jmshelby.monopoly.simulation.cli
+  (:refer-clojure :exclude [printf])
   (:require [jmshelby.monopoly.simulation.output :as output]
+            [jmshelby.monopoly.util.format :refer [printf]]
             [clojure.pprint :as pprint]
             [clojure.tools.cli :as cli]
             [clojure.string]
