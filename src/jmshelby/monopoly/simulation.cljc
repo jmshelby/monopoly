@@ -1,6 +1,7 @@
 (ns jmshelby.monopoly.simulation
   (:require [jmshelby.monopoly.core :as core]
             [jmshelby.monopoly.util :as util]
+            [jmshelby.monopoly.util.time :as time]
             [clojure.core.async :as async :refer [>! <! go go-loop chan close! pipeline]]))
 
 (defn analyze-building-scarcity
@@ -295,8 +296,7 @@
   ([num-games num-players] (run-simulation num-games num-players 1500))
   ([num-games num-players safety-threshold] (run-simulation num-games num-players safety-threshold nil))
   ([num-games num-players safety-threshold progress-fn]
-   (let [start-time #?(:clj (System/currentTimeMillis)
-                       :cljs (js/Date.now))
+   (let [start-time (time/now)
          parallelism #?(:clj (+ 2 (* 2 (.. Runtime getRuntime availableProcessors)))
                         :cljs 4) ; Reasonable default for JavaScript
 
@@ -331,7 +331,6 @@
      ;; Return a channel with the final statistics
      (async/go
        (let [results (async/<! collector)
-             end-time #?(:clj (System/currentTimeMillis)
-                         :cljs (js/Date.now))
-             duration-ms (- end-time start-time)]
+             end-time (time/now)
+             duration-ms (time/elapsed-ms start-time end-time)]
          (calculate-statistics results num-games duration-ms))))))

@@ -1,5 +1,6 @@
 (ns jmshelby.monopoly.simulation.output
   (:require [jmshelby.monopoly.simulation :as sim]
+            [jmshelby.monopoly.util.time :as time]
             [clojure.string]
             [clojure.core.async :as async :refer [<! go]]))
 
@@ -159,15 +160,12 @@
    (let [progress-reporter (fn [game-num]
                              (when (= 0 (mod game-num 100))
                                (println (format "Completed %d/%d games..." game-num num-games))))
-         start-time #?(:clj (System/currentTimeMillis)
-                       :cljs (js/Date.now))
+         start-time (time/now)
          stats-ch (sim/run-simulation num-games num-players safety-threshold progress-reporter)]
      ;; Always return a channel - unified async approach
      (go
        (let [stats (<! stats-ch)
-             end-time #?(:clj (System/currentTimeMillis)
-                         :cljs (js/Date.now))
-             duration-ms (- end-time start-time)]
-         (println (format "Simulation completed in %.1f seconds" (/ duration-ms 1000.0)))
+             duration-seconds (time/elapsed-seconds start-time)]
+         (println (format "Simulation completed in %.1f seconds" duration-seconds))
          (print-simulation-results stats)
          stats)))))
