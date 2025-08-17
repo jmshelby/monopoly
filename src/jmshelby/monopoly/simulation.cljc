@@ -1,8 +1,7 @@
 (ns jmshelby.monopoly.simulation
   (:require [jmshelby.monopoly.core :as core]
-            [jmshelby.monopoly.util :as util]
             [jmshelby.monopoly.util.time :as time]
-            [clojure.core.async :as async :refer [>! <! go go-loop chan close! pipeline]]))
+            [clojure.core.async :as async]))
 
 (defn analyze-building-scarcity
   "Analyze building inventory scarcity patterns from game transactions"
