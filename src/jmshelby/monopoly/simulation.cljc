@@ -177,7 +177,7 @@
 
         ;; Building scarcity analysis
         games-with-building-shortages (->> results
-                                            (filter #(get-in % [:building-scarcity :had-building-shortages])))
+                                           (filter #(get-in % [:building-scarcity :had-building-shortages])))
         building-shortage-occurrence-rate (* 100.0 (/ (count games-with-building-shortages) num-games))
 
         total-house-shortage-transactions (apply + (map #(get-in % [:building-scarcity :house-shortage-transactions] 0) results))
@@ -215,8 +215,9 @@
 
      :winner-distribution winner-stats
      :winner-percentages (->> winner-stats
-                              (map (fn [[winner-id count]]
-                                     [winner-id (* 100.0 (/ count (count games-with-winner)))])))
+                              (map (fn [[winner-id count-wins]]
+                                     [winner-id (* 100.0 (/ count-wins
+                                                            (count games-with-winner)))])))
 
      :transaction-stats (when (seq winning-tx-counts)
                           {:min (apply min winning-tx-counts)
@@ -288,6 +289,7 @@
 
      :incomplete-game-breakdown incomplete-games}))
 
+;; TODO - need params to affect channel buffers
 (defn run-simulation
   "Run a large number of game simulations using core.async pipeline for memory efficiency.
    Returns a channel that will yield individual game analysis results."
@@ -298,8 +300,8 @@
                         :cljs 4) ; Reasonable default for JavaScript
 
          ;; Create channels
-         input-ch (async/chan 10)    ; Buffer for game numbers
-         output-ch (async/chan 200)   ; Buffer for results
+         input-ch (async/chan)
+         output-ch (async/chan)   ; Buffer for results
 
          ;; Function that processes a single game
          process-game (fn [game-num]
