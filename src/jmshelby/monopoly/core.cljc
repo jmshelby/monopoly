@@ -167,31 +167,19 @@
         (util/current-player game-state)]
 
     (cond
-      ;; Check if game is already complete
-      ;; TODO - will this ever happen? (should it?)
+
+      ;; Check if game is already complete,
+      ;; no op, same state.
       (= :complete (:status game-state))
-      (do (println "Game complete, can't advance further")
-          game-state)
+      game-state
 
       ;; Check if it's time to end the game,
-      ;; only 1 active player left?
+      ;; less than 2 active player left?
       (->> players
            (filter #(= :playing (:status %)))
            count
-           (= 1))
+           (> 2))
       (assoc game-state :status :complete)
-
-      ;; !!! Just in case !!! (TEMP)
-      ;; Check if it's time to end the game,
-      ;; no active player left?
-      ;; This shouldn't happen, but let's log if it does
-      ;; TODO - will this ever happen? (should it?)
-      (->> players
-           (filter #(= :playing (:status %)))
-           count
-           (= 0))
-      (do (println "!!Zero active players left, this shouldn't happen!!")
-          (assoc game-state :status :complete))
 
       ;; Basic bankrupt logic, before turn..
       ;; If the player is already marked as bankrupt,
