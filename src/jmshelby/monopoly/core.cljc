@@ -325,23 +325,20 @@
                           :cell-residency 0 ;; All starting on "Go"
                           :cards #{}
                           :properties {}))
-             vec)
-        ;; Define initial game state
-        initial-state
-        {:status       :playing
-         :players      players
-         :current-turn {:player     (-> players first :id)
-                        :dice-rolls []}
-         ;; Grab and preserve the default board/layout
-         :board        defs/board
-         ;; Shuffle all cards by deck
-         :card-queue   (cards/cards->deck-queues (:cards defs/board))
-         :transactions []
-         :functions    {:move-to-cell           move-to-cell
-                        :apply-dice-roll        apply-dice-roll
-                        :make-requisite-payment player/make-requisite-payment}}]
-    ;; Just return this state
-    initial-state))
+             vec)]
+    ;; Define initial game state
+    {:status       :playing
+     :players      players
+     :current-turn {:player     (-> players first :id)
+                    :dice-rolls []}
+     ;; Grab and preserve the default board/layout
+     :board        defs/board
+     ;; Shuffle all cards by deck
+     :card-queue   (cards/cards->deck-queues (:cards defs/board))
+     :transactions []
+     :functions    {:move-to-cell           move-to-cell
+                    :apply-dice-roll        apply-dice-roll
+                    :make-requisite-payment player/make-requisite-payment}}))
 
 (defn rand-game-state
   "Return a game state, with # of given players, as of the given, nth iteration"
