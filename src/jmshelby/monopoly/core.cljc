@@ -11,62 +11,6 @@
             [jmshelby.monopoly.players.dumb :as dumb-player]
             [jmshelby.monopoly.analysis :as analysis]))
 
-;; Game state, schema
-(def example-state
-  {;; Static board definition for the game
-   :board "[See definitions NS]"
-
-   ;; Game Status - playing | complete
-   :status :playing
-
-   ;; The list of players, in their game play order,
-   ;; and their current state in the game.
-   ;; When a game starts, players will be randomly sorted
-   :players [{;; Probably some auto-generated one
-              :id             "some-uuid"
-              ;; Status, playing/bankrupt
-              :status         :playing
-              ;; Current amount of money on hand
-              :cash           1
-              ;; Special card collection, current set
-              :cards          #{:get-out-of-jail-free}
-              ;; Which cell on the board are they currently in
-              :cell-residency 0
-              ;; If on jail cell (haha), and incarcerated,
-              ;; track stats on stay
-              :jail-spell     {:cause      "[polymorphic] How did they end up in jail"
-                               ;; While in jail, the dice roll attempts
-                               ;; made to get a double, one for each
-                               ;; turn only 3 max are allowed
-                               :dice-rolls []}
-              ;; The current set of owned "properties", and current state
-              :properties     {:park-place {:status      :paid-OR-mortgaged
-                                            :house-count 0}}}]
-
-   ;; Separately, track what is going on with the current "turn".
-   ;; At any given type there is always a single player who's turn it is,
-   ;; but other things can be happening at the same time.
-   :current-turn {:player     "player uuid"
-                  ;; All the dice rolls from the current turn player,
-                  ;; multiple because doubles get another roll
-                  :dice-rolls []
-                  ;; Opt - when needing to raise funds for a player
-                  ;; TODO - not sure if this will be original/total amount, or current remaining amount...
-                  :raise-funds 999}
-
-;; The current *ordered* care queue to pull from.
-   ;; At the beginning of the game these will be loaded at random,
-   ;; when one queue is exhausted, it is randomly filled again.
-   :card-queue {:chance          []
-                :community-chest []}
-
-   ;; A list of all game move history, and it's details.
-   ;; This is probably more of an enhanced feature...
-   ;; Thoughts:
-   ;;  - This is a lot like datomic...
-   ;;  - Each item in this list could be every unique game state
-   :transactions []})
-
 ;; Special function to core
 (defn- move-to-cell
   "Given a game state, destination cell index, and reason/driver
