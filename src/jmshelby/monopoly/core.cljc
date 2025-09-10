@@ -130,7 +130,8 @@
   roll. 3rd consecutive roll goes to jail, otherwise, register dice
   roll + transaction, and invoke actual player move."
   [game-state new-roll]
-  (let [;; Get current player info
+  (let [move         (-> game-state :functions :move-to-cell)
+        ;; Get current player info
         player       (util/current-player game-state)
         player-id    (:id player)
         ;; Save new roll + transaction
@@ -152,11 +153,7 @@
       (let [;; Find next board position, looping back around if needed
             old-cell (:cell-residency player)
             new-cell (util/next-cell (:board game-state) (apply + new-roll) old-cell)]
-        ;; TODO - This "move to cell" fn/logic is now a property
-        ;;        in the game state, we should probably invoke
-        ;;        that one? (or is this tricky because this
-        ;;        function is defined in there beside it?)
-        (move-to-cell new-state new-cell :dice)))))
+        (move new-state new-cell :dice)))))
 
 (defn advance-board
   "Given game state, advance the board, by
