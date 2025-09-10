@@ -166,6 +166,7 @@
          :as       player}
         (util/current-player game-state)]
 
+    ;; Check for some high level shifts in direction...
     (cond
 
       ;; Check if game is already complete,
@@ -181,17 +182,14 @@
            (> 2))
       (assoc game-state :status :complete)
 
-      ;; Basic bankrupt logic, before turn..
-      ;; If the player is already marked as bankrupt,
-      ;; just move to next player (bankruptcy handling should
-      ;; have been done when they were marked bankrupt)
+      ;; Check if player is bankrupt,
+      ;; if so move on to next player
       (= :bankrupt status)
       (-> game-state
           ;; Move to next player
           util/apply-end-turn)
 
-      ;; If they have cash, and it's not time to end the train
-      ;; proceed with regular player turn
+      ;; Proceed with regular player decison logic
       ;; TODO - yikes, this is getting huge too ...
       :else
       (let [jail-spell (:jail-spell player)
