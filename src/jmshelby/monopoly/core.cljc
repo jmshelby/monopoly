@@ -11,62 +11,6 @@
             [jmshelby.monopoly.players.dumb :as dumb-player]
             [jmshelby.monopoly.analysis :as analysis]))
 
-;; Game state, schema
-(def example-state
-  {;; Static board definition for the game
-   :board "[See definitions NS]"
-
-   ;; Game Status - playing | complete
-   :status :playing
-
-   ;; The list of players, in their game play order,
-   ;; and their current state in the game.
-   ;; When a game starts, players will be randomly sorted
-   :players [{;; Probably some auto-generated one
-              :id             "some-uuid"
-              ;; Status, playing/bankrupt
-              :status         :playing
-              ;; Current amount of money on hand
-              :cash           1
-              ;; Special card collection, current set
-              :cards          #{:get-out-of-jail-free}
-              ;; Which cell on the board are they currently in
-              :cell-residency 0
-              ;; If on jail cell (haha), and incarcerated,
-              ;; track stats on stay
-              :jail-spell     {:cause      "[polymorphic] How did they end up in jail"
-                               ;; While in jail, the dice roll attempts
-                               ;; made to get a double, one for each
-                               ;; turn only 3 max are allowed
-                               :dice-rolls []}
-              ;; The current set of owned "properties", and current state
-              :properties     {:park-place {:status      :paid-OR-mortgaged
-                                            :house-count 0}}}]
-
-   ;; Separately, track what is going on with the current "turn".
-   ;; At any given type there is always a single player who's turn it is,
-   ;; but other things can be happening at the same time.
-   :current-turn {:player     "player uuid"
-                  ;; All the dice rolls from the current turn player,
-                  ;; multiple because doubles get another roll
-                  :dice-rolls []
-                  ;; Opt - when needing to raise funds for a player
-                  ;; TODO - not sure if this will be original/total amount, or current remaining amount...
-                  :raise-funds 999}
-
-;; The current *ordered* care queue to pull from.
-   ;; At the beginning of the game these will be loaded at random,
-   ;; when one queue is exhausted, it is randomly filled again.
-   :card-queue {:chance          []
-                :community-chest []}
-
-   ;; A list of all game move history, and it's details.
-   ;; This is probably more of an enhanced feature...
-   ;; Thoughts:
-   ;;  - This is a lot like datomic...
-   ;;  - Each item in this list could be every unique game state
-   :transactions []})
-
 ;; Special function to core
 (defn- move-to-cell
   "Given a game state, destination cell index, and reason/driver
@@ -186,7 +130,8 @@
   roll. 3rd consecutive roll goes to jail, otherwise, register dice
   roll + transaction, and invoke actual player move."
   [game-state new-roll]
-  (let [;; Get current player info
+  (let [move         (-> game-state :functions :move-to-cell)
+        ;; Get current player info
         player       (util/current-player game-state)
         player-id    (:id player)
         ;; Save new roll + transaction
@@ -208,11 +153,7 @@
       (let [;; Find next board position, looping back around if needed
             old-cell (:cell-residency player)
             new-cell (util/next-cell (:board game-state) (apply + new-roll) old-cell)]
-        ;; TODO - This "move to cell" fn/logic is now a property
-        ;;        in the game state, we should probably invoke
-        ;;        that one? (or is this tricky because this
-        ;;        function is defined in there beside it?)
-        (move-to-cell new-state new-cell :dice)))))
+        (move new-state new-cell :dice)))))
 
 (defn advance-board
   "Given game state, advance the board, by
@@ -225,44 +166,30 @@
          :as       player}
         (util/current-player game-state)]
 
+    ;; Check for some high level shifts in direction...
     (cond
-      ;; Check if game is already complete
-      ;; TODO - will this ever happen? (should it?)
+
+      ;; Check if game is already complete,
+      ;; no op, same state.
       (= :complete (:status game-state))
-      (do (println "Game complete, can't advance further")
-          game-state)
+      game-state
 
       ;; Check if it's time to end the game,
-      ;; only 1 active player left?
+      ;; less than 2 active player left?
       (->> players
            (filter #(= :playing (:status %)))
            count
-           (= 1))
+           (> 2))
       (assoc game-state :status :complete)
 
-      ;; !!! Just in case !!! (TEMP)
-      ;; Check if it's time to end the game,
-      ;; no active player left?
-      ;; This shouldn't happen, but let's log if it does
-      ;; TODO - will this ever happen? (should it?)
-      (->> players
-           (filter #(= :playing (:status %)))
-           count
-           (= 0))
-      (do (println "!!Zero active players left, this shouldn't happen!!")
-          (assoc game-state :status :complete))
-
-      ;; Basic bankrupt logic, before turn..
-      ;; If the player is already marked as bankrupt,
-      ;; just move to next player (bankruptcy handling should
-      ;; have been done when they were marked bankrupt)
+      ;; Check if player is bankrupt,
+      ;; if so move on to next player
       (= :bankrupt status)
       (-> game-state
           ;; Move to next player
           util/apply-end-turn)
 
-      ;; If they have cash, and it's not time to end the train
-      ;; proceed with regular player turn
+      ;; Proceed with regular player decison logic
       ;; TODO - yikes, this is getting huge too ...
       :else
       (let [jail-spell (:jail-spell player)
@@ -384,23 +311,20 @@
                           :cell-residency 0 ;; All starting on "Go"
                           :cards #{}
                           :properties {}))
-             vec)
-        ;; Define initial game state
-        initial-state
-        {:status       :playing
-         :players      players
-         :current-turn {:player     (-> players first :id)
-                        :dice-rolls []}
-         ;; Grab and preserve the default board/layout
-         :board        defs/board
-         ;; Shuffle all cards by deck
-         :card-queue   (cards/cards->deck-queues (:cards defs/board))
-         :transactions []
-         :functions    {:move-to-cell           move-to-cell
-                        :apply-dice-roll        apply-dice-roll
-                        :make-requisite-payment player/make-requisite-payment}}]
-    ;; Just return this state
-    initial-state))
+             vec)]
+    ;; Define initial game state
+    {:status       :playing
+     :players      players
+     :current-turn {:player     (-> players first :id)
+                    :dice-rolls []}
+     ;; Grab and preserve the default board/layout
+     :board        defs/board
+     ;; Shuffle all cards by deck
+     :card-queue   (cards/cards->deck-queues (:cards defs/board))
+     :transactions []
+     :functions    {:move-to-cell           move-to-cell
+                    :apply-dice-roll        apply-dice-roll
+                    :make-requisite-payment player/make-requisite-payment}}))
 
 (defn rand-game-state
   "Return a game state, with # of given players, as of the given, nth iteration"
