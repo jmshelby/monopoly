@@ -6,6 +6,64 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
+# Configure Maven proxy settings for Claude Code Web
+# Maven doesn't honor HTTP_PROXY/HTTPS_PROXY by default
+if [ -n "${HTTPS_PROXY:-}" ]; then
+  echo "Configuring Maven proxy settings..."
+
+  # Extract proxy components from HTTPS_PROXY
+  # Format: http://username:password@host:port
+  PROXY_URL="${HTTPS_PROXY}"
+
+  # Extract username (before first colon in auth section)
+  PROXY_USER=$(echo "$PROXY_URL" | sed -E 's|^https?://([^:]+):.*|\1|')
+
+  # Extract password (between first colon and @ in auth section)
+  PROXY_PASS=$(echo "$PROXY_URL" | sed -E 's|^https?://[^:]+:([^@]+)@.*|\1|')
+
+  # Extract host (after @ and before final colon)
+  PROXY_HOST=$(echo "$PROXY_URL" | sed -E 's|^https?://.*@([^:]+):.*|\1|')
+
+  # Extract port (last number after final colon)
+  PROXY_PORT=$(echo "$PROXY_URL" | sed -E 's|^.*:([0-9]+)$|\1|')
+
+  # Create Maven settings directory
+  mkdir -p ~/.m2
+
+  # Generate Maven settings.xml with proxy configuration including authentication
+  cat > ~/.m2/settings.xml << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+  <proxies>
+    <proxy>
+      <id>claude-code-proxy</id>
+      <active>true</active>
+      <protocol>http</protocol>
+      <host>${PROXY_HOST}</host>
+      <port>${PROXY_PORT}</port>
+      <username>${PROXY_USER}</username>
+      <password>${PROXY_PASS}</password>
+      <nonProxyHosts>localhost|127.*|[::1]</nonProxyHosts>
+    </proxy>
+    <proxy>
+      <id>claude-code-proxy-https</id>
+      <active>true</active>
+      <protocol>https</protocol>
+      <host>${PROXY_HOST}</host>
+      <port>${PROXY_PORT}</port>
+      <username>${PROXY_USER}</username>
+      <password>${PROXY_PASS}</password>
+      <nonProxyHosts>localhost|127.*|[::1]</nonProxyHosts>
+    </proxy>
+  </proxies>
+</settings>
+EOF
+
+  echo "Maven proxy configured: ${PROXY_HOST}:${PROXY_PORT} (with authentication)"
+fi
+
 # Check if Clojure CLI is already installed
 if command -v clojure &> /dev/null; then
   echo "Clojure CLI already installed: $(clojure --version)"
@@ -24,9 +82,20 @@ chmod +x linux-install.sh
 ./linux-install.sh --prefix "$HOME/.local"
 rm linux-install.sh
 
-# Add to PATH for this session
+# Add to PATH for this session and set Java proxy properties
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$CLAUDE_ENV_FILE"
+
+  # Also set Java system properties for proxy (backup method)
+  if [ -n "${HTTPS_PROXY:-}" ]; then
+    PROXY_URL_ENV="${HTTPS_PROXY}"
+    PROXY_USER_ENV=$(echo "$PROXY_URL_ENV" | sed -E 's|^https?://([^:]+):.*|\1|')
+    PROXY_PASS_ENV=$(echo "$PROXY_URL_ENV" | sed -E 's|^https?://[^:]+:([^@]+)@.*|\1|')
+    PROXY_HOST_ENV=$(echo "$PROXY_URL_ENV" | sed -E 's|^https?://.*@([^:]+):.*|\1|')
+    PROXY_PORT_ENV=$(echo "$PROXY_URL_ENV" | sed -E 's|^.*:([0-9]+)$|\1|')
+
+    echo "export JAVA_TOOL_OPTIONS=\"-Dhttp.proxyHost=${PROXY_HOST_ENV} -Dhttp.proxyPort=${PROXY_PORT_ENV} -Dhttps.proxyHost=${PROXY_HOST_ENV} -Dhttps.proxyPort=${PROXY_PORT_ENV} -Dhttp.proxyUser=${PROXY_USER_ENV} -Dhttp.proxyPassword=${PROXY_PASS_ENV} -Dhttps.proxyUser=${PROXY_USER_ENV} -Dhttps.proxyPassword=${PROXY_PASS_ENV}\"" >> "$CLAUDE_ENV_FILE"
+  fi
 fi
 
 echo "Clojure CLI installation complete: $(clojure --version)"
