@@ -82,20 +82,4 @@ chmod +x linux-install.sh
 ./linux-install.sh --prefix "$HOME/.local"
 rm linux-install.sh
 
-# Add to PATH for this session and set Java proxy properties
-if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
-  echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$CLAUDE_ENV_FILE"
-
-  # Also set Java system properties for proxy (backup method)
-  if [ -n "${HTTPS_PROXY:-}" ]; then
-    PROXY_URL_ENV="${HTTPS_PROXY}"
-    PROXY_USER_ENV=$(echo "$PROXY_URL_ENV" | sed -E 's|^https?://([^:]+):.*|\1|')
-    PROXY_PASS_ENV=$(echo "$PROXY_URL_ENV" | sed -E 's|^https?://[^:]+:([^@]+)@.*|\1|')
-    PROXY_HOST_ENV=$(echo "$PROXY_URL_ENV" | sed -E 's|^https?://.*@([^:]+):.*|\1|')
-    PROXY_PORT_ENV=$(echo "$PROXY_URL_ENV" | sed -E 's|^.*:([0-9]+)$|\1|')
-
-    echo "export JAVA_TOOL_OPTIONS=\"-Dhttp.proxyHost=${PROXY_HOST_ENV} -Dhttp.proxyPort=${PROXY_PORT_ENV} -Dhttps.proxyHost=${PROXY_HOST_ENV} -Dhttps.proxyPort=${PROXY_PORT_ENV} -Dhttp.proxyUser=${PROXY_USER_ENV} -Dhttp.proxyPassword=${PROXY_PASS_ENV} -Dhttps.proxyUser=${PROXY_USER_ENV} -Dhttps.proxyPassword=${PROXY_PASS_ENV}\"" >> "$CLAUDE_ENV_FILE"
-  fi
-fi
-
 echo "Clojure CLI installation complete: $(clojure --version)"
