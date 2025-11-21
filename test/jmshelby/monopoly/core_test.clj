@@ -66,7 +66,7 @@
                   (str "Simulation " n " has bankruptcy transactions but players not marked bankrupt"))
               ;; All players with :bankrupt status should have had a bankruptcy transaction
               (is (subset? final-bankrupt-ids bankrupt-player-ids)
-                  (str "Simulation " n " has players marked bankrupt without bankruptcy transactions"))))))
+                  (str "Simulation " n " has players marked bankrupt without bankruptcy transactions"))))))))
 
 
 ;; ======= Bankruptcy Logic Tests ===================
