@@ -66,7 +66,34 @@
                   (str "Simulation " n " has bankruptcy transactions but players not marked bankrupt"))
               ;; All players with :bankrupt status should have had a bankruptcy transaction
               (is (subset? final-bankrupt-ids bankrupt-player-ids)
-                  (str "Simulation " n " has players marked bankrupt without bankruptcy transactions"))))))))
+                  (str "Simulation " n " has players marked bankrupt without bankruptcy transactions"))))))
+
+    (testing "Rolling doubles to escape jail should not grant extra roll"
+      (doseq [[n sim] sims]
+        (let [transactions (:transactions sim)
+              ;; Find all bail transactions where player escaped via doubles
+              bail-via-doubles-txs (->> transactions
+                                        (filter #(and (= :bail (:type %))
+                                                      (= :roll (second (:means %)))
+                                                      (= :double (nth (:means %) 2)))))
+              ;; For each bail-via-doubles, check if there's an immediate subsequent roll by same player
+              illegal-double-rolls (for [bail-tx bail-via-doubles-txs
+                                         :let [bail-idx (.indexOf transactions bail-tx)
+                                               player-id (:player bail-tx)
+                                               ;; Get next few transactions after bail
+                                               next-txs (take 5 (drop (inc bail-idx) transactions))
+                                               ;; Find if there's another :roll by same player before turn ends
+                                               illegal-roll (first (filter #(and (= :roll (:type %))
+                                                                                 (= player-id (:player %)))
+                                                                           next-txs))]
+                                         :when illegal-roll]
+                                     {:simulation n
+                                      :player player-id
+                                      :bail-tx bail-tx
+                                      :illegal-roll illegal-roll})]
+          (is (empty? illegal-double-rolls)
+              (str "Simulation " n " has illegal extra rolls after escaping jail with doubles: "
+                   (pr-str illegal-double-rolls))))))))
 
 ;; ======= Bankruptcy Logic Tests ===================
 
