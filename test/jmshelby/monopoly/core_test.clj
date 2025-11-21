@@ -68,6 +68,7 @@
               (is (subset? final-bankrupt-ids bankrupt-player-ids)
                   (str "Simulation " n " has players marked bankrupt without bankruptcy transactions"))))))))
 
+
 ;; ======= Bankruptcy Logic Tests ===================
 
 (deftest bankrupt-player-single-bankruptcy-test
