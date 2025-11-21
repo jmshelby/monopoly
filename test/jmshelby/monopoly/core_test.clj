@@ -306,4 +306,79 @@
         (is (= :unmortgage-property (:type unmortgage-tx)))
         (is (= "A" (:player unmortgage-tx)))
         (is (= :mediterranean-ave (:property unmortgage-tx)))
-        (is (= 33 (:cost unmortgage-tx)))))))
+        (is (= 33 (:cost unmortgage-tx))))))
+
+;; ======= Duplicate Rent Payment Bug Test ===================
+
+(deftest duplicate-rent-payment-bug-test
+  (testing "Bug: rent is paid twice due to duplicate payment in follow-up function"
+    ;; Set up game state where player B owes rent to player A
+    (let [;; Mediterranean Ave has base rent of $2
+          med-ave-rent 2
+          initial-state (-> (c/init-game-state 2)
+                            ;; Player A (index 0) owns Mediterranean Ave
+                            (assoc-in [:players 0 :properties :mediterranean-ave]
+                                      {:status :paid :house-count 0})
+                            (assoc-in [:players 0 :cash] 1500)
+                            ;; Player B (index 1) is current player
+                            (assoc-in [:players 1 :cash] 1500)
+                            ;; Place player B on Mediterranean Ave (cell index 1)
+                            (assoc-in [:players 1 :cell-residency] 1)
+                            ;; Set player B as current player
+                            (assoc-in [:current-turn :player] "B")
+                            ;; Add a dice roll to satisfy rent calculation
+                            (assoc-in [:current-turn :dice-rolls] [[3 2]]))
+
+          ;; Get the move-to-cell function from game state
+          move-fn (get-in initial-state [:functions :move-to-cell])
+
+          ;; Execute the move to trigger rent payment
+          ;; Player B is already on Mediterranean Ave, but we trigger the cell effects
+          result-state (move-fn initial-state 1 :test :allowance? false)
+
+          ;; Get final player states
+          player-a-final (get-in result-state [:players 0])
+          player-b-final (get-in result-state [:players 1])
+
+          ;; Calculate expected values
+          expected-player-a-cash (+ 1500 med-ave-rent)        ; Player A should receive $2
+          expected-player-b-cash (- 1500 med-ave-rent)        ; Player B should pay $2
+
+          ;; Calculate actual cash changes
+          player-a-cash-change (- (:cash player-a-final) 1500)
+          player-b-cash-change (- (:cash player-b-final) 1500)]
+
+      ;; The bug causes rent to be paid twice:
+      ;; 1. make-requisite-payment transfers cash via transfer-cash
+      ;; 2. Follow-up function ALSO adds rent to debtee's cash (duplicate)
+
+      ;; EXPECTED (if bug exists): Player A receives $4 instead of $2
+      ;; Player A should receive DOUBLE the rent due to the bug
+      (is (= (* 2 med-ave-rent) player-a-cash-change)
+          (str "BUG DETECTED: Player A received $" player-a-cash-change
+               " instead of expected $" med-ave-rent
+               " (payment was doubled)"))
+
+      ;; Player B should still only pay the correct amount (transfer-cash handles this)
+      (is (= (- med-ave-rent) player-b-cash-change)
+          (str "Player B paid $" (Math/abs player-b-cash-change)))
+
+      ;; Verify transaction was logged
+      (let [rent-tx (first (filter #(= :rent (:reason %)) (:transactions result-state)))]
+        (is (some? rent-tx) "Rent payment transaction should exist")
+        (is (= "B" (:from rent-tx)) "Payment should be from player B")
+        (is (= "A" (:to rent-tx)) "Payment should be to player A")
+        (is (= med-ave-rent (:amount rent-tx)) "Transaction amount should be correct"))
+
+      ;; Summary: This test PASSES when the bug exists (proving the bug is real)
+      ;; When the bug is fixed, this test will FAIL because player A will only receive $2
+      (println "")
+      (println "=== DUPLICATE RENT PAYMENT BUG CONFIRMATION ===")
+      (println (str "Mediterranean Ave base rent: $" med-ave-rent))
+      (println (str "Player A cash change: $" player-a-cash-change " (expected: $" med-ave-rent ")"))
+      (println (str "Player B cash change: $" player-b-cash-change " (expected: $" (- med-ave-rent) ")"))
+      (println (str "Bug status: " (if (= player-a-cash-change (* 2 med-ave-rent))
+                                      "CONFIRMED - Rent paid TWICE"
+                                      "FIXED - Rent paid correctly")))
+      (println "===============================================")
+      (println ""))))
