@@ -259,10 +259,9 @@
               (append-tx {:type   :bail
                           :player player-id
                           :means  [:roll :double new-roll]})
-              ;; TODO - Somehow need to signal that they don't get another
-              ;;        roll, because a double thrown while in jail doesn't
-              ;;        grant that priviledge
-              (apply-dice-roll new-roll))
+              (apply-dice-roll new-roll)
+              ;; End turn - doubles from jail don't grant extra roll
+              apply-end-turn)
 
           ;; Not a double, third attempt.
           ;; Force bail payment, and move
