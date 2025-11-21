@@ -19,8 +19,8 @@
               ;; Find all bail transactions where player escaped via doubles
               bail-via-doubles-txs (->> transactions
                                         (filter #(and (= :bail (:type %))
-                                                      (= :roll (second (:means %)))
-                                                      (= :double (nth (:means %) 2)))))
+                                                      (= :roll (first (:means %)))
+                                                      (= :double (second (:means %))))))
               ;; For each bail-via-doubles, check if there's an immediate subsequent roll by same player
               illegal-double-rolls (for [bail-tx bail-via-doubles-txs
                                          :let [bail-idx (.indexOf transactions bail-tx)
