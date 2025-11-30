@@ -9,11 +9,23 @@
 ;;  :equipped-weapon nil        - {:card ... :defeated-monsters [...]}
 ;;  :skipped-last-room? false   - Consecutive skip prevention
 ;;  :turn-potions-used 0        - Potions used this turn (turn = room)
+;;  :turn 0                     - Current turn number
+;;  :transactions []            - Transaction log (history of all actions)
 ;;  :status :playing}           - :playing, :won, :lost
 
 (def initial-health 20)
 (def room-size 4)
 (def cards-to-play-per-room 3)
+
+;; ============================================================================
+;; Transaction Management
+;; ============================================================================
+
+(defn append-tx
+  "Append one or more transactions to the game state transaction log.
+  Transactions are maps with :type and additional context fields."
+  [game-state & txs]
+  (update game-state :transactions into (filter some? txs)))
 
 ;; ============================================================================
 ;; Deck and Initialization
@@ -44,6 +56,8 @@
          :equipped-weapon nil
          :skipped-last-room? false
          :turn-potions-used 0
+         :turn 0
+         :transactions []
          :status :playing}
         (deal-room room-size))))
 
@@ -108,14 +122,31 @@
   (if (and (:equipped-weapon game-state)
            (can-attack-with-weapon? game-state monster-card))
     ;; Defeat with weapon
-    (defeat-monster-with-weapon game-state monster-card)
+    (-> game-state
+        (defeat-monster-with-weapon monster-card)
+        (append-tx {:type :monster-defeated
+                    :turn (:turn game-state)
+                    :card monster-card
+                    :weapon (get-in game-state [:equipped-weapon :card])}))
     ;; Take damage
-    (update game-state :health - (:value monster-card))))
+    (-> game-state
+        (update :health - (:value monster-card))
+        (append-tx {:type :damage-taken
+                    :turn (:turn game-state)
+                    :card monster-card
+                    :damage (:value monster-card)
+                    :health-after (- (:health game-state) (:value monster-card))}))))
 
 (defn apply-weapon-card
   "Apply weapon card effect: equip the weapon"
   [game-state weapon-card]
-  (equip-weapon game-state weapon-card))
+  (let [old-weapon (get-in game-state [:equipped-weapon :card])]
+    (-> game-state
+        (equip-weapon weapon-card)
+        (append-tx {:type :weapon-equipped
+                    :turn (:turn game-state)
+                    :card weapon-card
+                    :replaced-weapon old-weapon}))))
 
 (defn apply-potion-card
   "Apply potion card effect: heal if first potion this turn"
@@ -123,9 +154,19 @@
   (if (zero? (:turn-potions-used game-state))
     (-> game-state
         (update :health + (:value potion-card))
-        (update :turn-potions-used inc))
+        (update :turn-potions-used inc)
+        (append-tx {:type :healed
+                    :turn (:turn game-state)
+                    :card potion-card
+                    :amount (:value potion-card)
+                    :health-after (+ (:health game-state) (:value potion-card))}))
     ;; Not first potion, no effect but still count it
-    (update game-state :turn-potions-used inc)))
+    (-> game-state
+        (update :turn-potions-used inc)
+        (append-tx {:type :potion-wasted
+                    :turn (:turn game-state)
+                    :card potion-card
+                    :reason :not-first-potion}))))
 
 (defn apply-card-effect
   "Apply card effect based on card type"
@@ -145,11 +186,20 @@
   (when-not (contains? (:room game-state) card)
     (throw (ex-info "Card not in room" {:card card :room (:room game-state)})))
   (let [new-state (-> game-state
+                      (append-tx {:type :card-played
+                                  :turn (:turn game-state)
+                                  :card card
+                                  :card-type (def/card-type card)})
                       (apply-card-effect card)
                       (update :room disj card))
         game-status (game-over? new-state)]
     (if game-status
-      (assoc new-state :status game-status)
+      (-> new-state
+          (assoc :status game-status)
+          (append-tx {:type :game-ended
+                      :turn (:turn game-state)
+                      :outcome game-status
+                      :final-health (:health new-state)}))
       new-state)))
 
 (defn complete-room
@@ -159,7 +209,9 @@
   (-> game-state
       (assoc :turn-potions-used 0)
       (assoc :skipped-last-room? false)
-      (deal-room cards-to-play-per-room)))
+      (deal-room cards-to-play-per-room)
+      (append-tx {:type :room-completed
+                  :turn (:turn game-state)})))
 
 (defn skip-room
   "Skip the current room: move all cards to bottom of deck, deal fresh room"
@@ -168,6 +220,9 @@
     (throw (ex-info "Cannot skip consecutive rooms" {})))
   (let [room-cards (vec (:room game-state))]
     (-> game-state
+        (append-tx {:type :room-skipped
+                    :turn (:turn game-state)
+                    :skipped-cards room-cards})
         (assoc :room #{})
         (update :deck into room-cards)
         (assoc :skipped-last-room? true)
@@ -192,13 +247,15 @@
   "Play one complete turn (room) using player decisions.
   Returns updated game state after the turn."
   [game-state player-ai]
-  (let [room (:room game-state)]
-    (if (player/should-skip-room? player-ai game-state room)
+  (let [room (:room game-state)
+        ;; Increment turn at the start
+        state-with-turn (update game-state :turn inc)]
+    (if (player/should-skip-room? player-ai state-with-turn room)
       ;; Player chose to skip
-      (skip-room game-state)
+      (skip-room state-with-turn)
       ;; Player chose to play cards
-      (let [chosen-cards (player/choose-cards player-ai game-state room)
-            state-after-play (play-cards-in-order game-state chosen-cards)]
+      (let [chosen-cards (player/choose-cards player-ai state-with-turn room)
+            state-after-play (play-cards-in-order state-with-turn chosen-cards)]
         ;; If game is still ongoing, complete the room
         (if (= (:status state-after-play) :playing)
           (complete-room state-after-play)
