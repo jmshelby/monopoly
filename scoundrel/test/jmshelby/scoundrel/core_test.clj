@@ -27,6 +27,9 @@
       (is (nil? (:equipped-weapon state)))
       (is (false? (:skipped-last-room? state)))
       (is (= 0 (:turn-potions-used state)))
+      (is (= 0 (:turn state)))
+      (is (vector? (:transactions state)))
+      (is (empty? (:transactions state)))
       (is (= :playing (:status state)))
       (is (= 40 (count (:deck state)))))) ; 44 - 4 dealt to room
 
@@ -254,3 +257,180 @@
       (is (= :lost (:status new-state)))
       ;; Second card should not be played
       (is (contains? (:room new-state) test-monster-7)))))
+
+;; ============================================================================
+;; Transaction Logging Tests
+;; ============================================================================
+
+(deftest test-transaction-initialization
+  (testing "Game state starts with empty transactions and turn 0"
+    (let [state (core/init-game-state)]
+      (is (vector? (:transactions state)))
+      (is (empty? (:transactions state)))
+      (is (= 0 (:turn state))))))
+
+(deftest test-append-tx
+  (testing "Append single transaction"
+    (let [state {:transactions []}
+          new-state (core/append-tx state {:type :test :value 42})]
+      (is (= 1 (count (:transactions new-state))))
+      (is (= :test (-> new-state :transactions first :type)))))
+
+  (testing "Append multiple transactions"
+    (let [state {:transactions []}
+          new-state (core/append-tx state
+                                    {:type :test1}
+                                    {:type :test2}
+                                    {:type :test3})]
+      (is (= 3 (count (:transactions new-state))))))
+
+  (testing "Filter out nil transactions"
+    (let [state {:transactions []}
+          new-state (core/append-tx state
+                                    {:type :test1}
+                                    nil
+                                    {:type :test2})]
+      (is (= 2 (count (:transactions new-state)))))))
+
+(deftest test-damage-transaction
+  (testing "Taking damage records transaction"
+    (let [state {:health 20 :equipped-weapon nil :transactions [] :turn 1}
+          new-state (core/apply-monster-card state test-monster-7)]
+      (is (= 1 (count (:transactions new-state))))
+      (let [tx (first (:transactions new-state))]
+        (is (= :damage-taken (:type tx)))
+        (is (= 1 (:turn tx)))
+        (is (= test-monster-7 (:card tx)))
+        (is (= 7 (:damage tx)))
+        (is (= 13 (:health-after tx)))))))
+
+(deftest test-monster-defeated-transaction
+  (testing "Defeating monster records transaction"
+    (let [state {:health 20
+                 :equipped-weapon {:card test-weapon-3 :defeated-monsters []}
+                 :transactions []
+                 :turn 1}
+          new-state (core/apply-monster-card state test-monster-7)]
+      (is (= 1 (count (:transactions new-state))))
+      (let [tx (first (:transactions new-state))]
+        (is (= :monster-defeated (:type tx)))
+        (is (= 1 (:turn tx)))
+        (is (= test-monster-7 (:card tx)))
+        (is (= test-weapon-3 (:weapon tx)))))))
+
+(deftest test-weapon-equipped-transaction
+  (testing "Equipping weapon records transaction"
+    (let [state {:equipped-weapon nil :transactions [] :turn 1}
+          new-state (core/apply-weapon-card state test-weapon-3)]
+      (is (= 1 (count (:transactions new-state))))
+      (let [tx (first (:transactions new-state))]
+        (is (= :weapon-equipped (:type tx)))
+        (is (= 1 (:turn tx)))
+        (is (= test-weapon-3 (:card tx)))
+        (is (nil? (:replaced-weapon tx))))))
+
+  (testing "Replacing weapon records old weapon"
+    (let [old-weapon {:suit :diamonds :rank :5 :value 5}
+          state {:equipped-weapon {:card old-weapon :defeated-monsters []}
+                 :transactions []
+                 :turn 2}
+          new-state (core/apply-weapon-card state test-weapon-3)]
+      (let [tx (first (:transactions new-state))]
+        (is (= old-weapon (:replaced-weapon tx)))))))
+
+(deftest test-healed-transaction
+  (testing "Healing with potion records transaction"
+    (let [state {:health 10 :turn-potions-used 0 :transactions [] :turn 1}
+          new-state (core/apply-potion-card state test-potion-8)]
+      (is (= 1 (count (:transactions new-state))))
+      (let [tx (first (:transactions new-state))]
+        (is (= :healed (:type tx)))
+        (is (= 1 (:turn tx)))
+        (is (= test-potion-8 (:card tx)))
+        (is (= 8 (:amount tx)))
+        (is (= 18 (:health-after tx)))))))
+
+(deftest test-potion-wasted-transaction
+  (testing "Wasted potion records transaction"
+    (let [state {:health 10 :turn-potions-used 1 :transactions [] :turn 1}
+          new-state (core/apply-potion-card state test-potion-4)]
+      (is (= 1 (count (:transactions new-state))))
+      (let [tx (first (:transactions new-state))]
+        (is (= :potion-wasted (:type tx)))
+        (is (= 1 (:turn tx)))
+        (is (= test-potion-4 (:card tx)))
+        (is (= :not-first-potion (:reason tx)))))))
+
+(deftest test-card-played-transaction
+  (testing "Playing card records card-played transaction"
+    (let [state {:room #{test-weapon-3}
+                 :health 20
+                 :equipped-weapon nil
+                 :transactions []
+                 :turn 1
+                 :status :playing}
+          new-state (core/play-card state test-weapon-3)]
+      ;; Should have both :card-played and :weapon-equipped
+      (is (= 2 (count (:transactions new-state))))
+      (let [card-tx (first (:transactions new-state))]
+        (is (= :card-played (:type card-tx)))
+        (is (= test-weapon-3 (:card card-tx)))
+        (is (= :weapon (:card-type card-tx)))))))
+
+(deftest test-room-skipped-transaction
+  (testing "Skipping room records transaction"
+    (let [state {:room #{test-monster-7 test-monster-10}
+                 :deck []
+                 :skipped-last-room? false
+                 :turn-potions-used 0
+                 :transactions []
+                 :turn 1}
+          new-state (core/skip-room state)]
+      (is (= 1 (count (:transactions new-state))))
+      (let [tx (first (:transactions new-state))]
+        (is (= :room-skipped (:type tx)))
+        (is (= 1 (:turn tx)))
+        (is (= 2 (count (:skipped-cards tx))))))))
+
+(deftest test-room-completed-transaction
+  (testing "Completing room records transaction"
+    (let [state {:room #{test-monster-7}
+                 :deck [test-weapon-3 test-potion-8]
+                 :turn-potions-used 1
+                 :skipped-last-room? false
+                 :transactions []
+                 :turn 5}
+          new-state (core/complete-room state)]
+      (is (= 1 (count (:transactions new-state))))
+      (let [tx (first (:transactions new-state))]
+        (is (= :room-completed (:type tx)))
+        (is (= 5 (:turn tx)))))))
+
+(deftest test-game-ended-transaction
+  (testing "Game ending records transaction"
+    (let [state {:room #{test-monster-10}
+                 :health 5
+                 :equipped-weapon nil
+                 :transactions []
+                 :turn 10
+                 :status :playing}
+          new-state (core/play-card state test-monster-10)]
+      (is (= :lost (:status new-state)))
+      ;; Should have :card-played, :damage-taken, and :game-ended
+      (is (= 3 (count (:transactions new-state))))
+      (let [game-end-tx (last (:transactions new-state))]
+        (is (= :game-ended (:type game-end-tx)))
+        (is (= 10 (:turn game-end-tx)))
+        (is (= :lost (:outcome game-end-tx)))
+        (is (<= (:final-health game-end-tx) 0))))))
+
+(deftest test-turn-increment
+  (testing "Turn increments during play-turn"
+    (let [state (core/init-game-state)
+          player {:type :test}]
+      ;; Mock player functions for this test
+      (with-redefs [jmshelby.scoundrel.player/should-skip-room? (fn [_ _ _] false)
+                    jmshelby.scoundrel.player/choose-cards (fn [_ state room]
+                                                              (vec (take 3 room)))]
+        (let [new-state (core/play-turn state player)]
+          (is (= 1 (:turn new-state))))))))
