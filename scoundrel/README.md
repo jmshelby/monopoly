@@ -42,10 +42,15 @@ Scoundrel is a single-player card game where you navigate through a dungeon figh
 scoundrel/
 ├── src/jmshelby/scoundrel/
 │   ├── core.clj          # Game engine and state management
-│   └── definitions.clj   # Deck and card definitions
+│   ├── definitions.clj   # Deck and card definitions
+│   ├── player.clj        # Player decision protocol (multimethods)
+│   └── players/
+│       ├── random.clj    # Random player AI
+│       └── greedy.clj    # Greedy player AI with heuristics
 ├── test/jmshelby/scoundrel/
 │   ├── core_test.clj     # Core game mechanics tests
-│   └── definitions_test.clj  # Card and deck tests
+│   ├── definitions_test.clj  # Card and deck tests
+│   └── player_test.clj   # Player AI and game loop tests
 └── deps.edn              # Clojure dependencies
 ```
 
@@ -68,20 +73,32 @@ clojure -M:repl
 ### Example Usage
 
 ```clojure
-(require '[jmshelby.scoundrel.core :as core])
+(require '[jmshelby.scoundrel.core :as core]
+         '[jmshelby.scoundrel.players.random :as random]
+         '[jmshelby.scoundrel.players.greedy :as greedy])
 
-;; Start a new game
+;; Play a complete game with random player
+(def random-player (random/make-random-player))
+(def result (core/play-game random-player))
+(:status result)      ; => :won or :lost
+(:health result)      ; => Final health
+(:turns-played result) ; => Number of turns played
+
+;; Play a complete game with greedy player
+(def greedy-player (greedy/make-greedy-player))
+(def result2 (core/play-game greedy-player))
+
+;; Manual game control
 (def game (core/init-game-state))
-
-;; Examine the room
 (:room game) ; => #{card1 card2 card3 card4}
 
-;; Play cards from the room
-(def game2 (core/play-card game (first (:room game))))
+;; Play one turn with a player
+(def game2 (core/play-turn game greedy-player))
 
-;; Check game status
-(:status game2) ; => :playing, :won, or :lost
-(:health game2) ; => Current health
+;; Or play cards manually
+(def game3 (core/play-card game (first (:room game))))
+(:status game3) ; => :playing, :won, or :lost
+(:health game3) ; => Current health
 ```
 
 ## Implementation Status
@@ -96,17 +113,24 @@ clojure -M:repl
 - [x] Win/lose condition checking
 - [x] Comprehensive test coverage (26 tests)
 
-### Phase 2: AI/Decision Logic (Planned)
-- [ ] Player decision interface
-- [ ] AI strategies for card selection
-- [ ] Optimal play heuristics
-- [ ] Room skip decision logic
+### Phase 2: AI/Decision Logic ✅ COMPLETE
+- [x] Player decision protocol (multimethods)
+- [x] Random player AI implementation
+- [x] Greedy player AI with heuristics:
+  - [x] Weapon prioritization
+  - [x] Potion usage when health is low
+  - [x] Strategic card ordering
+  - [x] Dangerous room skip logic
+- [x] Game loop integration (play-turn, play-game)
+- [x] Full game playthrough support
+- [x] Comprehensive test coverage (15+ tests)
 
 ### Phase 3: Simulation & Analysis (Planned)
-- [ ] Batch game simulation
-- [ ] Win rate analysis
-- [ ] Strategy comparison
+- [ ] Batch game simulation with core.async
+- [ ] Win rate analysis by player type
+- [ ] Strategy comparison and statistics
 - [ ] Game history tracking
+- [ ] Performance metrics
 
 ## Game State Schema
 
@@ -127,6 +151,9 @@ clojure -M:repl
 3. **Turn Boundary**: 3 cards from one room = 1 turn (potion counter resets after)
 4. **Immutable State**: All functions return new state (functional programming pattern)
 5. **No Discard Pile**: Not needed for core mechanics; can be derived from game state
+6. **Player Protocol**: Multimethod dispatch on `:type` key for extensible AI strategies
+7. **Greedy Heuristics**: Simple card sorting based on game state (health, weapon equipped)
+8. **Safety Limits**: Max turn count prevents infinite loops in game simulation
 
 ## Rules Reference
 
