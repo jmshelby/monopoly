@@ -1,5 +1,6 @@
 (ns jmshelby.scoundrel.core
-  (:require [jmshelby.scoundrel.definitions :as def]))
+  (:require [jmshelby.scoundrel.definitions :as def]
+            [jmshelby.scoundrel.player :as player]))
 
 ;; Game State Schema
 ;; {:deck []                    - Remaining undealt cards
@@ -182,3 +183,43 @@
               (reduced state))) ; Stop if game is over
           game-state
           cards))
+
+;; ============================================================================
+;; Game Loop with Player AI
+;; ============================================================================
+
+(defn play-turn
+  "Play one complete turn (room) using player decisions.
+  Returns updated game state after the turn."
+  [game-state player-ai]
+  (let [room (:room game-state)]
+    (if (player/should-skip-room? player-ai game-state room)
+      ;; Player chose to skip
+      (skip-room game-state)
+      ;; Player chose to play cards
+      (let [chosen-cards (player/choose-cards player-ai game-state room)
+            state-after-play (play-cards-in-order game-state chosen-cards)]
+        ;; If game is still ongoing, complete the room
+        (if (= (:status state-after-play) :playing)
+          (complete-room state-after-play)
+          state-after-play)))))
+
+(defn play-game
+  "Play a complete game to completion using player AI.
+  Returns final game state with :status of :won or :lost."
+  [player-ai]
+  (loop [state (init-game-state)
+         turn-count 0
+         max-turns 100] ; Safety limit to prevent infinite loops
+    (cond
+      ;; Game ended
+      (not= (:status state) :playing)
+      (assoc state :turns-played turn-count)
+
+      ;; Safety limit reached
+      (>= turn-count max-turns)
+      (assoc state :status :failed :reason :max-turns-exceeded :turns-played turn-count)
+
+      ;; Continue playing
+      :else
+      (recur (play-turn state player-ai) (inc turn-count) max-turns))))
