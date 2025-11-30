@@ -123,7 +123,11 @@ clojure -M:repl
   - [x] Dangerous room skip logic
 - [x] Game loop integration (play-turn, play-game)
 - [x] Full game playthrough support
-- [x] Comprehensive test coverage (15+ tests)
+- [x] Transaction logging system:
+  - [x] 9 transaction types covering all actions
+  - [x] Turn tracking throughout game
+  - [x] Complete game history for analysis
+- [x] Comprehensive test coverage (47 tests)
 
 ### Phase 3: Simulation & Analysis (Planned)
 - [ ] Batch game simulation with core.async
@@ -141,8 +145,30 @@ clojure -M:repl
  :equipped-weapon nil        ; {:card ... :defeated-monsters [...]}
  :skipped-last-room? false   ; Consecutive skip prevention
  :turn-potions-used 0        ; Potions used this turn
+ :turn 0                     ; Current turn number
+ :transactions []            ; Transaction log (full game history)
  :status :playing}           ; :playing, :won, :lost
 ```
+
+## Transaction Logging
+
+All game actions are recorded in the `:transactions` vector for analysis and debugging. Each transaction is a map with `:type` and `:turn` plus action-specific data:
+
+- `:card-played` - Records each card play with card type
+- `:damage-taken` - Monster damage with health before/after
+- `:monster-defeated` - Weapon defeating monster
+- `:weapon-equipped` - Equipping weapons (tracks replacements)
+- `:healed` - Potion healing with amount and health after
+- `:potion-wasted` - Non-first potions with reason
+- `:room-skipped` - Room skip with skipped cards
+- `:room-completed` - Room completion marker
+- `:game-ended` - Final outcome with health
+
+Transaction logs enable:
+- Game replay and analysis
+- Strategy evaluation
+- Debugging game logic
+- Win/loss pattern identification
 
 ## Design Decisions
 
@@ -154,6 +180,8 @@ clojure -M:repl
 6. **Player Protocol**: Multimethod dispatch on `:type` key for extensible AI strategies
 7. **Greedy Heuristics**: Simple card sorting based on game state (health, weapon equipped)
 8. **Safety Limits**: Max turn count prevents infinite loops in game simulation
+9. **Transaction Logging**: Comprehensive action history following Monopoly engine pattern
+10. **Turn Tracking**: Turn counter increments at start of each room for consistent logging
 
 ## Rules Reference
 
