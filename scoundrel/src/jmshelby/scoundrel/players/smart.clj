@@ -115,9 +115,36 @@
                               Integer/MAX_VALUE)
                             Integer/MAX_VALUE))
 
-        ;; Separate attackable and unattackable monsters
-        attackable-monsters (filter #(< (:value %) attackable-limit) monsters)
-        unattackable-monsters (filter #(>= (:value %) attackable-limit) monsters)
+        ;; First separate by weapon constraint (CAN attack vs CAN'T attack)
+        constraint-attackable (filter #(< (:value %) attackable-limit) monsters)
+        constraint-unattackable (filter #(>= (:value %) attackable-limit) monsters)
+
+        ;; Strategic decision: should we preserve weapon from weak monsters?
+        ;; Generally fight weak monsters (≤4) by hand to preserve weapon versatility
+        current-weapon-value (if weapon (:value (:card weapon)) 0)
+
+        ;; Exceptions: use weapon on weak monsters if:
+        ;; 1. Health is critical (< 8 HP) - can't afford to take hits
+        ;; 2. Weapon is low-value (≤ 6) - won't help much on big monsters anyway
+        ;; 3. Weapon already constrained to weak range (limit ≤ 5)
+        ;; 4. Too many weak monsters (≥ 3) - total damage too high
+        weak-constraint-attackable (filter #(<= (:value %) 4) constraint-attackable)
+        should-preserve-from-weak? (and (>= current-weapon-value 7)  ; High-value weapon worth preserving
+                                       (>= health 8)                 ; Can afford to take some hits
+                                       (>= attackable-limit 5)       ; Weapon not already limited
+                                       (< (count weak-constraint-attackable) 3))  ; Not too many weak monsters
+
+        ;; Apply strategic preservation: fight weak monsters by hand if preserving
+        strong-constraint-attackable (filter #(> (:value %) 4) constraint-attackable)
+        attackable-monsters (if should-preserve-from-weak?
+                             strong-constraint-attackable  ; Only use weapon on strong monsters
+                             constraint-attackable)        ; Use weapon on all attackable monsters
+
+        unattackable-monsters (if should-preserve-from-weak?
+                               ;; Fight weak monsters by hand + those outside weapon constraint
+                               (concat weak-constraint-attackable constraint-unattackable)
+                               ;; Just those outside weapon constraint
+                               constraint-unattackable)
 
         ;; Sort potions in descending order (use highest value first, minimize waste)
         sorted-potions (vec (reverse (sort-by :value potions)))
