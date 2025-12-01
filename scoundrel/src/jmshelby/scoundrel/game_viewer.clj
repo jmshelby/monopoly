@@ -118,7 +118,8 @@
                     (str "💚 Healed " amount " (wasted " wasted ") → " health-after))
                   (format-card-played card
                     (str "💚 Healed " amount " → " health-after))))
-              (format-card-played card "❌ Potion wasted (not first this turn)"))
+              (format-card-played card
+                (str "❌ Potion wasted (" (:value card) " HP lost - not first this turn)")))
 
             (format-card-played card "Unknown effect")))))))
 
