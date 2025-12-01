@@ -69,7 +69,22 @@
         potions (filter #(= :potion (def/card-type %)) cards)
 
         ;; Sort monsters by value (descending) for weapon usage
-        sorted-monsters (vec (reverse (sort-by :value monsters)))
+        ;; BUT: if we already have defeated monsters, we can only attack
+        ;; monsters smaller than the last defeated one
+        attackable-limit (if weapon
+                          (if-let [last-defeated (peek (:defeated-monsters weapon))]
+                            (:value last-defeated)
+                            Integer/MAX_VALUE)
+                          Integer/MAX_VALUE)
+
+        ;; Separate attackable and unattackable monsters
+        attackable-monsters (filter #(< (:value %) attackable-limit) monsters)
+        unattackable-monsters (filter #(>= (:value %) attackable-limit) monsters)
+
+        ;; Sort attackable monsters in descending order
+        sorted-attackable (vec (reverse (sort-by :value attackable-monsters)))
+        ;; Sort unattackable by ascending order (take least damage first)
+        sorted-unattackable (vec (sort-by :value unattackable-monsters))
 
         ;; Build optimal sequence
         sequence (cond
@@ -77,19 +92,21 @@
                    (and (< health 8) (seq potions))
                    (concat [(first potions)]
                            weapons
-                           sorted-monsters
+                           sorted-attackable
+                           sorted-unattackable
                            (rest potions))
 
                    ;; If we have no weapon and there's one available, equip it first
                    (and (nil? weapon) (seq weapons))
                    (concat [(first weapons)]
                            (rest weapons)
-                           sorted-monsters
+                           sorted-attackable
+                           sorted-unattackable
                            potions)
 
                    ;; Otherwise: weapons, then sorted monsters, then potions
                    :else
-                   (concat weapons sorted-monsters potions))]
+                   (concat weapons sorted-attackable sorted-unattackable potions))]
     (vec sequence)))
 
 (defn evaluate-card-choice
