@@ -60,7 +60,9 @@
   "Format the turn header with room cards"
   [turn room health max-health weapon]
   (let [room-cards (vec room)
-        cards-str (str/join " " (map #(str (card-type-icon %) (card-str %)) room-cards))
+        cards-str (if (empty? room-cards)
+                   "(unknown)"
+                   (str/join " " (map card-str room-cards)))
         weapon-str (if weapon
                      (str " | Weapon: " (card-str (:card weapon))
                           (when (seq (:defeated-monsters weapon))
@@ -166,10 +168,15 @@
                 weapon-at-start (when (seq weapon-txs-before)
                                  {:card (:card (last weapon-txs-before))})
 
-                ;; Get room cards from skipped transaction if available
+                ;; Reconstruct room cards
                 skip-tx (first (filter #(= :room-skipped (:type %)) turn-txs))
-                room-cards (when skip-tx #{})  ; Can't easily reconstruct room
-                ]
+                played-cards (map :card (filter #(= :card-played (:type %)) turn-txs))
+                room-cards (if skip-tx
+                            ;; Room was skipped - get cards from skip transaction
+                            (:skipped-cards skip-tx)
+                            ;; Room was played - show the 3 cards that were played
+                            ;; (We don't know the 4th card that was left, but 3 is enough)
+                            played-cards)]
 
             (println (format-turn-header turn
                                        room-cards
