@@ -21,8 +21,8 @@
    :king "K"
    :queen "Q"
    :jack "J"
-   2 "2" 3 "3" 4 "4" 5 "5" 6 "6"
-   7 "7" 8 "8" 9 "9" 10 "10"})
+   :2 "2" :3 "3" :4 "4" :5 "5" :6 "6"
+   :7 "7" :8 "8" :9 "9" :10 "10"})
 
 (defn card-str
   "Format a card as a human-readable string like ♠A or ♥10"
