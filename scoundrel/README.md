@@ -44,13 +44,17 @@ scoundrel/
 │   ├── core.clj          # Game engine and state management
 │   ├── definitions.clj   # Deck and card definitions
 │   ├── player.clj        # Player decision protocol (multimethods)
-│   └── players/
-│       ├── random.clj    # Random player AI
-│       └── greedy.clj    # Greedy player AI with heuristics
+│   ├── simulation.clj    # Batch simulation and analysis
+│   ├── players/
+│   │   ├── random.clj    # Random player AI
+│   │   └── greedy.clj    # Greedy player AI with heuristics
+│   └── simulation/
+│       └── cli.clj       # Command-line interface
 ├── test/jmshelby/scoundrel/
 │   ├── core_test.clj     # Core game mechanics tests
 │   ├── definitions_test.clj  # Card and deck tests
-│   └── player_test.clj   # Player AI and game loop tests
+│   ├── player_test.clj   # Player AI and game loop tests
+│   └── simulation_test.clj   # Simulation and analysis tests
 └── deps.edn              # Clojure dependencies
 ```
 
@@ -61,6 +65,24 @@ scoundrel/
 ```bash
 cd scoundrel
 clojure -M:test
+```
+
+### Running Simulations
+
+```bash
+cd scoundrel
+
+# Run 5000 games with random player (default)
+clojure -M:sim
+
+# Run 10000 games with greedy player
+clojure -M:sim -p :greedy -g 10000
+
+# Run 1000 games with custom turn limit
+clojure -M:sim -g 1000 -t 150
+
+# Show help
+clojure -M:sim -h
 ```
 
 ### REPL Development
@@ -75,7 +97,9 @@ clojure -M:repl
 ```clojure
 (require '[jmshelby.scoundrel.core :as core]
          '[jmshelby.scoundrel.players.random :as random]
-         '[jmshelby.scoundrel.players.greedy :as greedy])
+         '[jmshelby.scoundrel.players.greedy :as greedy]
+         '[jmshelby.scoundrel.simulation :as sim]
+         '[clojure.core.async :as async])
 
 ;; Play a complete game with random player
 (def random-player (random/make-random-player))
@@ -87,6 +111,15 @@ clojure -M:repl
 ;; Play a complete game with greedy player
 (def greedy-player (greedy/make-greedy-player))
 (def result2 (core/play-game greedy-player))
+
+;; Run batch simulation
+(def output-ch (sim/run-simulation 100 :greedy 100))
+(def results (loop [acc []]
+               (if-let [result (async/<!! output-ch)]
+                 (recur (conj acc result))
+                 acc)))
+(def stats (sim/aggregate-results results))
+(sim/print-simulation-results stats :greedy)
 
 ;; Manual game control
 (def game (core/init-game-state))
@@ -129,12 +162,25 @@ clojure -M:repl
   - [x] Complete game history for analysis
 - [x] Comprehensive test coverage (47 tests)
 
-### Phase 3: Simulation & Analysis (Planned)
-- [ ] Batch game simulation with core.async
-- [ ] Win rate analysis by player type
-- [ ] Strategy comparison and statistics
-- [ ] Game history tracking
-- [ ] Performance metrics
+### Phase 3: Simulation & Analysis ✅ COMPLETE
+- [x] Batch game simulation with core.async
+  - [x] Parallel execution using pipeline pattern
+  - [x] Automatic CPU-based parallelism
+  - [x] Backpressure handling for memory efficiency
+- [x] Win rate analysis by player type
+- [x] Strategy comparison and statistics
+  - [x] Damage analysis (total, avg, min/max)
+  - [x] Combat efficiency (monsters defeated vs damage taken)
+  - [x] Weapon utilization (equipped, replacements)
+  - [x] Potion efficiency (used vs wasted)
+  - [x] Room skip frequency
+- [x] Game history tracking via transaction logs
+- [x] Performance metrics (games per second)
+- [x] CLI interface with options:
+  - [x] -g: Number of games (default 5000)
+  - [x] -p: Player type (:random or :greedy)
+  - [x] -t: Max turns per game
+- [x] Comprehensive test coverage (58 tests)
 
 ## Game State Schema
 
