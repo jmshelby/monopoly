@@ -67,13 +67,13 @@
 
 (defn game-over?
   "Check if game is over. Returns status or nil.
-  Win: deck and room are both empty
+  Win: deck is empty and room has <= 1 card (no more playable rooms)
   Lose: health <= 0"
   [game-state]
   (cond
     (<= (:health game-state) 0) :lost
     (and (empty? (:deck game-state))
-         (empty? (:room game-state))) :won
+         (<= (count (:room game-state)) 1)) :won
     :else nil))
 
 (defn cards-remaining-in-room

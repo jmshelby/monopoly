@@ -29,7 +29,8 @@
       "Bash(git rebase:*)",
       "Bash(gh pr view:*)",
       "Bash(mv:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "WebFetch(domain:rpdillon.net)"
     ],
     "deny": []
   }

@@ -138,7 +138,7 @@
        (async/close! input-ch))
 
      ;; Return the output channel
-     output-ch))))
+     output-ch)))
 
 ;; ============================================================================
 ;; Results Aggregation
