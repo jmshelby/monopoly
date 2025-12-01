@@ -255,8 +255,12 @@
   Returns updated game state after the turn."
   [game-state player-ai]
   (let [room (:room game-state)
-        ;; Increment turn at the start
-        state-with-turn (update game-state :turn inc)]
+        ;; Increment turn at the start and record room state
+        state-with-turn (-> game-state
+                           (update :turn inc)
+                           (append-tx {:type :turn-started
+                                      :turn (inc (:turn game-state))
+                                      :room-cards (vec room)}))]
     (if (player/should-skip-room? player-ai state-with-turn room)
       ;; Player chose to skip
       (skip-room state-with-turn)

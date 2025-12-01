@@ -168,15 +168,16 @@
                 weapon-at-start (when (seq weapon-txs-before)
                                  {:card (:card (last weapon-txs-before))})
 
-                ;; Reconstruct room cards
-                skip-tx (first (filter #(= :room-skipped (:type %)) turn-txs))
-                played-cards (map :card (filter #(= :card-played (:type %)) turn-txs))
-                room-cards (if skip-tx
-                            ;; Room was skipped - get cards from skip transaction
-                            (:skipped-cards skip-tx)
-                            ;; Room was played - show the 3 cards that were played
-                            ;; (We don't know the 4th card that was left, but 3 is enough)
-                            played-cards)]
+                ;; Get room cards from turn-started transaction
+                turn-start-tx (first (filter #(= :turn-started (:type %)) turn-txs))
+                room-cards (if turn-start-tx
+                            (:room-cards turn-start-tx)
+                            ;; Fallback: try to reconstruct from played/skipped cards
+                            (let [skip-tx (first (filter #(= :room-skipped (:type %)) turn-txs))
+                                  played-cards (map :card (filter #(= :card-played (:type %)) turn-txs))]
+                              (if skip-tx
+                                (:skipped-cards skip-tx)
+                                played-cards)))]
 
             (println (format-turn-header turn
                                        room-cards
