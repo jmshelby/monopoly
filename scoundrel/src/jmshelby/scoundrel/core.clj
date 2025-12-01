@@ -118,18 +118,24 @@
 ;; ============================================================================
 
 (defn apply-monster-card
-  "Apply monster card effect: damage player or defeat with weapon"
+  "Apply monster card effect: damage player, reduced by weapon if equipped"
   [game-state monster-card]
   (if (and (:equipped-weapon game-state)
            (can-attack-with-weapon? game-state monster-card))
-    ;; Defeat with weapon
-    (-> game-state
-        (defeat-monster-with-weapon monster-card)
-        (append-tx {:type :monster-defeated
-                    :turn (:turn game-state)
-                    :card monster-card
-                    :weapon (get-in game-state [:equipped-weapon :card])}))
-    ;; Take damage
+    ;; Fight with weapon: damage = monster_value - weapon_value (minimum 0)
+    (let [weapon-value (get-in game-state [:equipped-weapon :card :value])
+          monster-value (:value monster-card)
+          damage (max 0 (- monster-value weapon-value))]
+      (-> game-state
+          (defeat-monster-with-weapon monster-card)
+          (update :health - damage)
+          (append-tx {:type :monster-fought-with-weapon
+                      :turn (:turn game-state)
+                      :card monster-card
+                      :weapon (get-in game-state [:equipped-weapon :card])
+                      :damage damage
+                      :health-after (- (:health game-state) damage)})))
+    ;; Take full damage without weapon
     (-> game-state
         (update :health - (:value monster-card))
         (append-tx {:type :damage-taken

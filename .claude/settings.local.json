@@ -30,7 +30,11 @@
       "Bash(gh pr view:*)",
       "Bash(mv:*)",
       "Bash(cat:*)",
-      "WebFetch(domain:rpdillon.net)"
+      "WebFetch(domain:rpdillon.net)",
+      "Bash(for:*)",
+      "Bash(do clojure:*)",
+      "Bash(done)",
+      "Bash(do echo \"=== Game $i ===\")"
     ],
     "deny": []
   }

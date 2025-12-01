@@ -42,13 +42,16 @@
                    (if-let [last-defeated (peek (:defeated-monsters weapon))]
                      (< (:value card) (:value last-defeated))
                      true)) ; Can attack if no monsters defeated yet
-            ;; Defeat with weapon
-            (recur health
-                   (update weapon :defeated-monsters conj card)
-                   (rest remaining-cards)
-                   used-potion?
-                   wasted-healing)
-            ;; Take damage
+            ;; Fight with weapon: damage = monster_value - weapon_value (min 0)
+            (let [weapon-value (:value (:card weapon))
+                  monster-value (:value card)
+                  damage (max 0 (- monster-value weapon-value))]
+              (recur (- health damage)
+                     (update weapon :defeated-monsters conj card)
+                     (rest remaining-cards)
+                     used-potion?
+                     wasted-healing))
+            ;; Take full damage without weapon
             (recur (- health (:value card))
                    weapon
                    (rest remaining-cards)
@@ -79,19 +82,27 @@
         weapons (filter #(= :weapon (def/card-type %)) cards)
         potions (filter #(= :potion (def/card-type %)) cards)
 
-        ;; Sort monsters by value (descending) for weapon usage
-        ;; BUT: if we already have defeated monsters, we can only attack
-        ;; monsters smaller than the last defeated one
-        attackable-limit (if weapon
-                          (if-let [last-defeated (peek (:defeated-monsters weapon))]
-                            (:value last-defeated)
-                            Integer/MAX_VALUE)
-                          Integer/MAX_VALUE)
+        ;; Determine attackable limit based on weapon situation
+        ;; If we're going to equip a NEW weapon this turn, all monsters are attackable
+        ;; Otherwise, use the current weapon's constraint (last defeated monster)
+        attackable-limit (if (seq weapons)
+                          ;; New weapon in room - fresh weapon has no constraints
+                          Integer/MAX_VALUE
+                          ;; No new weapon - use current weapon's constraint
+                          (if weapon
+                            (if-let [last-defeated (peek (:defeated-monsters weapon))]
+                              (:value last-defeated)
+                              Integer/MAX_VALUE)
+                            Integer/MAX_VALUE))
 
         ;; Separate attackable and unattackable monsters
         attackable-monsters (filter #(< (:value %) attackable-limit) monsters)
         unattackable-monsters (filter #(>= (:value %) attackable-limit) monsters)
 
+        ;; Sort weapons in ascending order (equip weak ones first, keep strongest)
+        sorted-weapons (vec (sort-by :value weapons))
+        ;; Sort potions in descending order (use highest value first, minimize waste)
+        sorted-potions (vec (reverse (sort-by :value potions)))
         ;; Sort attackable monsters in descending order
         sorted-attackable (vec (reverse (sort-by :value attackable-monsters)))
         ;; Sort unattackable by ascending order (take least damage first)
@@ -100,24 +111,24 @@
         ;; Build optimal sequence
         sequence (cond
                    ;; If health is critical (< 8), start with potion
-                   (and (< health 8) (seq potions))
-                   (concat [(first potions)]
-                           weapons
+                   (and (< health 8) (seq sorted-potions))
+                   (concat [(first sorted-potions)]
+                           sorted-weapons
                            sorted-attackable
                            sorted-unattackable
-                           (rest potions))
+                           (rest sorted-potions))
 
                    ;; If we have no weapon and there's one available, equip it first
-                   (and (nil? weapon) (seq weapons))
-                   (concat [(first weapons)]
-                           (rest weapons)
+                   (and (nil? weapon) (seq sorted-weapons))
+                   (concat [(first sorted-weapons)]
+                           (rest sorted-weapons)
                            sorted-attackable
                            sorted-unattackable
-                           potions)
+                           sorted-potions)
 
                    ;; Otherwise: weapons, then sorted monsters, then potions
                    :else
-                   (concat weapons sorted-attackable sorted-unattackable potions))]
+                   (concat sorted-weapons sorted-attackable sorted-unattackable sorted-potions))]
     (vec sequence)))
 
 (defn evaluate-card-choice
@@ -153,14 +164,28 @@
 
 (defmethod player/should-skip-room? :smart
   [_player game-state room]
-  ;; Only skip if:
-  ;; 1. We're allowed to skip (didn't skip last room)
-  ;; 2. The best possible play still results in death
+  ;; Skip if:
+  ;; 1. We're allowed to skip (didn't skip last room) AND
+  ;; 2. Either:
+  ;;    a) Best possible play results in death, OR
+  ;;    b) Room wastes too many potions (multiple potions, high waste, not desperate)
   (let [can-skip? (not (:skipped-last-room? game-state))
         room-vec (vec room)
+        current-health (:health game-state)
+
+        ;; Count potions in room
+        potion-count (count (filter #(= :potion (def/card-type %)) room))
+
         ;; Find the best possible outcome
         evaluations (map #(evaluate-card-choice % room game-state) room-vec)
         best-outcome (apply max-key :score evaluations)
-        best-final-health (:final-health best-outcome)]
-    ;; Skip if we can and even the best play would kill us
-    (and can-skip? (<= best-final-health 0))))
+        best-final-health (:final-health best-outcome)
+        best-wasted-healing (:wasted-healing best-outcome)
+
+        ;; Skip conditions
+        would-die? (<= best-final-health 0)
+        excessive-potion-waste? (and (>= potion-count 2)           ; Multiple potions
+                                     (>= best-wasted-healing 8)     ; High waste (8+ HP)
+                                     (>= current-health 8))]        ; Not desperate for healing
+    ;; Skip if we can and either we'd die or waste too many potions
+    (and can-skip? (or would-die? excessive-potion-waste?))))

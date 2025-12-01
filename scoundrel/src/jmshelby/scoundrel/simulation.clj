@@ -46,7 +46,7 @@
         damage-instances (count damage-txs)
 
         ;; Combat analysis
-        monsters-defeated (count (filter #(= :monster-defeated (:type %)) transactions))
+        monsters-defeated (count (filter #(= :monster-fought-with-weapon (:type %)) transactions))
 
         ;; Weapon analysis
         weapon-txs (filter #(= :weapon-equipped (:type %)) transactions)

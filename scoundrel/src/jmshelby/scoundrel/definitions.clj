@@ -55,3 +55,12 @@
     (:clubs :spades) :monster
     :diamonds :weapon
     :hearts :potion))
+
+
+(comment
+
+  (create-deck)
+
+
+  )
+

@@ -100,60 +100,58 @@
           (let [card-tx (first remaining-cards)
                 card (:card card-tx)
                 card-type (:card-type card-tx)
+                ;; Find effects immediately following this card
                 next-txs (drop-while #(not= card-tx %) turn-txs)
-                next-tx (second next-txs)]
+                next-tx (second next-txs)
 
-            ;; Determine action and new health based on card type
-            (let [[action-str new-health]
+                ;; Format the action and get new health
+                [action-str new-health]
+                (case card-type
+                  :weapon
+                  [(format-card-played card "Equipped weapon") current-health]
+
+                  :monster
                   (cond
-                    ;; Weapon: just equip
-                    (= card-type :weapon)
-                    [(format-card-played card "Equipped weapon") current-health]
-
-                    ;; Monster: check if fought with weapon or took full damage
-                    (= card-type :monster)
-                    (cond
-                      (and next-tx (= :monster-fought-with-weapon (:type next-tx)))
-                      (let [damage (:damage next-tx)
-                            health-after (:health-after next-tx)]
-                        (if (zero? damage)
-                          [(format-card-played card "⚔️ Blocked with weapon! (0 damage)") health-after]
-                          [(format-card-played card
-                             (str "⚔️ Fought with weapon → " damage " damage (HP: " current-health " → " health-after ")"))
-                           health-after]))
-
-                      (and next-tx (= :damage-taken (:type next-tx)))
-                      (let [damage (:damage next-tx)
-                            health-after (:health-after next-tx)]
+                    ;; Monster fought with weapon (reduced damage)
+                    (and next-tx (= :monster-fought-with-weapon (:type next-tx)))
+                    (let [damage (:damage next-tx)
+                          health-after (:health-after next-tx)]
+                      (if (zero? damage)
+                        [(format-card-played card "⚔️ Blocked with weapon! (0 damage)") health-after]
                         [(format-card-played card
-                           (str "💔 Took " damage " damage (HP: " current-health " → " health-after ")"))
-                         health-after])
+                           (str "⚔️ Fought with weapon → " damage " damage (HP: " current-health " → " health-after ")"))
+                         health-after]))
 
-                      :else
-                      [(format-card-played card "Unknown effect") current-health])
-
-                    ;; Potion: check if healed or wasted
-                    (= card-type :potion)
-                    (if (and next-tx (= :healed (:type next-tx)))
-                      (let [amount (:amount next-tx)
-                            wasted (:wasted-healing next-tx 0)
-                            health-after (:health-after next-tx)]
-                        (if (> wasted 0)
-                          [(format-card-played card
-                             (str "💚 Healed " amount " (wasted " wasted ") → " health-after))
-                           health-after]
-                          [(format-card-played card
-                             (str "💚 Healed " amount " → " health-after))
-                           health-after]))
+                    ;; Monster without weapon (full damage)
+                    (and next-tx (= :damage-taken (:type next-tx)))
+                    (let [damage (:damage next-tx)
+                          health-after (:health-after next-tx)]
                       [(format-card-played card
-                         (str "❌ Potion wasted (" (:value card) " HP lost - not first this turn)"))
-                       current-health])
+                         (str "💔 Took " damage " damage (HP: " current-health " → " health-after ")"))
+                       health-after])
 
-                    ;; Unknown card type
                     :else
-                    [(format-card-played card "Unknown effect") current-health])]
+                    [(format-card-played card "Unknown effect") current-health])
 
-              (recur (rest remaining-cards) new-health (conj results action-str)))))))))
+                  :potion
+                  (if (and next-tx (= :healed (:type next-tx)))
+                    (let [amount (:amount next-tx)
+                          wasted (:wasted-healing next-tx 0)
+                          health-after (:health-after next-tx)]
+                      (if (> wasted 0)
+                        [(format-card-played card
+                           (str "💚 Healed " amount " (wasted " wasted ") → " health-after))
+                         health-after]
+                        [(format-card-played card
+                           (str "💚 Healed " amount " → " health-after))
+                         health-after]))
+                    [(format-card-played card
+                       (str "❌ Potion wasted (" (:value card) " HP lost - not first this turn)"))
+                     current-health])
+
+                  [(format-card-played card "Unknown effect") current-health])]
+
+            (recur (rest remaining-cards) new-health (conj results action-str)))))))))
 
 ;; ============================================================================
 ;; Game Replay
