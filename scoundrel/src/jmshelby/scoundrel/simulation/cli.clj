@@ -9,10 +9,10 @@
     :default 5000
     :parse-fn #(Integer/parseInt %)
     :validate [#(> % 0) "Must be a positive number"]]
-   ["-p" "--player TYPE" "Player type (:random or :greedy)"
+   ["-p" "--player TYPE" "Player type (random or greedy)"
     :default :random
-    :parse-fn keyword
-    :validate [#(#{:random :greedy} %) "Must be :random or :greedy"]]
+    :parse-fn #(keyword (clojure.string/replace % #"^:" ""))
+    :validate [#(#{:random :greedy} %) "Must be random or greedy"]]
    ["-t" "--max-turns NUM" "Maximum turns per game"
     :default 100
     :parse-fn #(Integer/parseInt %)
@@ -30,7 +30,8 @@
         "Examples:"
         "  clojure -M:sim                          # Run 5000 games with random player"
         "  clojure -M:sim -g 1000                  # Run 1000 games"
-        "  clojure -M:sim -p :greedy -g 10000      # Run 10000 games with greedy player"
+        "  clojure -M:sim -p greedy -g 10000       # Run 10000 games with greedy player"
+        "  clojure -M:sim -p :greedy -g 10000      # Also works with colon prefix"
         ""]
        (clojure.string/join \newline)))
 
