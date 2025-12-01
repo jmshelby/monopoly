@@ -52,14 +52,17 @@
 
 (defmethod player/should-skip-room? :greedy
   [_player game-state room]
-  ;; Skip if room is too dangerous:
+  ;; Skip if room is too dangerous AND we're allowed to skip (didn't skip last room):
   ;; - Low health (< 8)
   ;; - All 4 cards are monsters
   ;; - Average monster value is high (> 8)
+  ;; - Can skip (not skipped last room)
   (let [health (:health game-state)
         room-vec (vec room)
         all-monsters? (every? #(= :monster (def/card-type %)) room-vec)
-        avg-value (/ (reduce + (map :value room-vec)) (count room-vec))]
-    (and (< health 8)
+        avg-value (/ (reduce + (map :value room-vec)) (count room-vec))
+        can-skip? (not (:skipped-last-room? game-state))]
+    (and can-skip?
+         (< health 8)
          all-monsters?
          (> avg-value 8))))
