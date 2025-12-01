@@ -9,9 +9,32 @@
 ;; Game Outcome Analysis
 ;; ============================================================================
 
+(defn debug-game-state
+  "Print detailed debug information about a game state"
+  [game-state reason]
+  (println "\n========================================")
+  (println "DEBUG: Game" reason)
+  (println "========================================")
+  (println "Status:" (:status game-state))
+  (println "Health:" (:health game-state))
+  (println "Turns Played:" (:turns-played game-state))
+  (println "Turn:" (:turn game-state))
+  (println "Deck remaining:" (count (:deck game-state)))
+  (println "Room cards:" (count (:room game-state)))
+  (println "Room:" (vec (:room game-state)))
+  (println "Equipped weapon:" (:equipped-weapon game-state))
+  (println "Skipped last room?:" (:skipped-last-room? game-state))
+
+  ;; Show last 10 transactions
+  (println "\nLast 10 transactions:")
+  (doseq [tx (take-last 10 (:transactions game-state))]
+    (println " " tx))
+
+  (println "========================================\n"))
+
 (defn analyze-game-outcome
   "Analyze a single completed game and extract statistics from transactions"
-  [game-state player-type]
+  [game-state player-type debug?]
   (let [transactions (:transactions game-state)
         outcome (:status game-state)
         final-health (:health game-state)
@@ -38,6 +61,10 @@
 
         ;; Room analysis
         rooms-skipped (count (filter #(= :room-skipped (:type %)) transactions))]
+
+    ;; Debug output for failed/lost games
+    (when (and debug? (or (= outcome :failed) (= outcome :lost)))
+      (debug-game-state game-state (str outcome)))
 
     {:outcome outcome
      :player-type player-type
@@ -81,9 +108,10 @@
 (defn run-simulation
   "Run a large number of game simulations using core.async pipeline.
   Returns a channel that yields individual game analysis results."
-  ([num-games player-type] (run-simulation num-games player-type 100))
-  ([num-games player-type max-turns]
-   (let [parallelism (+ 2 (* 2 (.. Runtime getRuntime availableProcessors)))
+  ([num-games player-type] (run-simulation num-games player-type 100 false))
+  ([num-games player-type max-turns] (run-simulation num-games player-type max-turns false))
+  ([num-games player-type max-turns debug?]
+   (let [parallelism (if debug? 1 (+ 2 (* 2 (.. Runtime getRuntime availableProcessors))))
 
          ;; Create channels
          input-ch (async/chan)
@@ -98,7 +126,7 @@
          ;; Function that processes a single game
          process-game (fn [_game-num]
                         (let [game-state (core/play-game player)]
-                          (analyze-game-outcome game-state player-type)))]
+                          (analyze-game-outcome game-state player-type debug?)))]
 
      ;; Set up pipeline to process games in parallel with backpressure
      (async/pipeline parallelism output-ch (map process-game) input-ch)
@@ -110,7 +138,7 @@
        (async/close! input-ch))
 
      ;; Return the output channel
-     output-ch)))
+     output-ch))))
 
 ;; ============================================================================
 ;; Results Aggregation
