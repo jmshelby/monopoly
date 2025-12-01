@@ -15,15 +15,18 @@
   []
   {:type :smart})
 
+(def max-health 20)
+
 (defn simulate-card-sequence
-  "Simulate playing a sequence of cards and return final health"
+  "Simulate playing a sequence of cards and return final health and wasted healing"
   [initial-health equipped-weapon cards]
   (loop [health initial-health
          weapon equipped-weapon
          remaining-cards cards
-         used-potion? false]
+         used-potion? false
+         wasted-healing 0]
     (if (empty? remaining-cards)
-      health
+      {:final-health health :wasted-healing wasted-healing}
       (let [card (first remaining-cards)
             card-type (def/card-type card)]
         (case card-type
@@ -31,7 +34,8 @@
           (recur health
                  {:card card :defeated-monsters []}
                  (rest remaining-cards)
-                 used-potion?)
+                 used-potion?
+                 wasted-healing)
 
           :monster
           (if (and weapon
@@ -42,22 +46,29 @@
             (recur health
                    (update weapon :defeated-monsters conj card)
                    (rest remaining-cards)
-                   used-potion?)
+                   used-potion?
+                   wasted-healing)
             ;; Take damage
             (recur (- health (:value card))
                    weapon
                    (rest remaining-cards)
-                   used-potion?))
+                   used-potion?
+                   wasted-healing))
 
           :potion
           (if used-potion?
             ;; Already used a potion, no effect
-            (recur health weapon (rest remaining-cards) used-potion?)
-            ;; Use potion
-            (recur (+ health (:value card))
-                   weapon
-                   (rest remaining-cards)
-                   true)))))))
+            (recur health weapon (rest remaining-cards) used-potion? wasted-healing)
+            ;; Use potion (cap at max-health)
+            (let [potion-value (:value card)
+                  actual-healing (min potion-value (- max-health health))
+                  new-wasted (- potion-value actual-healing)
+                  new-health (min max-health (+ health potion-value))]
+              (recur new-health
+                     weapon
+                     (rest remaining-cards)
+                     true
+                     (+ wasted-healing new-wasted)))))))))
 
 (defn find-best-card-order
   "Find the best order to play cards to maximize survival and weapon usage"
@@ -110,16 +121,25 @@
     (vec sequence)))
 
 (defn evaluate-card-choice
-  "Evaluate leaving out a specific card - return expected final health"
+  "Evaluate leaving out a specific card - return expected final health and wasted healing"
   [card-to-leave room game-state]
   (let [cards-to-play (vec (remove #{card-to-leave} room))
         ordered-cards (find-best-card-order cards-to-play game-state)
-        final-health (simulate-card-sequence
-                      (:health game-state)
-                      (:equipped-weapon game-state)
-                      ordered-cards)]
+        simulation (simulate-card-sequence
+                    (:health game-state)
+                    (:equipped-weapon game-state)
+                    ordered-cards)
+        final-health (:final-health simulation)
+        wasted-healing (:wasted-healing simulation)
+        ;; Score: prioritize survival, but avoid wasted healing as tiebreaker
+        ;; If health >= 15 (comfortable), penalize wasted healing more heavily
+        ;; Otherwise, survival is paramount
+        waste-penalty (if (>= final-health 15) (* 5 wasted-healing) wasted-healing)
+        score (- (* 100 final-health) waste-penalty)]
     {:card card-to-leave
      :final-health final-health
+     :wasted-healing wasted-healing
+     :score score
      :order ordered-cards}))
 
 (defmethod player/choose-cards :smart
@@ -127,8 +147,8 @@
   (let [room-vec (vec room)
         ;; Evaluate each possible card to leave out
         evaluations (map #(evaluate-card-choice % room game-state) room-vec)
-        ;; Choose the option that leaves us with the most health
-        best-choice (apply max-key :final-health evaluations)]
+        ;; Choose the option with the best score (max health, min wasted healing)
+        best-choice (apply max-key :score evaluations)]
     (:order best-choice)))
 
 (defmethod player/should-skip-room? :smart
@@ -140,7 +160,7 @@
         room-vec (vec room)
         ;; Find the best possible outcome
         evaluations (map #(evaluate-card-choice % room game-state) room-vec)
-        best-outcome (apply max-key :final-health evaluations)
+        best-outcome (apply max-key :score evaluations)
         best-final-health (:final-health best-outcome)]
     ;; Skip if we can and even the best play would kill us
     (and can-skip? (<= best-final-health 0))))

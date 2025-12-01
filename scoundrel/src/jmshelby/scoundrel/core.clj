@@ -14,6 +14,7 @@
 ;;  :status :playing}           - :playing, :won, :lost
 
 (def initial-health 20)
+(def max-health 20)
 (def room-size 4)
 (def cards-to-play-per-room 3)
 
@@ -149,17 +150,23 @@
                     :replaced-weapon old-weapon}))))
 
 (defn apply-potion-card
-  "Apply potion card effect: heal if first potion this turn"
+  "Apply potion card effect: heal if first potion this turn (capped at max-health)"
   [game-state potion-card]
   (if (zero? (:turn-potions-used game-state))
-    (-> game-state
-        (update :health + (:value potion-card))
-        (update :turn-potions-used inc)
-        (append-tx {:type :healed
-                    :turn (:turn game-state)
-                    :card potion-card
-                    :amount (:value potion-card)
-                    :health-after (+ (:health game-state) (:value potion-card))}))
+    (let [current-health (:health game-state)
+          potion-value (:value potion-card)
+          actual-healing (min potion-value (- max-health current-health))
+          wasted-healing (- potion-value actual-healing)
+          new-health (min max-health (+ current-health potion-value))]
+      (-> game-state
+          (assoc :health new-health)
+          (update :turn-potions-used inc)
+          (append-tx {:type :healed
+                      :turn (:turn game-state)
+                      :card potion-card
+                      :amount actual-healing
+                      :wasted-healing wasted-healing
+                      :health-after new-health})))
     ;; Not first potion, no effect but still count it
     (-> game-state
         (update :turn-potions-used inc)
