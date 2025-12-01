@@ -2,6 +2,7 @@
   (:require [jmshelby.scoundrel.core :as core]
             [jmshelby.scoundrel.players.random :as random]
             [jmshelby.scoundrel.players.greedy :as greedy]
+            [jmshelby.scoundrel.players.smart :as smart]
             [clojure.core.async :as async]))
 
 ;; ============================================================================
@@ -91,7 +92,8 @@
          ;; Create player based on type
          player (case player-type
                   :random (random/make-random-player)
-                  :greedy (greedy/make-greedy-player))
+                  :greedy (greedy/make-greedy-player)
+                  :smart (smart/make-smart-player))
 
          ;; Function that processes a single game
          process-game (fn [_game-num]
