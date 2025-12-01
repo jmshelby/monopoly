@@ -82,12 +82,32 @@
         weapons (filter #(= :weapon (def/card-type %)) cards)
         potions (filter #(= :potion (def/card-type %)) cards)
 
+        ;; Sort weapons in ascending order (equip weak ones first, keep strongest)
+        sorted-weapons (vec (sort-by :value weapons))
+        best-new-weapon (last sorted-weapons)
+
+        ;; Check if we should preserve the best weapon for future rooms
+        ;; Preserve if: have current weapon, best new weapon is significantly better (+4),
+        ;; and there are monsters to fight
+        current-weapon-value (if weapon (:value (:card weapon)) 0)
+        best-new-weapon-value (if best-new-weapon (:value best-new-weapon) 0)
+        weapon-upgrade-significant? (>= (- best-new-weapon-value current-weapon-value) 4)
+        should-preserve-best-weapon? (and weapon
+                                          best-new-weapon
+                                          weapon-upgrade-significant?
+                                          (seq monsters)
+                                          (>= health 12)) ; Only preserve if healthy enough
+
         ;; Determine attackable limit based on weapon situation
-        ;; If we're going to equip a NEW weapon this turn, all monsters are attackable
-        ;; Otherwise, use the current weapon's constraint (last defeated monster)
         attackable-limit (if (seq weapons)
-                          ;; New weapon in room - fresh weapon has no constraints
-                          Integer/MAX_VALUE
+                          ;; New weapon in room - but consider current weapon if preserving
+                          (if should-preserve-best-weapon?
+                            ;; Use current weapon's constraint for fighting monsters
+                            (if-let [last-defeated (peek (:defeated-monsters weapon))]
+                              (:value last-defeated)
+                              Integer/MAX_VALUE)
+                            ;; Fresh weapon, no constraints
+                            Integer/MAX_VALUE)
                           ;; No new weapon - use current weapon's constraint
                           (if weapon
                             (if-let [last-defeated (peek (:defeated-monsters weapon))]
@@ -99,8 +119,6 @@
         attackable-monsters (filter #(< (:value %) attackable-limit) monsters)
         unattackable-monsters (filter #(>= (:value %) attackable-limit) monsters)
 
-        ;; Sort weapons in ascending order (equip weak ones first, keep strongest)
-        sorted-weapons (vec (sort-by :value weapons))
         ;; Sort potions in descending order (use highest value first, minimize waste)
         sorted-potions (vec (reverse (sort-by :value potions)))
         ;; Sort attackable monsters in descending order
@@ -125,6 +143,17 @@
                            sorted-attackable
                            sorted-unattackable
                            sorted-potions)
+
+                   ;; WEAPON PRESERVATION STRATEGY
+                   ;; If upgrading to a significantly better weapon, preserve it for future rooms
+                   ;; Fight monsters with current/weaker weapons, then equip best weapon last
+                   should-preserve-best-weapon?
+                   (let [weaker-weapons (vec (butlast sorted-weapons))] ; All except best
+                     (concat weaker-weapons
+                             sorted-attackable
+                             sorted-unattackable
+                             [(last sorted-weapons)]  ; Best weapon last
+                             sorted-potions))
 
                    ;; Otherwise: weapons, then sorted monsters, then potions
                    :else
