@@ -10,4 +10,5 @@
          :main-opts ["-m" "cognitect.test-runner"]}
   :repl {:extra-deps {org.clojure/tools.namespace {:mvn/version "1.3.0"}}}
   :sim {:main-opts ["-m" "jmshelby.scoundrel.simulation.cli"]}
-  :viewer {:main-opts ["-m" "jmshelby.scoundrel.game-viewer"]}}}
+  :viewer {:main-opts ["-m" "jmshelby.scoundrel.game-viewer"]}
+  :play {:main-opts ["-m" "jmshelby.scoundrel.play"]}}}
