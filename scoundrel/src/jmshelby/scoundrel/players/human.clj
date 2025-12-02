@@ -70,19 +70,20 @@
 (defn read-integer
   "Read an integer from user input with validation"
   [prompt min-val max-val]
-  (print (str prompt ": "))
-  (flush)
-  (try
-    (let [input (str/trim (read-line))
-          num (Integer/parseInt input)]
-      (if (and (>= num min-val) (<= num max-val))
-        num
-        (do
-          (println (format "Please enter a number between %d and %d." min-val max-val))
-          (recur prompt min-val max-val))))
-    (catch Exception _
-      (println "Invalid number. Please try again.")
-      (recur prompt min-val max-val))))
+  (loop []
+    (print (str prompt ": "))
+    (flush)
+    (try
+      (let [input (str/trim (read-line))
+            num (Integer/parseInt input)]
+        (if (and (>= num min-val) (<= num max-val))
+          num
+          (do
+            (println (format "Please enter a number between %d and %d." min-val max-val))
+            (recur))))
+      (catch Exception _
+        (println "Invalid number. Please try again.")
+        (recur)))))
 
 (defn prompt-card-to-leave
   "Prompt user to choose which card to leave in the room"
@@ -100,31 +101,32 @@
 (defn prompt-card-order
   "Prompt user for the order to play cards"
   [cards-to-play]
-  (println "\n📋 Now choose the ORDER to play these cards:")
-  (let [indexed-cards (map-indexed #(vector %1 %2) cards-to-play)]
-    (doseq [[idx card] indexed-cards]
-      (println (format "  [%d] %s %s [%d] - %s"
-                      (inc idx)
-                      (viewer/card-type-icon card)
-                      (viewer/card-str card)
-                      (:value card)
-                      (name (def/card-type card))))))
-  (println "\nEnter the order as comma-separated numbers (e.g., '2,1,3'):")
-  (print "> ")
-  (flush)
-  (try
-    (let [input (str/trim (read-line))
-          parts (str/split input #",")
-          indices (map #(Integer/parseInt (str/trim %)) parts)]
-      (if (and (= (count indices) (count cards-to-play))
-               (= (set indices) (set (range 1 (inc (count cards-to-play))))))
-        (mapv #(nth cards-to-play (dec %)) indices)
-        (do
-          (println "Invalid order. Please use each number 1-" (count cards-to-play) " exactly once.")
-          (recur cards-to-play))))
-    (catch Exception _
-      (println "Invalid input. Please use format like: 1,2,3")
-      (recur cards-to-play))))
+  (loop []
+    (println "\n📋 Now choose the ORDER to play these cards:")
+    (let [indexed-cards (map-indexed #(vector %1 %2) cards-to-play)]
+      (doseq [[idx card] indexed-cards]
+        (println (format "  [%d] %s %s [%d] - %s"
+                        (inc idx)
+                        (viewer/card-type-icon card)
+                        (viewer/card-str card)
+                        (:value card)
+                        (name (def/card-type card))))))
+    (println "\nEnter the order as comma-separated numbers (e.g., '2,1,3'):")
+    (print "> ")
+    (flush)
+    (try
+      (let [input (str/trim (read-line))
+            parts (str/split input #",")
+            indices (map #(Integer/parseInt (str/trim %)) parts)]
+        (if (and (= (count indices) (count cards-to-play))
+                 (= (set indices) (set (range 1 (inc (count cards-to-play))))))
+          (mapv #(nth cards-to-play (dec %)) indices)
+          (do
+            (println "Invalid order. Please use each number 1-" (count cards-to-play) " exactly once.")
+            (recur))))
+      (catch Exception _
+        (println "Invalid input. Please use format like: 1,2,3")
+        (recur)))))
 
 (defmethod player/should-skip-room? :human
   [_player game-state room]
