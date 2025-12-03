@@ -73,16 +73,19 @@
   (loop []
     (print (str prompt ": "))
     (flush)
-    (try
-      (let [input (str/trim (read-line))
-            num (Integer/parseInt input)]
-        (if (and (>= num min-val) (<= num max-val))
-          num
-          (do
-            (println (format "Please enter a number between %d and %d." min-val max-val))
-            (recur))))
-      (catch Exception _
-        (println "Invalid number. Please try again.")
+    (let [result (try
+                   (let [input (str/trim (read-line))
+                         num (Integer/parseInt input)]
+                     (if (and (>= num min-val) (<= num max-val))
+                       {:valid true :value num}
+                       (do
+                         (println (format "Please enter a number between %d and %d." min-val max-val))
+                         {:valid false})))
+                   (catch Exception _
+                     (println "Invalid number. Please try again.")
+                     {:valid false}))]
+      (if (:valid result)
+        (:value result)
         (recur)))))
 
 (defn prompt-card-to-leave
@@ -114,18 +117,21 @@
     (println "\nEnter the order as comma-separated numbers (e.g., '2,1,3'):")
     (print "> ")
     (flush)
-    (try
-      (let [input (str/trim (read-line))
-            parts (str/split input #",")
-            indices (map #(Integer/parseInt (str/trim %)) parts)]
-        (if (and (= (count indices) (count cards-to-play))
-                 (= (set indices) (set (range 1 (inc (count cards-to-play))))))
-          (mapv #(nth cards-to-play (dec %)) indices)
-          (do
-            (println "Invalid order. Please use each number 1-" (count cards-to-play) " exactly once.")
-            (recur))))
-      (catch Exception _
-        (println "Invalid input. Please use format like: 1,2,3")
+    (let [result (try
+                   (let [input (str/trim (read-line))
+                         parts (str/split input #",")
+                         indices (map #(Integer/parseInt (str/trim %)) parts)]
+                     (if (and (= (count indices) (count cards-to-play))
+                              (= (set indices) (set (range 1 (inc (count cards-to-play))))))
+                       {:valid true :value (mapv #(nth cards-to-play (dec %)) indices)}
+                       (do
+                         (println "Invalid order. Please use each number 1-" (count cards-to-play) " exactly once.")
+                         {:valid false})))
+                   (catch Exception _
+                     (println "Invalid input. Please use format like: 1,2,3")
+                     {:valid false}))]
+      (if (:valid result)
+        (:value result)
         (recur)))))
 
 (defmethod player/should-skip-room? :human
