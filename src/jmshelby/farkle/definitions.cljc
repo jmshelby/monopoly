@@ -34,44 +34,41 @@
 (defn score-six-of-kind
   "Check for six of a kind (3000 points)"
   [dice-freq _dice]
-  (when-let [value (->> dice-freq
+  (when-let [entry (->> dice-freq
                         (filter #(= 6 (val %)))
-                        first
-                        key)]
+                        first)]
     {:score 3000
-     :used-dice (repeat 6 value)
-     :description (str "Six " value "s")}))
+     :used-dice (repeat 6 (key entry))
+     :description (str "Six " (key entry) "s")}))
 
 (defn score-five-of-kind
   "Check for five of a kind (2000 points)"
   [dice-freq _dice]
-  (when-let [value (->> dice-freq
+  (when-let [entry (->> dice-freq
                         (filter #(= 5 (val %)))
-                        first
-                        key)]
+                        first)]
     {:score 2000
-     :used-dice (repeat 5 value)
-     :description (str "Five " value "s")}))
+     :used-dice (repeat 5 (key entry))
+     :description (str "Five " (key entry) "s")}))
 
 (defn score-four-of-kind
   "Check for four of a kind (1000 points)"
   [dice-freq _dice]
-  (when-let [value (->> dice-freq
+  (when-let [entry (->> dice-freq
                         (filter #(= 4 (val %)))
-                        first
-                        key)]
+                        first)]
     {:score 1000
-     :used-dice (repeat 4 value)
-     :description (str "Four " value "s")}))
+     :used-dice (repeat 4 (key entry))
+     :description (str "Four " (key entry) "s")}))
 
 (defn score-three-of-kind
   "Check for three of a kind (value * 100, except 1s = 1000)"
   [dice-freq _dice]
-  (when-let [value (->> dice-freq
+  (when-let [entry (->> dice-freq
                         (filter #(>= (val %) 3))
-                        first
-                        key)]
-    (let [base-score (if (= 1 value) 1000 (* value 100))]
+                        first)]
+    (let [value (key entry)
+          base-score (if (= 1 value) 1000 (* value 100))]
       {:score base-score
        :used-dice (repeat 3 value)
        :description (str "Three " value "s")})))
