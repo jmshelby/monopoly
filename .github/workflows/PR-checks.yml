@@ -29,11 +29,8 @@ jobs:
           ~/.deps.clj
         key: cljdeps-${{ hashFiles('deps.edn') }}
         restore-keys: cljdeps-
-    - name: Monopoly Unit Tests
-      run: bin/test --profile ci --no-capture-output -n jmshelby.monopoly
-
-    - name: Farkle Unit Tests
-      run: bin/test --profile ci --no-capture-output -n jmshelby.farkle
+    - name: Run All Unit Tests (Monopoly + Farkle)
+      run: bin/test --profile ci --no-capture-output
     
     # - name: Generate Coverage Report
     #   run: clojure -M:coverage
