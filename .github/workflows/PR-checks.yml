@@ -29,7 +29,7 @@ jobs:
           ~/.deps.clj
         key: cljdeps-${{ hashFiles('deps.edn') }}
         restore-keys: cljdeps-
-    - name: Unit Tests
+    - name: Run All Unit Tests (Monopoly + Farkle)
       run: bin/test --profile ci --no-capture-output
     
     # - name: Generate Coverage Report
