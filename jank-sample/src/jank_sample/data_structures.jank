@@ -1,0 +1,60 @@
+; jank-sample.data-structures
+;
+; Persistent data structures in jank are IDENTICAL to Clojure. Maps, vectors,
+; sets, lists, sequences, destructuring — all work the same way. This file would
+; run unchanged as a .clj file.
+
+(ns jank-sample.data-structures)
+
+; Maps — identical to Clojure
+(def player
+  {:name "Alice"
+   :cash 1500
+   :position 0
+   :properties []
+   :status :playing})
+
+; Nested maps — same as Clojure
+(def board-cell
+  {:cell/index 1
+   :cell/name "Mediterranean Avenue"
+   :cell/type :property
+   :property/cost 60
+   :property/rent [2 10 30 90 160 250]
+   :property/color :purple})
+
+; Vector operations — identical
+(defn add-property [player prop]
+  (update player :properties conj prop))
+
+; Map destructuring — identical to Clojure
+(defn describe-player [{:keys [name cash position]}]
+  (str name " has $" cash " at position " position))
+
+; Sequence operations — identical to Clojure
+(defn affordable-properties [cash properties]
+  (->> properties
+       (filter #(<= (:property/cost %) cash))
+       (map :cell/name)))
+
+; Immutability — same as Clojure; original is never changed
+(defn demo []
+  (println "\n--- Data Structures (identical to Clojure) ---")
+
+  ; Maps
+  (let [p1 player
+        p2 (assoc player :cash 2000)
+        p3 (add-property p1 "Mediterranean Avenue")]
+    (println "Original cash:" (:cash p1))    ; 1500 — unchanged
+    (println "Updated cash:" (:cash p2))     ; 2000 — new map
+    (println "Properties:" (:properties p3)))
+
+  ; Destructuring
+  (println (describe-player player))
+
+  ; let + threading macros
+  (let [props [board-cell
+               {:cell/name "Baltic Avenue" :property/cost 60}
+               {:cell/name "Park Place" :property/cost 350}]]
+    (println "Affordable with $100:"
+             (affordable-properties 100 props))))

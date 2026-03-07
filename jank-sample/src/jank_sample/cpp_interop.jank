@@ -1,0 +1,102 @@
+; jank-sample.cpp-interop
+;
+; This is where jank diverges most visibly from Clojure. Instead of Java interop
+; (.method obj, ClassName/staticMethod, (ClassName. args)), jank provides C++
+; interop via the cpp/ namespace and cpp/include.
+;
+; CLOJURE EQUIVALENT (Java):
+;   (import java.util.Date java.lang.System)
+;   (System/currentTimeMillis)
+;   (.toString (java.util.Date.))
+;   (Math/abs -42)
+;
+; JANK (C++):
+;   (cpp/include "<ctime>")
+;   (cpp/include "<cmath>")
+;   (cpp/call std::time nullptr)
+;   (cpp/call std::abs -42)
+
+(ns jank-sample.cpp-interop)
+
+; Include C++ standard library headers — analogous to Java imports, but for C++.
+; In Clojure: (:import java.lang.Math)
+; In jank:    (cpp/include "<cmath>")
+(cpp/include "<cstdlib>")
+(cpp/include "<ctime>")
+(cpp/include "<cmath>")
+
+; --- Calling C/C++ functions ---
+;
+; Clojure: (Math/random)
+; Jank:    (cpp/call std::rand) — calls the C stdlib rand()
+;
+; cpp/call dispatches to a C++ function by fully-qualified name.
+(defn random-int []
+  (cpp/call std::rand))
+
+; Clojure: (Math/abs n)
+; Jank:    (cpp/call std::abs n)
+(defn absolute-value [n]
+  (cpp/call std::abs n))
+
+; Seeding the RNG — demonstrates passing arguments to C++ functions
+; Clojure: no direct equivalent (JVM handles this internally)
+; Jank:    (cpp/call std::srand seed)
+(defn seed-rng! [seed]
+  (cpp/call std::srand seed))
+
+; Getting wall-clock time — a common need in simulations
+;
+; Clojure: (System/currentTimeMillis)
+;
+; Jank: Must call the C time() function.
+; cpp/call is used for any C++ free function.
+; nullptr is a jank keyword for C++ nullptr.
+(defn current-time-secs []
+  (cpp/call std::time nullptr))
+
+; --- Accessing struct members ---
+;
+; C++ struct member access uses cpp/.- (analogous to Clojure's . for Java fields)
+;
+; Clojure: (.field some-java-object)
+; Jank:    (cpp/.-fieldname some-cpp-object)
+;
+; Example with std::div_t (a C struct for division results):
+(defn divmod [numerator denominator]
+  (let [result (cpp/call std::div numerator denominator)]
+    {:quotient (cpp/.-quot result)
+     :remainder (cpp/.-rem result)}))
+
+; --- Why this matters for the Monopoly engine ---
+;
+; In this Clojure Monopoly project we use:
+;   (rand-int 6)   — JVM's java.util.Random under the hood
+;   (shuffle coll) — also uses java.util.Random
+;
+; In a jank port you'd need to either:
+;   1. Use C's rand/srand (as shown above, but not cryptographically seeded)
+;   2. Wrap C++'s <random> library with cpp/call and cpp/include
+;   3. Wait for jank's standard library to expose clojure.core/rand-int natively
+;
+; The Clojure standard library wraps Java; jank's standard library wraps C++.
+; For pure Clojure logic (maps, reduce, etc.) there's no difference.
+
+(defn demo []
+  (println "\n--- C++ Interop (the main difference from Clojure) ---")
+
+  ; Seed and generate a random number
+  (seed-rng! (current-time-secs))
+  (println "Random int (cpp/call std::rand):" (random-int))
+
+  ; Math function
+  (println "Absolute value of -42 (cpp/call std::abs):" (absolute-value -42))
+
+  ; Struct member access
+  (let [{:keys [quotient remainder]} (divmod 17 5)]
+    (println "17 div 5 — quotient:" quotient "remainder:" remainder))
+
+  (println "\nKey takeaway:")
+  (println "  Clojure: (Math/abs -42)  →  jank: (cpp/call std::abs -42)")
+  (println "  Clojure: (System/currentTimeMillis)  →  jank: (cpp/call std::time nullptr)")
+  (println "  Everything else (maps, seqs, let, defn) is identical."))

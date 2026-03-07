@@ -1,0 +1,35 @@
+; jank-sample.core — entry point
+;
+; Syntax is identical to Clojure. The ns macro, defn, -main, println — all work
+; the same way. The compiler backend (LLVM vs JVM) is completely transparent here.
+
+(ns jank-sample.core
+  (:require [jank-sample.data-structures :as ds]
+            [jank-sample.cpp-interop :as cpp-demo]))
+
+; Plain functions look exactly like Clojure.
+(defn greet [name]
+  (str "Hello, " name "!"))
+
+; Recursion with loop/recur — identical to Clojure
+(defn factorial [n]
+  (loop [i n acc 1]
+    (if (<= i 1)
+      acc
+      (recur (dec i) (* acc i)))))
+
+; Higher-order functions — identical to Clojure
+(defn sum-of-squares [coll]
+  (->> coll
+       (map #(* % %))
+       (reduce +)))
+
+; Entry point — same -main convention as Clojure
+(defn -main [& args]
+  (println (greet "jank"))
+  (println "5! =" (factorial 5))
+  (println "Sum of squares 1-5 =" (sum-of-squares [1 2 3 4 5]))
+
+  ; Delegate to other namespace demos
+  (ds/demo)
+  (cpp-demo/demo))
