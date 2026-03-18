@@ -914,7 +914,6 @@
 
 (defn can-sell-house?
   [game-state player prop-name]
-  ;; TODO - the player in question should probably be passed as a prop
   (let [{player-id :id} player
         ;; All properties owned
         owned       (->> game-state
